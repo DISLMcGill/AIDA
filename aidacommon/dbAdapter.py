@@ -44,9 +44,8 @@ class DBC(metaclass=ABCMeta):
     @abstractmethod
     def _tables(self): pass;
 
-    @classmethod
-    def _getDBTable(cls, relName, dbName=None):
-        return cls._tableRepo_[relName];
+    def _getDBTable(self, relName, dbName=None):
+        return self._tableRepo_[relName];
 
     @abstractmethod
     def _executeQry(self, sql, resultFormat='column'): pass;
@@ -103,7 +102,15 @@ class DBC(metaclass=ABCMeta):
             pass;
         #Maybe its a database object.
         #TODO: Need to ensure that databaseworkspace.var = tabularDataObject does not work if var is a valid tablename in db.
-        return self._getDBTable(item);
+        try:
+            #Check if we already have this table loaded up in the DB workspace.
+            return super(self.__class__, self)._getDBTable(item);
+        except KeyError:
+            #We do not have it, so let us see if the adapter implementation class can load it from the database.
+            tbl = self._getDBTable(item);
+            #Store the table handle for any future use.
+            self._tableRepo_[item] = tbl;
+            return tbl;
 
     def _setattr_(self, key, value, returnAttr=False):
         """Invoked by the remote DBC to set an attribute in DBC for use in workspace"""
