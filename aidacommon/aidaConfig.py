@@ -1,0 +1,11 @@
+from enum import Enum;
+
+class UDFTYPE(Enum):
+    TABLEUDF=1; VIRTUALTABLE=2;
+
+
+class AConfig:
+    UDFTYPE=UDFTYPE.TABLEUDF;
+    #UDFTYPE=UDFTYPE.VIRTUALTABLE;
+
+

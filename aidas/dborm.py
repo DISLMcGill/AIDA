@@ -1,0 +1,1718 @@
+import time;
+import weakref;
+import collections;
+import re;
+import copy;
+import uuid;
+
+import logging;
+
+import numpy as np;
+import pandas as pd;
+
+from aidacommon.aidaConfig import AConfig, UDFTYPE;
+from aidacommon.dborm import *;
+from aidacommon.dbAdapter import DBC;
+from aidacommon.utils import VirtualOrderedColumnsDict;
+
+#Simple wrapper class to encapsulate a query string.
+class SQLQuery:
+    def __init__(self, query):
+        self.__query   = None;
+        if(not isinstance(query, str)):
+            raise TypeError("Argument query should be of type str, not {}".format(type(query)));
+        self.__query = query;
+
+    @property
+    def sqlText(self): return self.__query;
+
+    def __str__(self):
+        return "<{} : {}>".format(type(self), self.__query);
+
+#Base class for all data transformations.
+class Transform:
+    def applyTransformation(self, data):
+        pass;
+
+#-------------- Unused --------------------------
+class ColumnTransform(Transform):
+    def __init__(self, colTransformFunc):
+        self.colTransformFunc = colTransformFunc;
+
+    def applyTransformation(self, data):
+        return self.colTransformFunc(data);
+
+class TableTransform(Transform):
+    def __init__(self, tableTransformFunc):
+        self.tableTransformFunc = tableTransformFunc;
+
+    def applyTransformation(self, data):
+        return self.tableTransformFunc(data);
+#------------------------------------------------
+
+#Base class for all SQL Transformations.
+class SQLTransform(Transform):
+    def __init__(self, source):
+        self._source_    = weakref.proxy(source) if(source) else None;
+        self.__columns__ = None;
+    #The columns that will be produced once this transform is applied on its source.
+    @property
+    def columns(self):
+        if(not self.__columns__):
+            self.__columns__ = copy.deepcopy(self._source_.columns);
+        return self.__columns__;
+
+    #The SQL equivalent of applying this transformation in the database.
+    @property
+    def genSQL(self):pass;
+
+
+
+class SQLSelectTransform(SQLTransform):
+
+    def __init__(self, source, *selcols):
+        super().__init__(source);
+        self.__selcols__  = selcols;
+
+    @property
+    def genSQL(self):
+        selCondition = '';
+        for sc in self.__selcols__: #iterate through the filter conditions.
+            srccollist = sc.srcColList; #get the source columns list involved in each one.
+            for s in srccollist:
+                c=self._source_.columns.get(s) #check if the columns are present in the source
+                if(not c): #column not found in source.
+                    raise AttributeError(c);
+            #Append it to the select SQL condition.
+            selCondition = ( (selCondition + ' AND ') if(selCondition) else ''  ) + sc.columnExpr;
+
+        cols = None;
+        for c in self.columns: #Form list of columns for select
+            cols = (cols + ' ,' + c) if(cols) else c;
+        sqlText =   ( 'SELECT ' + cols + ' FROM ' +
+                          # This is the SQL for the source table
+                         '(' + (self._source_.genSQL.sqlText) + ') ' + self._source_.tableName +
+                      ' WHERE ' + selCondition
+                    );
+        return SQLQuery(sqlText);
+
+
+#Transformation to capture SQL joins.
+class SQLJoinTransform(SQLTransform):
+    def __init__(self, source1, source2, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
+        super().__init__(None);
+
+        if(not(join == JOIN.CROSS_JOIN) and len(src1joincols) != len(src2joincols)):
+            raise AttributeError('src1joincols and src2joincols should have same number columns');
+
+        self._source1_      = weakref.proxy(source1);   self._source2_      = weakref.proxy(source2);
+        self._src1joincols_ = src1joincols;             self._src2joincols_ = src2joincols;
+        self._src1projcols_ = cols1;                    self._src2projcols_ = cols2;
+
+        self._jointype_ = join;
+
+    @property
+    def columns(self):
+        if(not self.__columns__):
+            src1cols = self._source1_.columns;
+            src2cols = self._source2_.columns;
+
+            def __extractsrccols__(sourcecols, projcols, tableName=None):
+                if(projcols is None or projcols == COL.NONE):
+                    return [];
+                if(projcols == COL.ALL): #All columns are requested from this table.
+                    projcols=sourcecols;
+                projcolumns = list();
+                for c in projcols:
+                    if(hasattr(c,'get')): #if projection is specified as dictionary, it is a source column name, projected column name combination.
+                       srccol=list(c.keys())[0]; projcol=c.get(srccol);
+                    else:
+                        srccol=projcol=c; #otherwise we default projected column name to be the same as source column name.
+                    scol = sourcecols.get(srccol);
+                    if(not scol):
+                        raise AttributeError(srccol);
+                    pc = copy.deepcopy(scol); #Make a copy of the source column specs.
+                    pc.columnName = projcol;   #Reset the mutable fields for projected column.
+                    if(tableName):
+                        pc.tableName = tableName;
+                    pc.sourceColumnName = [scol.columnName];
+                    pc.colTransform = None;
+                    projcolumns.append((projcol,pc));
+                    #projcolumns[projcol] = pc;
+                return projcolumns;
+
+            #columns generated by the join transform can contain columns from both the tables.
+            self.__columns__ = collections.OrderedDict(__extractsrccols__(src1cols, self._src1projcols_, self._source1_.tableName) +  __extractsrccols__(src2cols, self._src2projcols_, self._source2_.tableName));
+            #self.__columns__ = { **__extractsrccols__(src1cols, self._src1projcols_), **__extractsrccols__(src2cols, self._src2projcols_) };
+        return self.__columns__;
+
+    @property
+    def genSQL(self):
+
+        projcoltxt=None;
+        for c in self.columns: #Prepare the list of columns going into the select statement.
+            col = self.columns[c];
+            projcoltxt = ((projcoltxt+', ') if(projcoltxt) else '')  +  (col.tableName + '.' + col.sourceColumnName[0] + ' AS ' + col.columnName);
+
+        jointxt=None; #The join condition SQL.
+        if(self._jointype_ == JOIN.CROSS_JOIN):
+            jointxt = '';
+        elif(isinstance(self._src1joincols_, str)):
+            jointxt = ' ON ' + self._source1_.tableName + '.' + self._src1joincols_ + ' = ' + self._source2_.tableName + '.' + self._src2joincols_;
+        else:
+            for j in range(len(self._src1joincols_)):
+                jointxt = ((jointxt + ' AND ') if(jointxt) else ' ON ') + self._source1_.tableName + '.' + self._src1joincols_[j] + ' = ' + self._source2_.tableName + '.' + self._src2joincols_[j];
+
+        sqlText = ( 'SELECT ' + projcoltxt + ' FROM '
+                    + '(' + self._source1_.genSQL.sqlText + ') ' + self._source1_.tableName #SQL for source table 1
+                    + ' ' + self._jointype_.value  + ' '
+                    + '(' + self._source2_.genSQL.sqlText + ') ' + self._source2_.tableName  #SQL for source table 2
+                        + jointxt
+                    );
+
+        return SQLQuery(sqlText);
+
+#
+##Base aggregation function.
+#class AggregateSQLFunction(metaclass=ABCMeta):
+#    def __init__(self, srcColName, distinct=False, funcName=None):
+#        self.__srcColName__  = srcColName;
+#        self.__distinct__    = distinct;
+#        self.__funcName__    = funcName;
+#
+#    @property
+#    def funcName(self):
+#        return self.__funcName__;
+#
+#    @property
+#    def sourceColumn(self):
+#        return self.__srcColName__;
+#
+#    @property
+#    def genSQL(self):
+#        return self.__funcName__ + '(' +  ('DISTINCT ' if(self.__distinct__) else '') + self.__srcColName__ + ')';
+#
+##Specific types of aggregation functions.
+#class COUNT(AggregateSQLFunction):
+#    def __init__(self, srcColName, distinct=False):
+#        super().__init__(srcColName, distinct=distinct, funcName='COUNT');
+#
+#    @property
+#    def genSQL(self):
+#        return self.__funcName__ + '(*)' if(self.__srcColName__ == '*') else super().genSQL;
+#
+#class MAX(AggregateSQLFunction):
+#    def __init__(self, srcColName, distinct=False):
+#        super().__init__(srcColName, distinct=distinct, funcName='MAX');
+#
+#class MIN(AggregateSQLFunction):
+#    def __init__(self, srcColName, distinct=False):
+#        super().__init__(srcColName, distinct=distinct, funcName='MIN');
+#
+#class AVG(AggregateSQLFunction):
+#    def __init__(self, srcColName, distinct=False):
+#        super().__init__(srcColName, distinct=distinct, funcName='AVG');
+#
+#class SUM(AggregateSQLFunction):
+#    def __init__(self, srcColName, distinct=False):
+#        super().__init__(srcColName, distinct=distinct, funcName='SUM');
+
+class SQLAggregateTransform(SQLTransform):
+
+    def __init__(self, source, projcols, groupcols=None):
+        super().__init__(source);
+        self.__projcols__  = projcols  if(isinstance(projcols, tuple))  else (projcols, );
+        self.__groupcols__ = groupcols if(isinstance(groupcols, tuple)) else ( (groupcols, ) if(groupcols) else None );
+
+    @property
+    def columns(self):
+        if(not self.__columns__):
+
+            def __getProjColInfo__(c):#check if the projected column is given an alias name
+                if(isinstance(c, dict)):
+                    sc1 = list(c.keys())[0];    #get the source column name / function
+                    pc1 = c.get(sc1);           #and the alias name for projection.
+                else:
+                    sc1 = pc1 = c;              #otherwise projected column name / function is the same as the source column.
+                srccol = sc1.sourceColumn if(isinstance(sc1, AggregateSQLFunction)) else sc1; #Get the name of the source column
+                #projection column alias name if specifed use it, otherwise dervice one from the function/source column names.
+                projcol = (pc1.funcName.lower() + '_' + (pc1.sourceColumn if(pc1.sourceColumn != '*') else '') ) if(isinstance(pc1, AggregateSQLFunction)) else pc1;
+                #The transformation function on the source column.
+                coltransform = sc1 if(isinstance(sc1, AggregateSQLFunction)) else None;
+                return (srccol, projcol, coltransform);
+
+            cols = self._source_.columns;
+            columns = collections.OrderedDict();
+            #columns = {};
+            for j in range(len(self.__projcols__)):
+                col = self.__projcols__[j];
+                (srccoln, projcoln, coltransform) = __getProjColInfo__(col);
+
+                #Create a copy of column metadata for this transformation.
+                if(coltransform and coltransform.sourceColumn == '*'):
+                    tmptblcolumn = list(cols.values())[0];
+                    column = DBTable.Column( (tmptblcolumn.schemaName, tmptblcolumn.dbTableName, projcoln, DBTable.Column.TYPE.INT.value, DBTable.Column.TYPE.INT.size, 0, False) );
+                else:
+                    column = cols.get(srccoln);
+                if(not column):
+                    raise AttributeError(srccoln);
+
+                column = copy.deepcopy(column);
+                column.sourceColumnName = [column.columnName];
+                column.columnName = projcoln;
+                column.colTransform = coltransform;
+                columns[projcoln] = column;
+
+            self.__columns__ = columns;
+
+        return self.__columns__;
+
+    @property
+    def genSQL(self):
+
+        projcoltxt=None;
+        for c in self.columns: #Prepare the list of columns going into the select statement.
+            col = self.columns[c];
+            projcoltxt = ((projcoltxt+', ') if(projcoltxt) else '')  +  ( (col.colTransform.genSQL if(col.colTransform) else col.sourceColumnName[0]) + ' AS ' + col.columnName);
+
+        groupcoltxt=None;
+        if(self.__groupcols__):
+            for g in self.__groupcols__:
+                groupcoltxt = ((groupcoltxt+', ') if(groupcoltxt) else '') + g;
+
+        sqlText =   (  'SELECT ' + projcoltxt + ' FROM '
+                        +   '(' + self._source_.genSQL.sqlText + ') ' + self._source_.tableName  # Source table transform SQL.
+                        + ((' GROUP BY ' + groupcoltxt) if(groupcoltxt)  else '')
+                    );
+
+        return SQLQuery(sqlText);
+
+
+class SQLProjectionTransform(SQLTransform):
+    def __init__(self, source, projcols):
+        super().__init__(source);
+        self.__projcols__  = projcols  if(isinstance(projcols, tuple))  else (projcols, );
+
+    @property
+    def columns(self):
+        if(not self.__columns__):
+
+            colcount=0;
+            def __getProjColInfo__(c):
+                nonlocal  colcount;
+                colcount += 1;
+                if(isinstance(c, dict)):#check if the projected column is given an alias name
+                    sc1 = list(c.keys())[0];    #get the source column name / function
+                    pc1 = c.get(sc1);           #and the alias name for projection.
+                else:
+                    sc1 = pc1 = c;              #otherwise projected column name / function is the same as the source column.
+                #get a list of source columns needed for this expression.
+                srccollist = [sc1] if(isinstance(sc1, str)) else ( sc1.srcColList if(hasattr(sc1, 'srcColList')) else []  )
+                #projected column alias, use the one given, else take it from the expression if it has one, or else generate one.
+                projcol = pc1 if(isinstance(pc1, str)) else (sc1.columnExprAlias  if(hasattr(sc1, 'columnExprAlias')) else 'col_'.format(colcount))
+                coltransform = sc1 if(isinstance(sc1, F)) else None;
+                return (srccollist, projcol, coltransform);
+
+            cols = self._source_.columns;
+            #columns = {};
+            columns = collections.OrderedDict();
+            for j in range(len(self.__projcols__)):
+                col = self.__projcols__[j];
+                (srccolnlist, projcoln, coltransform) = __getProjColInfo__(col);
+
+                sdbcols = []; sdbtables = []; srccols = [];
+                for cn in srccolnlist:
+                    scol = cols.get(cn);
+                    if(not scol):
+                        raise AttributeError("Cannot locate {} among {}".format(cn, srccolnlist.keys()));
+                    else:
+                        sdbcols +=  (scol.dbColumnName if(isinstance( scol.dbColumnName, list)) else [scol.dbColumnName]);
+                        srccols +=  (scol.columnName if(isinstance( scol.columnName, list)) else [scol.columnName]);
+                        sdbtables +=  (scol.dbTableName if(isinstance( scol.dbTableName, list)) else [scol.dbTableName]);
+                column = DBTable.Column.makeEmptyColumn() if(len(sdbcols) == 0) else copy.deepcopy(scol);
+                column.columnName = projcoln;
+                column.dbColumnName = sdbcols;
+                column.sourceColumnName = srccols;
+                column.dbTableName = sdbtables;
+                column.colTransform = coltransform;
+                columns[projcoln] = column;
+
+            self.__columns__ = columns;
+
+        return self.__columns__;
+
+    @property
+    def genSQL(self):
+
+        projcoltxt=None;
+        for c in self.columns: #Prepare the list of columns going into the select statement.
+            col = self.columns[c];
+            projcoltxt = ((projcoltxt+', ') if(projcoltxt) else '')  +  ( (col.colTransform.columnExpr if(col.colTransform) else col.sourceColumnName[0]) + ' AS ' + col.columnName);
+
+        sqlText =   (  'SELECT ' + projcoltxt + ' FROM '
+                       +   '(' + self._source_.genSQL.sqlText + ') ' + self._source_.tableName  # Source table transform SQL.
+                    );
+
+        return SQLQuery(sqlText);
+
+class SQLOrderTransform(SQLTransform):
+    def __init__(self, source, orderlist):
+        super().__init__(source);
+        self._colorderlist_ = orderlist;
+
+    def _genSQL_(self, doOrder=False):
+        if(not doOrder):
+            return self._source_.genSQL;
+        else:
+            ordersql = None;
+            srccols = self._source_.columns;
+            colorderlist = [self._colorderlist_] if(isinstance(self._colorderlist_, str)) else self._colorderlist_;
+            for ocol in colorderlist:
+                if(ocol.endswith('#asc')):
+                    ocolstr = ocol[:-4];
+                elif(ocol.endswith('#desc')):
+                    ocolstr = ocol[:-5] + ' DESC';
+                else:
+                    ocolstr = ocol;
+                ordersql = 'ORDER BY ' + ocolstr if(not ordersql) else ordersql + ',' + ocolstr;
+
+            return SQLQuery(self._source_.genSQL.sqlText + ' ' + ordersql);
+
+    genSQL = property(_genSQL_);
+
+    @property
+    def columns(self):
+        if(not  self.__columns__):
+            self.__columns__ = self._source_.columns;
+        return self.__columns__;
+
+class SQLDistinctTransform(SQLTransform):
+    def __init__(self, source):
+        super().__init__(source);
+
+    @property
+    def genSQL(self):
+        projcoltxt=None;
+        for c in self.columns: #Prepare the list of columns going into the select statement.
+            col = self.columns[c];
+            projcoltxt = ((projcoltxt+', ') if(projcoltxt) else '') + col.columnName;
+
+        sqlText =   (  'SELECT DISTINCT ' + projcoltxt + ' FROM '
+                       +   '(' + self._source_.genSQL.sqlText + ') ' + self._source_.tableName  # Source table transform SQL.
+                    );
+
+        return SQLQuery(sqlText);
+
+    @property
+    def columns(self):
+        if(not  self.__columns__):
+            self.__columns__ = self._source_.columns;
+        return self.__columns__;
+
+
+class SliceTransform(Transform):
+
+    def __init__(self, source, sliceinfo):
+        super().__init__();
+        self._source_ = weakref.proxy(source);
+        self.__sliceinfo__ = sliceinfo;
+
+        srcdata = self._source_.rows;
+        data = collections.OrderedDict();
+        srcdataKeysList = list(srcdata.keys());
+        srccolumns = self._source_.columns;
+        columns = collections.OrderedDict();
+
+        #If slicing is only across rows, all columns to be included.
+        #Specific row is selected
+        if(isinstance(sliceinfo, int)):
+            rowslice = slice(sliceinfo, sliceinfo+1, 1); cols = srcdataKeysList;
+        #If slicing is only across rows, all columns to be included.
+        #A slice of rows are selected.
+        elif (isinstance(sliceinfo, slice)):
+            rowslice = sliceinfo; cols = srcdataKeysList;
+        else:
+            #Otherwise find the row slice, which is the first element in the tuple.
+            rowinfo = sliceinfo[0];
+            if(isinstance(rowinfo, int)):
+                rowslice = slice(rowinfo, rowinfo+1, 1);
+            elif (isinstance(rowinfo, slice)):
+                rowslice = rowinfo;
+            #column information is the second element in the tuple.
+            colinfo = sliceinfo[1];
+            #column information is passed on as an integer.
+            if(isinstance(colinfo, int)):
+                cols = [srcdataKeysList[colinfo]];
+            #column information is passed on as a name.
+            elif(isinstance(colinfo, str)):
+                cols = [str];
+            #Otherwise it is already a list of columns
+            else:
+                #convert any integer positions in the column list to column names.
+                cols = [ srcdataKeysList[c] if(isinstance(c, int)) else  c for c in colinfo ];
+
+        #Go over each column, copy the required rows, and the source column metadata.
+        for col in cols:
+            coldata = srcdata[col][rowslice];
+            if(coldata.flags['C_CONTIGUOUS'] == False):
+                coldata = np.copy(coldata);
+            data[col] = coldata;
+            cinfo = copy.deepcopy(srccolumns[col]);
+            cinfo.colTransform = None;
+            columns[col] = cinfo;
+
+        self.__data__ = data;
+        self.__columns__ = columns;
+        #logging.debug("SliceTransform columns {}".format(self.__columns__.keys()));
+
+        ##TODO also copy rownames if it is there in the source.
+
+    @property
+    def columns(self):
+        return self.__columns__;
+
+    @property
+    def rows(self):
+        return self.__data__;
+
+
+class StackTransform(Transform, metaclass=ABCMeta):
+    def __init__(self, sourcelist):
+        self._source_ = weakref.proxy(sourcelist[0]);
+        self._sourcelist_ = sourcelist;
+        self.__data__ = self.__columns__ = None;
+
+    @abstractmethod
+    def __processTransform__(self):
+        pass;
+
+    @property
+    def hasMatrix(self):
+        return False;
+
+    @property
+    def rows(self):
+        if(not self.__data__ ):
+            self.__processTransform__();
+        return self.__data__;
+
+    @property
+    def columns(self):
+        if(not self.__columns__ ):
+            self.__processTransform__();
+        return self.__columns__;
+
+
+class HStackTransform(StackTransform):
+    def __init__(self, sourcelist, colprefixlist=None):
+        super().__init__(sourcelist);
+        self._sourcelist_ = sourcelist;
+        self._colprefixlist_ = colprefixlist;
+
+    def __processTransform__(self):
+        #TODO: check if all the columns have the same length.
+        resultrows=collections.OrderedDict();
+        columns=collections.OrderedDict();
+        for s in range(0, len(self._sourcelist_)):
+            rows=self._sourcelist_[s].rows;
+            colprefix = self._colprefixlist_[s] if(self._colprefixlist_ is not None) else None;
+            srccols = list(rows.keys());
+            srccolumns = self._sourcelist_[s].columns;
+            for c in range(0, len(rows)):
+                colname = srccols[c]
+                coldata = rows[colname];
+                if(colprefix):
+                    column = copy.deepcopy(srccolumns[colname]);
+                    colname = colprefix+colname;
+                    column.columnName = colname;
+                else:
+                    column = srccolumns[colname];
+                resultrows[colname] = coldata;
+                columns[colname] = column;
+        self.__data__ = resultrows;
+        self.__columns__ = columns;
+
+
+class VStackTransform(StackTransform):
+    def __init__(self, sourcelist):
+        super().__init__(sourcelist);
+
+    def __processTransform__(self):
+        #srcdatalist = []
+        numcols=None; src1=None;
+        for src in self._sourcelist_:
+            rows=src.rows;
+            if(numcols is None):
+                numcols = len(rows);
+                src1 = src;
+            elif(numcols != len(rows)):
+                logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+            #srcdatalist.append(rows);
+        resultrows=collections.OrderedDict();
+        colnames = list(src1.rows.keys());
+        for i in range(0, numcols):
+            #resultcoldata = np.vstack([ srcdata[:,i].matrix for srcdata in srcdatalist ]);
+            resultcoldata = np.vstack([ srcdata[:,i].matrix for srcdata in self._sourcelist_ ]);
+            resultrows[colnames[i]] = resultcoldata;
+        self.__data__ = resultrows;
+        self.__columns__ = src1.columns;
+
+
+class UserTransform(Transform):
+
+    def __init__(self, source, func, *args, **kwargs):
+        self._source_ = weakref.proxy(source);
+        self.__userfunc__ = func;
+        self.__args__ = args;
+        self.__kwargs__ = kwargs;
+        self.__data__ = self.__matrix__ = self.__columns__ = None;
+
+    def __processTransform__(self):
+        func = self.__userfunc__;
+        args = self.__args__;
+        kwargs = self.__kwargs__;
+        src = self._source_;
+
+        #execute the user function
+        data = func(src, *args, **kwargs);
+        #user functions are allowed to return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.
+        if(isinstance(data, collections.OrderedDict)):
+            self.__data__ = data;
+        elif(isinstance(data, dict)):
+            self.__data__ = collections.OrderedDict(data)
+        elif(isinstance(data, tuple) and len(data)==2):
+            _umat = data[0];
+            _ucols = data[1];
+            if(_umat.shape[1] != len(_ucols)):
+                logging.error("Error: user transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+                raise TypeError("Error: user transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+            #Create virtual columns for each of the matrix columns.
+            _data = collections.OrderedDict();
+            for i in range(0, len(_ucols)):
+                _data[_ucols[i]] = _umat[:,i] ;
+            self.__data__ = _data;
+            self.__matrix__ = _umat;
+        else:
+            logging.error("Error: user transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+            raise TypeError("Error: user transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+
+        newCols = collections.OrderedDict();
+        #for c in src.rows:
+        for c in self.__data__:
+            #TODO: make column metadata accurate.
+            newCols[c] = DBTable.Column((src.dbc.dbName, src.tableName, c, None, None, 0, False));
+        self.__columns__ = newCols;
+
+
+    @property
+    def rows(self):
+        if(not self.__data__ ):
+            self.__processTransform__();
+        return self.__data__;
+
+    @property
+    def matrix(self):
+        if(not self.__matrix__ ):
+            if(not self.__data__):
+                self.__processTransform__();
+            #Sometimes processing the transform can result in a matrix, so check again.
+            if(not self.__matrix__):
+                rows = self.rows;
+                self.__matrix__ = np.stack(tuple(rows[col] for col in rows));
+        return self.__matrix__;
+
+    @property
+    def hasMatrix(self):
+        return self.__matrix__ is not None;
+
+    @property
+    def columns(self):
+        if(not self.__columns__ ):
+            self.__processTransform__();
+        return self.__columns__;
+
+
+class VirtualDataTransform(Transform):
+    def __init__(self, transformFunc, dbc, colmeta, *args, **kwargs):
+        self._dbc_ = weakref.proxy(dbc);
+        self.__datafunc__ = transformFunc;
+        self.__colmeta__ = colmeta;
+        self.__args__ = args;
+        self.__kwargs__ = kwargs;
+        self.__data__ = self.__matrix__ = self.__columns__ = None;
+
+    def __processTransform__(self):
+        func = self.__datafunc__;
+        args = self.__args__;
+        kwargs = self.__kwargs__;
+
+        #execute the user function
+        #logging.debug('DEBUG: VirtualDataTransform {} __processTransform__: need to produce data from function'.format(id(self)));
+        data = func(*args, **kwargs);
+        #logging.debug('DEBUG: VirtualDataTransform {} __processTransform__: produced data from function'.format(id(self)));
+        #user functions are allowed to return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.
+        if(isinstance(data, collections.OrderedDict)):
+            self.__data__ = data;
+        elif(isinstance(data, dict)):
+            self.__data__ = collections.OrderedDict(data)
+        elif(isinstance(data, tuple) and len(data)==2):
+            _umat = data[0];
+            _ucols = data[1];
+            if(_umat.shape[1] != len(_ucols)):
+                logging.error("Error: virtual data transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+                raise TypeError("Error: virtual data transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+            #Create virtual columns for each of the matrix columns.
+            _data = collections.OrderedDict();
+            for i in range(0, len(_ucols)):
+                _data[_ucols[i]] = _umat[:,i] ;
+            self.__data__ = _data;
+            self.__matrix__ = _umat;
+        else:
+            logging.error("Error: virtual data transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+            raise TypeError("Error: virtual data transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+
+        newCols = collections.OrderedDict();
+        for c in self.__data__:
+            #TODO: make column metadata accurate.
+            newCols[c] = DBTable.Column((self._dbc_.dbName, None, c, None, None, 0, False));
+        self.__columns__ = newCols;
+
+
+    @property
+    def rows(self):
+        if(not self.__data__ ):
+            self.__processTransform__();
+        return self.__data__;
+
+    @property
+    def matrix(self):
+        if(not self.__matrix__ ):
+            if(not self.__data__):
+                self.__processTransform__();
+            #Sometimes processing the transform can result in a matrix, so check again.
+            if(not self.__matrix__):
+                rows = self.rows;
+                self.__matrix__ = np.stack(tuple(rows[col] for col in rows));
+        return self.__matrix__;
+
+    @property
+    def hasMatrix(self):
+        return self.__matrix__ is not None;
+
+    @property
+    def columns(self):
+        if(not self.__columns__ ):
+            self.__processTransform__();
+        return self.__columns__;
+
+
+
+#Base class for all Algebraic Transformations.
+class AlgebraicTransform(Transform):
+    def __init__(self, source):
+        self._source_    = weakref.proxy(source) if (source) else None;
+        self.__columns__ = None;
+    #The columns that will be produced once this transform is applied on its source.
+    @property
+    def columns(self):
+        if(not self.__columns__):
+            self.__columns__ = copy.deepcopy(self._source_.columns);
+        return self.__columns__;
+
+    @property
+    def rows(self):
+        return None;
+
+class AlgebraicScalarTransform(AlgebraicTransform):
+    def __init__(self, source, scalar, op, side=OP.LHS):
+        super().__init__(source)
+        self.scalar = scalar;
+        self.op = op;
+        self.side = side;
+
+    @property
+    def genExpr(self):
+        #if(self.op in [OP.ADD, OP.MULTIPLY]):
+        #    return '({{}} {} {})'.format(self.op.value, self.scalar);
+        #if(self.op in [OP.SUBTRACT, OP.DIVIDE]):
+        return '({{}} {} {})'.format(self.op.value, self.scalar) if self.side==OP.LHS else  '({} {} {{}})'.format(self.scalar, self.op.value) ;
+        #raise TypeError;
+
+    def applyTransform(self, srcrows, srctransformlist):
+        transforms = (srctransformlist if srctransformlist else []) + [self];
+        expr='({{}})';
+        for t in transforms:
+            expr=t.genExpr.format(expr);
+        expr = expr.format();
+
+        data = collections.OrderedDict();
+        for c in srcrows:
+            coldata = eval(expr.format('srcrows[\'{}\']'.format(c)));
+            data[c] = coldata;
+
+        return data;
+
+    @property
+    def columns(self):
+        if(not self.__columns__):
+            self.__columns__ = copy.deepcopy(self._source_.columns);
+            for c in self.__columns__:
+                self.__columns__[c].colTransform = None;
+        return self.__columns__;
+
+class AlgebraicVectorTransform(AlgebraicTransform):
+    def __init__(self, source1, source2, op, side=OP.LHS):
+        #st=time.time();
+        #logging.debug("AlgebraicVectorTransform operation {} init enter time {:0.20f}".format(op.value, time.time()));
+        super().__init__(None);
+        self._source1_ = weakref.proxy(source1);
+        self._source2_ = weakref.proxy(source2) if(source2) else None;
+        self.op = op;
+        self.side = side;
+
+        self.__data__ = self.__matrix__ = self.__columns__ = self.__rowNames__ = None;
+
+        #logging.debug("AlgebraicVectorTransform copying columns {:0.20f}".format(time.time()));
+        #columns = copy.deepcopy(self._source1_.columns);
+        #columns = self._source1_.columns;
+        #logging.debug("AlgebraicVectorTransform columns copied {:0.20f}".format(time.time()));
+
+        if(self.op == OP.TRANSPOSE):
+            #logging.debug("AlgebraicVectorTransform Transpose begins {:0.20f}".format(time.time()));
+            columns = self.__columns__  = self._source1_.rowNames;
+            #logging.debug("AlgebraicVectorTransform Transpose {} columns {:0.20f}".format(len(columns), time.time()));
+            #if(len(columns) == 1):
+            if(len(self._source1_.columns) == 1):
+                self.__matrix__   = self._source1_.matrix.reshape(self._source1_.numRows, 1, order='C');
+            else:
+                self.__matrix__   = self._source1_.matrix.T;
+
+            self.__rowNames__ = self._source1_.columns;
+            #self.__rowNames__ = coluomns;
+            #logging.debug("AlgebraicVectorTransform Transpose columns dictionary type is {} columns {:0.20f}".format(type(columns), time.time()));
+            if(not isinstance(self.__columns__, VirtualOrderedColumnsDict)):
+                data = collections.OrderedDict();
+                colList = list(self.__columns__.keys());
+                #logging.debug("AlgebraicVectorTransform Transpose first column {} {:0.20f}".format(colList[0], time.time()));
+                for i in range(0, len(colList)): #If we have data in matrix representation, may be we can point the columns in rows to corresponding columns of matrix
+                    data[colList[i]] = self.__matrix__[i]; # WARNING !!! all columns will have the same data type now !!
+                self.__data__ = data;
+            else:
+                #logging.debug("AlgebraicVectorTransform Transpose lazy metadata {:0.20f}".format(time.time()));
+                data = VirtualOrderedColumnsDict(len(self.__columns__), ColumnDataGenerator(self.__matrix__), numformatter=self.__columns__.numformatter);
+                self.__data__ = data;
+            #logging.debug("AlgebraicVectorTransform Transpose end {:0.20f}".format(time.time()));
+
+        elif(isinstance(self._source2_, TabularData) and not self._source2_.isMatrixCached and self.op != OP.MATRIXMULTIPLY):
+            columns = self._source1_.columns;
+            src1data = self._source1_.rows;
+            src1dataKeysList = list(src1data.keys());
+            src2data = self._source2_.rows;
+            src2dataKeysList = list(src2data.keys());
+            data = collections.OrderedDict();
+
+            #logging.debug("AlgebraicVectorTransform performing column level operation");
+
+            for i in range(0, len(src1dataKeysList)):
+                col1 = src1data[src1dataKeysList[i]];
+                col2 = src2data[src2dataKeysList[i]];
+                #res = np.multiply(col1, col2) if(self.op == OP.MULTIPLY) else eval('col1 {} col2'.format(self.op.value));
+                res = eval('col1 {} col2'.format(self.op.value));
+                data[src1dataKeysList[i]] = res;
+                #logging.debug("AlgebraicVectorTransform {} = {}".format(src1dataKeysList[i], res));
+        else:
+            #WARNING !! once data is converted into matrix format, it will loose the "null" values.
+            mat1 = self._source1_.matrix;
+            #If the second operand is not a TabularData type, we need to transpose it to our storage format.
+            mat2 = self._source2_.matrix if(isinstance(self._source2_, TabularData)) else source2.T;
+
+            #logging.debug("AlgebraicVectorTransform performing matrix level operation");
+            #logging.debug("AlgebraicVectorTransform {} {} {}".format(mat1, self.op.value, mat2));
+            #logging.debug("AlgebraicVectorTransform {}, {} start time {}".format(self.op.value, self.side.value, time.time()));
+
+            if(self.op == OP.MATRIXMULTIPLY):
+                #if(not mat1.flags['C_CONTIGUOUS']):
+                #    logging.warning('WARN: Matrix multiplication mat1 is not C_CONTIGUOUS');
+                #if(not mat2.flags['C_CONTIGUOUS']):
+                #    logging.warning('WARN: Matrix multiplication mat2 is not C_CONTIGUOUS');
+                #Our matrices stored in transposed form, so we multiply them in the opposite order.
+                res = mat2 @ mat1;
+                #logging.debug("AlgebraicVectorTransform {} @ {} = {}".format(mat2, mat1, res));
+            else:
+                res = eval('mat1 {} mat2'.format(self.op.value)) if (self.side == OP.LHS) else eval('mat2 {} mat1'.format(self.op.value)) ;
+
+            #logging.debug("AlgebraicVectorTransform {}, {} end time {}".format(self.op.value, self.side.value, time.time()));
+
+            #If its a single column output, reshape it to look like a 2d array with just one column.
+            res = res.reshape(1, len(res), order='C') if(len(res.shape)==1) else res;
+            self.__matrix__ = res;
+            #logging.debug("AlgebraicVectorTransform res = {}".format(res));
+
+            #In case of real matrix multiplication, we need to copy the columns belonging to the RHS data frame.
+            if(self.op == OP.MATRIXMULTIPLY):
+                if(isinstance(self._source2_, TabularData)):
+                    #columns = copy.deepcopy(self._source2_.columns);
+                    columns = self._source2_.columns;
+                else:
+                    columns = collections.OrderedDict([('r_{:010d}'.format(i),DBTable.Column((None, None, None, None, None, None, None), tableName=self._source1_.tableName, columnName='r_{:010d}'.format(i))) for i in np.arange(0, len(res))]);
+            else:
+                columns = self._source1_.columns;
+
+            colkeys = list(columns.keys());
+            data = collections.OrderedDict();
+            #numcols = len(colkeys);
+            #if(numcols==1): #Output is just one column, already in columnar format.
+            #    data[colkeys[0]] = res;
+            #else:
+            for c in range(0, len(colkeys)):    #pack results from matrix into columnar format.
+                data[colkeys[c]] = res[c];
+
+        #TODO may be for transpose we should do the same for rowNames
+        if(self.op != OP.TRANSPOSE):
+            self.__data__ = data;
+            for c in columns:
+                columns[c].colTransform = None;
+            self.__columns__ = columns;
+
+        #Bring over the rowNames from sources if they have already been computed.
+        #TODO: We don't need to deepcopy them ?
+        if(self.op != OP.MATRIXMULTIPLY):
+            if(self._source1_.hasRowNames):
+                #self.__rowNames__ = copy.deepcopy(self._source1_.rowNames);
+                self.__rowNames__ = self._source1_.rowNames;
+            elif(isinstance(self._source2_, TabularData) and self._source2_.hasRowNames):
+                #self.__rowNames__ = copy.deepcopy(self._source2_.rowNames);
+                self.__rowNames__ = self._source2_.rowNames;
+
+        #et=time.time();
+        #logging.debug("AlgebraicVectorTransform init exit time {:0.20f}".format(time.time()));
+
+    @property
+    def columns(self):
+        return self.__columns__;
+
+    @property
+    def rowNames(self):
+        return self.__rowNames__;
+
+    @property
+    def rows(self):
+        return self.__data__;
+
+    @property
+    def matrix(self):
+        return self.__matrix__;
+
+
+class ColumnNameGenerator:
+    def __init__(self, tableName):
+        self.__tableName__ = tableName;
+
+    def get(self, colno):
+        return DBTable.Column((None, None, None, None, None, None, None), tableName=self.__tableName__, columnName='r_{:010d}'.format(colno));
+
+class ColumnDataGenerator:
+    def __init__(self, matrixData):
+        self.__matrixData__ = matrixData;
+
+    def get(self, colno):
+        return self.__matrixData__[colno];
+
+class DBTable(TabularData):
+
+    class Column:
+        class TYPE(Enum):
+            INT='int'; DOUBLE='double'; CHAR='char'; VARCHAR='varchar'; DATE='date';
+            @property
+            def size(self):
+                return self.sizes[self.value];
+        TYPE.sizes = {TYPE.INT.value:32, TYPE.DOUBLE.value:53, TYPE.CHAR.value:None, TYPE.VARCHAR.value:None, TYPE.DATE.value:32};
+
+        def __str__(self):
+            return '(dbTableName = {}, dbColumnName = {}, tableName = {}, columnName = {}, sourceColumnName={})'.format(self.dbTableName, self.dbColumnName, self.tableName, self.columnName, self.sourceColumnName);
+
+
+        def __init__(self, metadata, tableName=None, columnName=None):
+            #Fields from the database.
+            (self.schemaName, self.dbTableName, self.dbColumnName, self.type, self.size, self.pos, self.nullable) = metadata;
+            #mutable fields.
+            self.tableName = tableName if (tableName) else self.dbTableName;
+            self.columnName = columnName if(columnName) else self.dbColumnName;
+            self.colTransform = None;
+            self.sourceColumnName = [ self.columnName ];
+
+        @classmethod
+        def makeEmptyColumn(cls):
+            return DBTable.Column((None, None, None, None, None, 0, True));
+
+    #TODO replace this with the above enum.
+    dataTypeFormatStrings = {'int':' {} ', 'double':' {} '
+        , 'varchar':' \'{}\' ', 'char':' \'{}\' ', 'date':' \'{}\' '}
+
+    def __init__(self, DBC, metadata):
+        self.__dbc__ = DBC;
+        self.__metadata__ = metadata;
+
+        #logging.debug("Table constructor received metadata {}".format(metadata));
+        #logging.debug("schemaname = {}".format(metadata['schemaname']));
+        #logging.debug("tablename = {}".format(metadata['tablename']));
+
+        self.__schemaName__  = metadata['schemaname'][0];
+        self.__tableName__   = metadata['tablename'][0];
+
+
+        self.__columns__ = collections.OrderedDict();
+        for numcolumns in range(0, len(metadata[list(metadata.keys())[0]])):
+            cmeta = [];
+            colname =None;
+            for c in  [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
+                cmeta.append(metadata[c][numcolumns]);
+                if(c == 'columnname'):
+                    colname = metadata[c][numcolumns];
+            #logging.debug("{}.{} column {} metadata {}".format(self.__schemaName__, self.__tableName__, colname, cmeta));
+            self.__columns__[colname] = DBTable.Column(cmeta);
+
+
+        self.__data__ = None;
+        self.__matrix__ = None;
+        self.__rowNames__ = None;
+        self.__numRows__ = None;
+        self.__shape__ = None;
+
+    @property
+    def schemaName(self): return self.__schemaName__;
+    @property
+    def tableName(self): return self.__tableName__;
+    @property
+    def columns(self): return self.__columns__;
+
+    @property
+    def numRows(self):
+        if(not self.__numRows__):
+            rows = self.rows;
+            if(not rows or len(rows)==0):
+                self.__numRows__ = 0;
+            self.__numRows__ = len(rows[rows.keys().__iter__().__next__()]);
+        return  self.__numRows__;
+
+    #WARNING !! Permanently disabled  !
+    #Weakref proxy invokes this function for some reason, which is forcing the TabularData objects to materialize.
+    #def __len__(self):
+    #    return self.numRows;
+
+    @property
+    def shape(self):
+        if(not self.__shape__):
+            numrows = self.numRows;
+            numcols = len(self.columns);
+            self.__shape__ = (numrows, numcols);
+        return self.__shape__;
+
+
+    @property
+    def hasRowNames(self):
+        return self.__rowNames__ is not None;
+
+    @property
+    def rowNames(self):
+        if(not self.__rowNames__):
+            #rn = collections.OrderedDict([('r_{:010d}'.format(i),DBTable.Column((None, None, None, None, None, None, None), tableName=self.tableName, columnName='r_{:010d}'.format(i))) for i in np.arange(0,self.numRows)]);
+            #self.__rowNames__ = rn;
+            self.__rowNames__ = VirtualOrderedColumnsDict(self.numRows, ColumnNameGenerator(self.tableName), colprefix='r_');
+        return self.__rowNames__;
+
+    @property
+    def dbc(self): return self.__dbc__;
+
+    @property
+    def isDBQry(self): return True;
+
+    #@property
+    def _genSQL_(self,rowNumbers=False, includeRowNum=False):
+        cols = None;
+        for c in self.__columns__: #Form list of columns for select
+            cols = (cols + ' ,' + self.__tableName__ + '.' + c) if(cols) else c;
+
+        if(rowNumbers or includeRowNum):
+            orgCols = cols;
+            cols = cols + ', ROW_NUMBER() OVER() as __rownum__'
+
+        sqlText = 'SELECT ' + self.__tableName__ + '.' + cols + ' FROM ' \
+                  + (self.__schemaName__+'.' if(self.__schemaName__) else '') + self.__tableName__;
+
+        if(rowNumbers):
+            sqlText = 'SELECT ' + orgCols + ' FROM (' +sqlText +')'  + self.__tableName__;
+
+        return SQLQuery(sqlText);
+
+
+    genSQL = property(_genSQL_);
+
+    @property
+    def rows(self):
+        if(self.__data__ is None):
+            (data, rows) = self.__dbc__._executeQry(self.genSQL.sqlText + ';');
+            #Convert the results to an ordered dictionary format.
+            if(not isinstance(data, collections.OrderedDict)):
+                data_ = collections.OrderedDict();
+                for c in self.columns:
+                    data_[c] = data[c];
+                data.clear();
+                data = data_;
+            self.__data__ = data;
+        return self.__data__;
+
+    @property
+    def cdata(self):
+        return self.rows;
+
+    def loadData(self, matrix=False):
+        """Forces materialization of this Table"""
+        self.rows;
+        if(matrix):
+            self.matrix;
+
+    def filter(self, *selcols):
+        return DataFrame(self, SQLSelectTransform(self, *selcols));
+
+    def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
+        ot = DataFrame(otherTable, None) if(isinstance(otherTable, DBTable)) else otherTable
+        return DataFrame( (self, ot)
+                         ,SQLJoinTransform(self, ot, src1joincols, src2joincols, cols1=cols1, cols2=cols2, join=join));
+
+    def aggregate(self, projcols, groupcols=None):
+        return DataFrame(self, SQLAggregateTransform(self, projcols, groupcols));
+
+    def project(self, projcols):
+        return DataFrame(self, SQLProjectionTransform(self, projcols));
+
+    def order(self, orderlist):
+        return DataFrame(self, SQLOrderTransform(self, orderlist));
+
+    def distinct(self):
+        return DataFrame(self, SQLDistinctTransform(self));
+
+    @property
+    def matrix(self):
+        if(self.__matrix__ is None):
+            rows = self.rows;
+
+            if(len(rows) == 1): #This object has only one column, no need to try build a matrix.
+                matrix_ = rows[list(rows.keys())[0]];
+            else:
+                #stack columns to for a matrix (columns are stacked horizontally not vertically !!)
+                matrix_ = np.stack( tuple(rows[col] for col in rows) );
+            self.__matrix__ = matrix_;
+
+            #Disabling this because once we make a matrix, we loose masked array null flags.
+            #rowkeyslist = list(rows.keys());
+            #for i in range(0, len(rowkeyslist)): #If we have data in matrix representation, may be we can point the columns in rows to corresponding columns of matrix
+            #    rows[rowkeyslist[i]] = matrix_[i]; # WARNING !!! all columns will have the same data type now !!
+            #self.__data__ = rows;
+
+        return self.__matrix__;
+
+    @property
+    def isMatrixCached(self):
+        return self.__matrix__ is not None;
+
+    @property
+    def isCached(self):
+        return self.__data__ is not None;
+
+    @property
+    def rowsNtransform(self):
+        return (self.rows, None, self.__rowNames__);
+
+    def __add__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.ADD));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.ADD) );
+
+    def __radd__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.ADD));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.ADD) );
+
+    def __mul__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.MULTIPLY));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MULTIPLY) );
+
+    def __rmul__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.MULTIPLY));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MULTIPLY) );
+
+    def __sub__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.SUBTRACT));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.SUBTRACT) );
+
+    def __rsub__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.SUBTRACT, side=OP.RHS));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.SUBTRACT, side=OP.RHS) );
+
+    def __truediv__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.DIVIDE));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.DIVIDE) );
+
+    def __rtruediv__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.DIVIDE, side=OP.RHS));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.DIVIDE, side=OP.RHS) );
+
+    def __pow__(self, power, modulo=None):
+        if(type(power) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, power, OP.EXP));
+        else:
+            raise TypeError("Cannot use type {} as a power".format(type(power)));
+
+    def __matmul__(self, other):
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MATRIXMULTIPLY) );
+
+    def __rmatmul__(self, other):
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MATRIXMULTIPLY, side=OP.RHS) );
+
+    @property
+    def T(self):
+        return DataFrame( self, AlgebraicVectorTransform(self, None, OP.TRANSPOSE) );
+
+    #For slicing [] operations.
+    def __getitem__(self, item):
+        return DataFrame(self, SliceTransform(self, item));
+
+    #For stacking columns one on top of the other
+    def vstack(self, otherdatalist):
+        return DataFrame(self, VStackTransform([self, *otherdatalist]));
+
+    #For stacking columns side by side.
+    def hstack(self, otherdatalist, colprefixlist=None):
+        return DataFrame(self, HStackTransform([self, *otherdatalist], colprefixlist));
+
+    #User transformations.
+    def _U(self, func, *args, **kwargs):
+        return DataFrame(self, UserTransform(self, func, *args, **kwargs));
+
+    def describe(self):
+        return self.dbc._describe(self);
+
+    def sum(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.SUM, self, collist);
+
+    def avg(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.AVG, self, collist);
+
+    def count(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.COUNT, self, collist);
+
+    def countd(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.COUNTD, self, collist);
+
+    def countn(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.COUNTN, self, collist);
+
+    def max(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.MAX, self, collist);
+
+    def min(self, collist=None):
+        return self.dbc._agg(DBC.AGGTYPE.MIN, self, collist);
+
+
+    def head(self, n=5):
+        if(self.__data__ is None):
+            (data, rows) = self.__dbc__._executeQry(self.genSQL.sqlText + (' LIMIT {};').format(n));
+            #Convert the results to an ordered dictionary format.
+            if(not isinstance(data, collections.OrderedDict)):
+                data_ = collections.OrderedDict();
+                for c in self.columns:
+                    data_[c] = data[c];
+                data.clear();
+                data = data_;
+        else:
+            data = collections.OrderedDict();
+            for c in self.columns:
+                data[c] = self.__data__[c][0:n];
+
+        return pd.DataFrame(data=data);
+
+    def tail(self, n=5):
+        if(self.__data__ is None):
+            (data, rows) = self.__dbc__._executeQry(self._genSQL_(rowNumbers=True).sqlText + (' WHERE __rownum__  > (SELECT COUNT(*)-{} FROM {} );').format(n, ((self.__schemaName__+'.' if(self.__schemaName__) else '') + self.__tableName__)  ));
+            #Convert the results to an ordered dictionary format.
+            if(not isinstance(data, collections.OrderedDict)):
+                data_ = collections.OrderedDict();
+                for c in self.columns:
+                    data_[c] = data[c];
+                data.clear();
+                data = data_;
+            #return self.head(n);
+        else:
+            data = collections.OrderedDict();
+            for c in self.columns:
+                data[c] = self.__data__[c][-1*n:];
+
+        return pd.DataFrame(data=data);
+
+    def __del__(self):
+        #logging.debug("Removing dborm {}".format(self.__tableName__));
+        if(self.__data__ is not None):
+            self.__data__.clear();
+            del self.__data__;
+        if(self.__matrix__ is not None):
+            del self.__matrix__;
+        if(self.__rowNames__ is not None):
+            del self.__rowNames__;
+
+
+class DataFrame(TabularData):
+    def __init__(self, source, transform, name=None, dbc=None):
+        self.__source__ = source;
+        self.__transform__ = transform;
+
+        self.__data__ = None;
+        self.__columns__ = None;
+        self.__rowNames__ = None;
+        self.__numRows__ = None;
+        self.__shape__ = None;
+        self.__matrix__ = None;
+        self.__tableUDFExists__ = False;
+
+        self.__tableName__ = name if(name) else ('_tmp_' + re.sub(r'x','', str(uuid.uuid4())[:8])  ) ;
+        self.__dbc__ = dbc;
+
+        #TODO: This needs to be moved to "rows" as well to efficiently dispose of the lineage.
+        if(isinstance(transform, SliceTransform)):
+            self.__data__ = transform.rows;
+#        elif(isinstance(transform, AlgebraicVectorTransform)):
+#            self.__data__ = transform.rows;
+#            self.__columns__ = transform.columns;
+#            self.__matrix__ = transform.matrix;
+#            self.__rowNames__ = transform.rowNames;
+#
+    @property
+    def tableName(self):
+        return self.__tableName__ if(self.__tableName__) else self.__source__.tableName;
+
+    @property
+    def isDBQry(self):
+        """This data frame can be represented as a SQL query if this DF's transformations are of SQL type."""
+        if(self.tableUDFExists or (not self.__transform__ and isinstance(self.__source__, DBTable)) or isinstance(self.__transform__, SQLTransform)):
+            return True;
+        #if(hasattr(self.__source__, 'isDBQry')):
+        #    return self.__source__.isDBQry and (True if(not self.__transform__) else isinstance(self.__transform__, SQLTransform));
+        #else:
+        #    return self.__source__[0].isDBQry and self.__source__[1].isDBQry and  (True if(not self.__transform__) else isinstance(self.__transform__, SQLTransform));
+
+    def filter(self, *selcols):
+        return DataFrame(self, SQLSelectTransform(self, *selcols));
+
+    def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
+        return DataFrame( (self, otherTable),  SQLJoinTransform(self, otherTable, src1joincols, src2joincols, cols1=cols1, cols2=cols2, join=join));
+
+    def aggregate(self, projcols, groupcols=None):
+        return DataFrame(self, SQLAggregateTransform(self, projcols, groupcols));
+
+    def project(self, projcols):
+        return DataFrame(self, SQLProjectionTransform(self, projcols));
+
+    def order(self, orderlist):
+        return DataFrame(self, SQLOrderTransform(self, orderlist));
+
+    def distinct(self):
+        return DataFrame(self, SQLDistinctTransform(self));
+
+    @property
+    def numRows(self):
+        if(not self.__numRows__):
+            rows = self.rows;
+            if(not rows or len(rows)==0):
+                self.__numRows__ = 0;
+            self.__numRows__ = len(rows[rows.keys().__iter__().__next__()]);
+        return  self.__numRows__;
+
+    #WARNING !! Permanently disabled  !
+    #Weakref proxy invokes this function for some reason, which is forcing the TabularData objects to materialize.
+    #def __len__(self):
+    #    return self.numRows;
+
+    @property
+    def shape(self):
+        if(not self.__shape__):
+            numrows = self.numRows;
+            numcols = len(self.columns);
+            self.__shape__ = (numrows, numcols);
+        return self.__shape__;
+
+    @property
+    def columns(self):
+        if(not self.__columns__):
+            #TODO fix this deep copy.
+            self.__columns__ = copy.deepcopy(self.__transform__.columns if(self.__transform__ and hasattr(self.__transform__, 'columns')) else self.__source__.columns);
+            for c in self.__columns__:
+                col = self.__columns__[c];
+                col.tableName = self.tableName;
+                col.colTransform = None;
+
+        return self.__columns__;
+
+    @property
+    def hasRowNames(self):
+        return self.__rowNames__ is not None;
+
+    @property
+    def rowNames(self):
+        if(not self.__rowNames__):
+            #rn = collections.OrderedDict([('r_{:010d}'.format(i),DBTable.Column((None, None, None, None, None, None, None), tableName=self.tableName, columnName='r_{:010d}'.format(i))) for i in np.arange(0,self.numRows)]);
+            #self.__rowNames__ = rn;
+            self.__rowNames__ = VirtualOrderedColumnsDict(self.numRows, ColumnNameGenerator(self.tableName), colprefix='r_');
+        return self.__rowNames__;
+
+
+    @property
+    def dbc(self):
+        if(not self.__dbc__):
+            if(hasattr(self.__source__, 'dbc')):
+                dbc_ = self.__source__.dbc;
+            elif(hasattr(self.__transform__, 'dbc')):
+                dbc_ = self.__transform__.dbc;
+            else:
+                for src in self.__source__:
+                    if(hasattr(src, 'dbc')):
+                        dbc_ = src.dbc;
+            self.__dbc__ = dbc_;
+        return self.__dbc__;
+
+    @property
+    def tableUDFExists(self):
+        return self.__tableUDFExists__;
+
+    def _genSQL_(self, doOrder=False):
+        #If this data frame is not based on a direct sql transform, convert it into a table UDF.
+        if(not self.isDBQry):
+            #self.loadData(); #Not required to explicitly load data as the DBC adapter will do this.
+            self.dbc._toTable(self);
+            self.__tableUDFExists__ = True;
+        #There is a table UDF for this data frame.
+        if(self.tableUDFExists):
+            cols = None;
+            #logging.debug("columns {}".format(self.__columns__));
+            #for c in self.__columns__: #Form list of columns for select
+            for c in self.columns: #Form list of columns for select
+                cols = (cols + ' ,' + c) if(cols) else c;
+            sqlText = 'SELECT ' +  cols + ' FROM '  + self.__tableName__ + ( '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '' );
+            return SQLQuery(sqlText);
+
+        if(self.__transform__):
+            return self.__transform__._genSQL_(doOrder=doOrder) if(isinstance(self.__transform__, SQLOrderTransform)) else self.__transform__.genSQL;
+        else:
+            return self.__source__.genSQL;
+
+    genSQL = property(_genSQL_);
+
+    @property
+    def rows(self):
+        #logging.debug("DataFrame: id {}, {} : rows called.".format(id(self), self.tableName));
+        if(self.__data__ is None):
+            #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
+            if(self.isDBQry):
+                (data, rows) = self.dbc._executeQry(self._genSQL_(doOrder=True).sqlText + ';');
+                #Convert the results to an ordered dictionary format.
+                if(not isinstance(data, collections.OrderedDict)):
+                    data_ = collections.OrderedDict();
+                    for c in self.columns:
+                        data_[c] = data[c];
+                    data.clear();
+                    data = data_;
+                    self.__data__ = data;
+            elif(isinstance(self.__transform__, AlgebraicVectorTransform)):
+                self.__data__ = self.__transform__.rows;
+                self.__columns__ = self.__transform__.columns;
+                self.__matrix__ = self.__transform__.matrix;
+                self.__rowNames__ = self.__transform__.rowNames;
+                #logging.debug("rows : this DataFrame is of instance AlgebraicVectorTransform and produced {} columns {}".format(len(self.__columns__), time.time()));
+            elif(isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, VirtualDataTransform) or isinstance(self.__transform__, StackTransform)):
+                #logging.debug("DataFrame: {} : rows called retrieving source rows.".format(self.tableName));
+                self.__data__ = self.__transform__.rows;
+                #logging.debug("DataFrame: {} : rows transform rows retrieved.".format(self.tableName));
+                self.__columns__ = self.__transform__.columns;
+                #logging.debug("DataFrame: {} : rows transform columns retrieved.".format(self.tableName));
+                if(self.__transform__.hasMatrix):
+                    self.__matrix__ = self.__transform__.matrix;
+                    #logging.debug("DataFrame: {} : rows transform matrix retrieved.".format(self.tableName));
+            else:
+                #logging.debug("DataFrame: {} : rows called retrieving source rowsNtransform.".format(self.tableName));
+                (srcrows, srctransformlist, rowNames) = self.__source__.rowsNtransform;
+                self.__data__ = self.__transform__.applyTransform(srcrows, srctransformlist);
+                self.__rowNames__ = rowNames;
+
+            #Once we have computed the data, we can dispose of the lineage, but make sure we have all the other things we need.
+            self.columns;
+            self.dbc;
+            #self.rowNames;
+            #Now dispose off the lineage.
+            #if(isinstance(self.__source__, TabularData)):
+                #logging.debug('Reference count to {} is {} before disposing lineage from {}'.format(self.__source__.tableName, sys.getrefcount(self.__source__), self.tableName));
+            #else:
+                #logging.debug('Reference count to {}&{} is {}&{} before disposing lineage from {}'.format(self.__source__[0].tableName, self.__source__[1].tableName, sys.getrefcount(self.__source__[0]), sys.getrefcount(self.__source__[1]), self.tableName));
+            self.__source__ = self.__transform__ = None;
+
+        #logging.debug("DataFrame: id {}, {} : returning rows.".format(id(self), self.tableName));
+        return self.__data__;
+
+    @property
+    def cdata(self):
+        return self.rows;
+
+    def loadData(self, matrix=False):
+        """Forces materialization of this Data Frame"""
+        self.rows;
+        if(matrix):
+            self.matrix;
+
+    @property
+    def matrix(self):
+        if(self.__matrix__ is None):
+            rows = self.rows;
+
+        #Sometimes materializing rows also materializes the matrix if the original transformation was a matrix transformation.
+        if(self.__matrix__ is None):
+            rows = self.rows;
+            if(len(rows) == 1): #This object has only one column, no need to try build a matrix.
+                #matrix_ = rows[list(rows.keys())[0]];
+                matrix_  = rows[rows.keys().__iter__().__next__()];
+            else:
+                #stack columns next to each other and create a matrix. columns will be stacked horizontally !!
+                matrix_ = np.stack( tuple(rows[r] for r in rows) );
+
+            self.__matrix__ = matrix_;
+
+            #Disabling this because once we make a matrix, we loose masked array null flags. therefore we keep both versions for now.
+            #rowkeyslist = list(rows.keys());
+            #for i in range(0, len(rowkeyslist)): #If we have data in matrix representation, may be we can point the columns in rows to corresponding columns of matrix
+            #    rows[rowkeyslist[i]] = matrix_[i]; # WARNING !!! all columns will have the same data type now !!
+            #self.__data__ = rows;
+
+        return self.__matrix__;
+
+    @property
+    def isMatrixCached(self):
+        return self.__matrix__ is not None;
+
+    @property
+    def isCached(self):
+        return self.__data__ is not None;
+
+    @property
+    def rowsNtransform(self):
+        #Either the data has already been computed, or will be now computed via SQL or from an AlgebraicVectorTransform
+        if(self.isDBQry or self.isCached or isinstance(self.__transform__, AlgebraicVectorTransform) or isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, VirtualDataTransform)):
+            rows = self.rows;
+            rowNames = self.rowNames if(self.hasRowNames) else None;
+            return (rows, None, rowNames);
+        #AlgebraicScalarTransform get the data from the lineage and all scalar transformations that needs to be applied on that data
+        elif(isinstance(self.__transform__, AlgebraicScalarTransform)):
+            (rows, srctransformlist, rowNames) = self.__source__.rowsNtransform;
+            rowNames = self.rowNames if(self.hasRowNames) else rowNames;
+            return (rows, (srctransformlist if srctransformlist else []) + [self.__transform__], rowNames);
+
+    def __add__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.ADD));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.ADD) );
+
+    def __radd__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.ADD));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.ADD) );
+
+    def __mul__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.MULTIPLY));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MULTIPLY) );
+
+    def __rmul__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.MULTIPLY));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MULTIPLY) );
+
+    def __sub__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.SUBTRACT));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.SUBTRACT) );
+
+    def __rsub__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.SUBTRACT, side=OP.RHS));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.SUBTRACT, side=OP.RHS) );
+
+    def __truediv__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.DIVIDE));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.DIVIDE) );
+
+    def __rtruediv__(self, other):
+        if(type(other) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, other, OP.DIVIDE, side=OP.RHS));
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.DIVIDE, side=OP.RHS) );
+
+    def __pow__(self, power, modulo=None):
+        if(type(power) in AIDADtypes.numeric):
+            return DataFrame(self, AlgebraicScalarTransform(self, power, OP.EXP));
+        else:
+            raise TypeError("Cannot use type {} as a power".format(type(power)));
+
+    def __matmul__(self, other):
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MATRIXMULTIPLY) );
+
+    def __rmatmul__(self, other):
+        return DataFrame( (self, other), AlgebraicVectorTransform(self, other, OP.MATRIXMULTIPLY, side=OP.RHS) );
+
+    @property
+    def T(self):
+        return DataFrame( self, AlgebraicVectorTransform(self, None, OP.TRANSPOSE) );
+
+    #For slicing [] operations.
+    def __getitem__(self, item):
+        return DataFrame(self, SliceTransform(self, item));
+
+    #For stacking columns one on top of the other
+    def vstack(self, otherdatalist):
+        if(isinstance(otherdatalist, tuple) or isinstance(otherdatalist, list)):
+            return DataFrame(self, VStackTransform([self, *otherdatalist]));
+        else:
+            return DataFrame(self, VStackTransform([self, otherdatalist]));
+
+    #For stacking columns side by side.
+    def hstack(self, otherdatalist, colprefixlist=None):
+        if(isinstance(otherdatalist, tuple) or isinstance(otherdatalist, list)):
+            return DataFrame(self, HStackTransform([self, *otherdatalist], colprefixlist));
+        else:
+            return DataFrame(self, HStackTransform([self, otherdatalist], colprefixlist));
+
+    #User transformations.
+    def _U(self, func, *args, **kwargs):
+        return DataFrame(self, UserTransform(self, func, *args, **kwargs));
+
+    @classmethod
+    def ones(cls, shape, cols=None, dbc=None):
+        #return cls._virtualData_( lambda:np.ones(shape), cols, dbc);
+        return cls._virtualData_(lambda :np.ones((shape[0],)) if(len(shape)==1 or shape[1]==1) else np.ones((shape[1], shape[0])), cols=cols, dbc=dbc);
+
+    #TODO fix the processing of shape similar to that of ones.
+    @classmethod
+    def rand(cls, shape, cols=None, dbc=None):
+        if(isinstance(shape, tuple)):
+            return cls._virtualData_( lambda:np.random.rand(*shape), cols=cols, dbc=dbc);
+        else:
+            return cls._virtualData_( lambda:np.random.rand(shape), cols=cols, dbc=dbc);
+
+    #TODO fix the processing of shape similar to that of ones.
+    @classmethod
+    def randn(cls, shape, cols=None, dbc=None):
+        if(isinstance(shape, tuple)):
+            return cls._virtualData_( lambda:np.random.randn(*shape), cols=cols, dbc=dbc);
+        else:
+            return cls._virtualData_( lambda:np.random.randn(shape), cols=cols, dbc=dbc);
+
+    @classmethod
+    def _virtualData_(cls, func, cols=None, colmeta=None, dbc=None):
+        def onesmatrix(datafunc, tblcols=None):
+            #logging.debug('DEBUG: onesmatrix: called, column names given {}.'.format(tblcols));
+            data = datafunc();
+            #logging.debug('DEBUG: onesmatrix: datafunc executed, obtained data of type {}.'.format(type(data)));
+            #data = np.ones(shape);
+            numdatacols = 1 if len(data.shape)  == 1 else data.shape[0];
+            if(cols is not None and len(tblcols) != numdatacols):
+                logging.error("Error: ones was passed {} column names for a matrix of {} columns".format(len(cols), data.shape[1]));
+                raise TypeError("Error: ones was passed {} column names for a matrix of {} columns".format(len(cols), data.shape[1]));
+            od = collections.OrderedDict();
+            if(tblcols is not None):
+                if(numdatacols==1):
+                    od[tblcols[0]] = data;
+                else:
+                    for i in range(0, len(cols)):
+                        od[tblcols[i]] = data[i];
+            else:
+                if(numdatacols==1):
+                    od['_c{}_'.format(0)] = data;
+                else:
+                    for i in range(0, numdatacols):
+                        od['_c{}_'.format(i)] = data[i];
+            #logging.debug('DEBUG: onesmatrix: returning data.');
+            return od;
+        #return DataFrame(None, VirtualDataTransform(onesmatrix, dbc if dbc is not None else self.dbc, cols) );
+        return DataFrame(None, VirtualDataTransform(onesmatrix, dbc, colmeta, func, tblcols=cols), dbc=dbc );
+
+    def __toUDF__(self):
+        if(not self.__tableUDFExists__):
+            self.dbc._toTable(self);
+            self.__tableUDFExists__ = True;
+
+    def describe(self):
+        self.__toUDF__();
+        return self.dbc._describe(self);
+
+    def sum(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.SUM, self, collist);
+
+    def avg(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.AVG, self, collist);
+
+    def count(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.COUNT, self, collist);
+
+    def countd(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.COUNTD, self, collist);
+
+    def countn(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.COUNTN, self, collist);
+
+    def max(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.MAX, self, collist);
+
+    def min(self, collist=None):
+        self.__toUDF__();
+        return self.dbc._agg(DBC.AGGTYPE.MIN, self, collist);
+
+    def head(self, n=5):
+        if(self.__data__ is None):
+            #logging.debug("DEBUG: head() loading data ...")
+            self.loadData();
+            #logging.debug("DEBUG: head() loaded data ...")
+        data = collections.OrderedDict();
+        #logging.debug("DEBUG: head() processing {} columns ...".format(len(self.columns)));
+        for c in self.columns:
+            #logging.debug("DEBUG: head() processing column {} ...".format(c))
+            data[c] = self.__data__[c][0:n];
+        #logging.debug("DEBUG: head() returning data ...")
+        return pd.DataFrame(data=data);
+
+    def tail(self, n=5):
+        if(self.__data__ is None):
+            self.loadData();
+        data = collections.OrderedDict();
+        for c in self.columns:
+            data[c] = self.__data__[c][-1*n:];
+        return pd.DataFrame(data=data);
+
+    def __del__(self):
+        #logging.debug("Removing dborm {}".format(self.__tableName__));
+        if(self.tableUDFExists):
+            self.dbc._dropTblUDF(self);
+        if(self.__data__ is not None):
+            self.__data__.clear();
+            del self.__data__;
+        if(self.__matrix__ is not None):
+            del self.__matrix__;
+        if(self.__rowNames__ is not None):
+            del self.__rowNames__;
