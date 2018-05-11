@@ -7,53 +7,6 @@ CREATE FUNCTION aidas_bootstrap() RETURNS TABLE(module STRING) LANGUAGE PYTHON
 };
 -- SELECT * FROM aidas_bootstrap();
 
---#--DROP FUNCTION aidas_ctDMROrep;
---#--CREATE FUNCTION aidas_ctDMROrep(name STRING) RETURNS TABLE(module STRING) LANGUAGE PYTHON
---#--{
---#--  import logging;
---#--  import aidas.dmro as dmro;
---#--  try:
---#--    dmro.DMROrepository(name);
---#--  except Exception as e:
---#--     logging.exception(e);
---#--     return  e.__str__();
---#--  return 'created DMRO:' + name;
---#--};
---#----SELECT * from aidas_ctDMROrep('aidasys');
---#--
---#--
---#--DROP FUNCTION aidas_setrobjmgr;
---#--CREATE FUNCTION aidas_setrobjmgr(robjmgrname STRING) RETURNS TABLE(status STRING) LANGUAGE PYTHON
---#--{
---#--  from aidacommon import rop;
---#--  import aidasys;
---#--  robjMgr = rop.ROMgr.getROMgr('', 55668, True);
---#--  #TODO: get the name of the variable from the argument passed to the function.
---#--  aidasys.robjMgr = robjMgr;
---#--  return 'OK';
---#--};
---#----SELECT * FROM aidas_setrobjmgr('robjMgr');
---#--
---#--DROP FUNCTION aidas_setconmgr;
---#--CREATE FUNCTION aidas_setconmgr(conmgrname STRING) RETURNS TABLE(status STRING) LANGUAGE PYTHON
---#--{
---#--  try:
---#--    import logging;
---#--    import aidasys;
---#--    import aidas.aidas;
---#--    import aidaMonetDB.dbAdapter;
---#--
---#--    logging.debug('aidas_setconmgr called for {}'.format(conmgrname));
---#--    conMgr = aidas.aidas.ConnectionManager.getConnectionManager(aidaMonetDB.dbAdapter.DBCMonetDB);
---#--    #TODO: get the name of the variable from the argument passed to the function.
---#--    aidasys.conMgr = conMgr;
---#--    return 'OK';
---#--  except Exception as e:
---#--    logging.exception(e);
---#--    return 'Error';
---#--};
---#----SELECT * FROM aidas_setconmgr('conMgr');
-
 DROP FUNCTION aidas_setdbccon;
 CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LANGUAGE PYTHON
 {
@@ -66,25 +19,6 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
   return 'OK';
 };
 --SELECT * FROM aidas_setdbccon('jobName_01');
-
-DROP FUNCTION aidas_startlogger;
-CREATE FUNCTION aidas_startlogger(logfile STRING, loglevel STRING) RETURNS TABLE(status STRING) LANGUAGE PYTHON
-{
-  import logging;
-  if(loglevel == 'DEBUG'):
-    logl = logging.DEBUG;
-  elif(loglevel == 'WARNING'):
-    logl = logging.WARNING;
-  elif(loglevel == 'ERROR'):
-    logl = logging.ERROR;
-  else:
-    logl = logging.INFO;
-  logging.basicConfig(filename=logfile, level=logl);
-  logging.info('Started logging...');
-  return 'OK';
-};
---SELECT * FROM aidas_startlogger('aidas.log');
-
 
 DROP FUNCTION aidas_listpyinfo;
 CREATE FUNCTION aidas_listpyinfo() RETURNS TABLE(name STRING, val STRING) LANGUAGE PYTHON

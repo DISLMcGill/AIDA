@@ -3,9 +3,9 @@
 db=$1
 usr=$2
 
-if [ -z "$db" ] || [ -z "$usr" ]
+if [ -z "$db" ]
 then
-  echo "Error: usage $0 <db> <usr>"
+  echo "Error: usage $0 <db> [ <usr> ]"
   exit 1
 fi
 
@@ -15,4 +15,10 @@ then
   exit 1
 fi
 
-$MONETDB/bin/mclient -u $usr -d $db < ../sqls/startup_monetdb.sql
+
+if [ -z "$usr" ]
+then
+    $MONETDB/bin/mclient -d $db < ../sqls/startup_monetdb.sql
+else
+    $MONETDB/bin/mclient -u $usr -d $db < ../sqls/startup_monetdb.sql
+fi
