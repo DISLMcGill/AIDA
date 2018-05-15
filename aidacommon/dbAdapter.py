@@ -44,8 +44,10 @@ class DBC(metaclass=ABCMeta):
     @abstractmethod
     def _tables(self): pass;
 
-    def _getDBTable(self, relName, dbName=None):
-        return self._tableRepo_[relName];
+    #This has to be a class method or the TableUDFs cannot get hold of this function.
+    @classmethod
+    def _getDBTable(cls, relName, dbName=None):
+        return cls._tableRepo_[relName];
 
     @abstractmethod
     def _executeQry(self, sql, resultFormat='column'): pass;
@@ -154,7 +156,7 @@ copyreg.pickle(DBC, DBCRemoteStub.serializeObj);
 
 class DBCRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _getDBTable(self):
+    def _getDBTable(self, relName, dbName=None):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
