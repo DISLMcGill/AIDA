@@ -24,7 +24,7 @@ class AIDA(metaclass=ABCMeta):
         wf = sock.makefile('wb'); rf = sock.makefile('rb');
 
         #send authentication info to the connection manager running at the database.
-        custompickle.dump((user, dbname, passwd, jobName),wf); wf.flush();
+        custompickle.dump((dbname, user, passwd, jobName),wf); wf.flush();
 
         ret = custompickle.load(rf);
         #Handsake to let the other side know that we have established the stubs.
