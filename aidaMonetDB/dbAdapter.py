@@ -2,6 +2,7 @@ import sys;
 import threading;
 
 import collections;
+import datetime;
 
 import numpy as np;
 import pandas as pd;
@@ -22,6 +23,8 @@ class DBCMonetDB(DBC):
     #We will use this to map numpy data types to MonetDB compatible types.
     typeConverter = {np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
                     , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING'};
+
+    datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
 
     #Query to get the names of all tables in the database.
     __TABLE_LIST_QRY__ = \
@@ -125,6 +128,9 @@ class DBCMonetDB(DBC):
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
         (metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
+        if(rows ==0):
+            logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName) else self.dbName ));
+            raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName) else self.dbName ));
         #logging.debug("execute query returned for table metadata {}".format(metaData_));
         #metaData = _collections.OrderedDict();
         #for column in [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
@@ -211,7 +217,61 @@ class DBCMonetDB(DBC):
             #for c in data:
                 #logging.debug("Table {} Column {} Type {}".format(tableName, c, data[c].dtype ));
                 #logging.debug("Table {} Column {} Type {}".format(tableName, c, type(data[c])));
-            self.__connection.registerTable(data, tableName, self.dbName);
+            options = {}; #Figure out if we have any date, time, timetamp fields and use it for lazy evaluation and data type conversion.
+            for c in data:
+                try:
+                    cd = data[c][0];
+                    if(not isinstance(cd, str)):
+                        continue;
+                    for f in self.datetimeFormats:
+                        try:
+                           datetime.datetime.strptime(cd, f);
+                           options[c] = self.datetimeFormats[f];
+                           #logging.debug("VirtualTable: {} will be converted to {}".format(c, options[c]));
+                           break;
+                        except ValueError:
+                           pass;
+                except IndexError:
+                    pass;
+            self.__connection.registerTable(data, tableName, self.dbName, options);
+
+    def _save(self, tblrData, tableName, dbName=None, drop=False):
+        if(isinstance(tblrData, DBTable)):
+            logging.error("TabularData object is already a table, {}".format(tblrData.tableName));
+            raise TypeError("TabularData object is already a table, {}".format(tblrData.tableName));
+
+        try:
+            #Does the table already exist ?
+            self._getDBTable(tableName, dbName);
+            #Should it be dropped ?
+            if(not drop):
+                logging.error('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName) else self.dbName));
+                raise ValueError('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName) else self.dbName));
+            else:
+                delattr(self, tableName);
+                #TODO: remove possible references in dw workspace, etc., ?
+        except KeyError:
+            pass
+
+        if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
+            tblrData._toUDF_();
+            ctbl = 'CREATE TABLE {} AS SELECT * FROM {}()'.format(tableName, tblrData.tableName);
+            self._executeQry(ctbl, sqlType=DBC.SQLTYPE.CREATE);
+            self._toTable(tblrData, tableName);
+        else:
+            self._toTable(tblrData, tableName);
+            self.__connection.persistTable(tableName, self.dbName);
+
+
+    def _dropTable(self, tableName, dbName=None):
+        dtbl = 'DROP TABLE {}.{}'.format( dbName if(dbName) else self.dbName, tableName );
+        self._executeQry(dtbl, DBC.SQLTYPE.DROP);
+
+        try:
+            del self._tableRepo_[tableName];
+        except KeyError:
+            pass;
+
 
     def _dropTblUDF(self, tblrData, tableName=None):
         if(not tableName):
@@ -339,7 +399,7 @@ class DBCMonetDB(DBC):
 
         for obj in self._tableRepo_.keys():
             try:
-                #logging.debug("dropping {} {}".format(dropObjectType, obj));
+                #logging.debug("Dropping {} {}".format(dropObjectType, obj));
                 self._executeQry('DROP {} {};'.format(dropObjectType, obj), sqlType=DBC.SQLTYPE.DROP);
                 #logging.debug("dropped {} {}".format(dropObjectType, obj));
             except:

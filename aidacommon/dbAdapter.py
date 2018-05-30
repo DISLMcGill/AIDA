@@ -77,6 +77,12 @@ class DBC(metaclass=ABCMeta):
     def _toTable(self, tblrData, tableName=None): pass;
 
     @abstractmethod
+    def _save(self, tblrData, tableName, dbName=None, drop=False): pass;
+
+    @abstractmethod
+    def _dropTable(self, tableName, dbName=None): pass;
+
+    @abstractmethod
     def _dropTblUDF(self, tblrData, tableName=None): pass;
 
     @abstractmethod
@@ -152,101 +158,119 @@ class DBC(metaclass=ABCMeta):
             return super().__setattr__(key, value);
         self._setattr_(key, value, False);
 
-copyreg.pickle(DBC, DBCRemoteStub.serializeObj);
-
-class DBCRemoteStub(aidacommon.rop.RObjStub):
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _getDBTable(self, relName, dbName=None):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _executeQry(self, sql, resultFormat='column'):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _x(self, func, *args, **kwargs):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _ones(self, shape, cols=None):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _rand(self, shape, cols=None):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _randn(self, shape, cols=None):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _toTable(self, tblrData, tableName=None):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _close(self):
-        pass;
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _registerProxy_(self, attrname, proxyid):
-        pass;
-
-    #TODO: write corresponding code in the DBC class
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _setattr_(self, key, value, returnAttr=False):
-        pass;
-
-    def __getattribute__(self, item):
+    def __delattr__(self, item):
+        if(item.startswith('_')):
+            return super().__delattr__(item);
         try:
-            #Check if we have the attribute locally.
-            return object.__getattribute__(self, item);
+            del self._tableRepo_[item];
+        except KeyError:
+            pass;
+
+        self._dropTable(item);
+        try:
+            super().__delattr__(item);
         except:
             pass;
 
-        #Find the object remotely ...
-        result = super().__getattribute__(item);
+copyreg.pickle(DBC, DBCRemoteStub.serializeObj);
 
-        #If this a stub object, we are going to set it locally and also listen for updates on it.
-        if(isinstance(result, aidacommon.rop.RObjStub)):
-            self._registerProxy_(item, result.proxyid);
-            super().__setattr__(item, result);
-        #return the attribute.
-        return result
-
-    def __setattr__(self, key, value):
-        if(key.startswith('_')):
-            super().__setattr__(key, value);
-        else:
-            curval = None;
-            try:
-                #Find if there is an existing object for this key locally/remotely.
-                curval = self.__getattribute__(key);
-            except:
-                pass;
-
-            if(curval):
-                #If there is currently an object which is a remote object stub,
-                if(isinstance(curval, aidacommon.rop.RObjStub)):
-                    # but the new one is not, we cannot allow this.
-                    if(not isinstance(value, aidacommon.rop.RObjStub)):
-                        raise AttributeError("Error: cannot replace a remote stub with a regular object")
-                    #If we are replacing one remote obj stub with another, they need to have compatible stubs.
-                    if(not (isinstance(value, curval.__class__))):
-                        raise AttributeError("Error: the remote stubs are not compatible {} {}".format(value.__class__, curval.__class__))
-                #TODO if curval and value are the same, do nothing.
-
-            #Ask the remote object to set this attribute. it can also return a stub if this a stub and we do not have
-            #currently a stub pointing to it.
-            #TODO ... do we need to get stub back from do this ? why cannot we just use the existing stub ?
-            robj = self._setattr_(key, value, not(curval) and isinstance(value, aidacommon.rop.RObjStub) );
-            if(robj): #The remote object returned a stub.
-                self._registerProxy_(key, robj.proxyid);
-                super().__setattr__(key, robj);
-
-    #TODO: trap __del__ and call _close ?
-
-
-copyreg.pickle(DBCRemoteStub, DBCRemoteStub.serializeObj);
+###-###class DBCRemoteStub(aidacommon.rop.RObjStub):
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _getDBTable(self, relName, dbName=None):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _executeQry(self, sql, resultFormat='column'):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _x(self, func, *args, **kwargs):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _ones(self, shape, cols=None):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _rand(self, shape, cols=None):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _randn(self, shape, cols=None):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _toTable(self, tblrData, tableName=None):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _save(self, tblrData, tableName, dbName=None, drop=False):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _close(self):
+###-###        pass;
+###-###
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _registerProxy_(self, attrname, proxyid):
+###-###        pass;
+###-###
+###-###    #TODO: write corresponding code in the DBC class
+###-###    @aidacommon.rop.RObjStub.RemoteMethod()
+###-###    def _setattr_(self, key, value, returnAttr=False):
+###-###        pass;
+###-###
+###-###    def __getattribute__(self, item):
+###-###        try:
+###-###            #Check if we have the attribute locally.
+###-###            return object.__getattribute__(self, item);
+###-###        except:
+###-###            pass;
+###-###
+###-###        #Find the object remotely ...
+###-###        result = super().__getattribute__(item);
+###-###
+###-###        #If this a stub object, we are going to set it locally and also listen for updates on it.
+###-###        if(isinstance(result, aidacommon.rop.RObjStub)):
+###-###            self._registerProxy_(item, result.proxyid);
+###-###            super().__setattr__(item, result);
+###-###        #return the attribute.
+###-###        return result
+###-###
+###-###    def __setattr__(self, key, value):
+###-###        if(key.startswith('_')):
+###-###            super().__setattr__(key, value);
+###-###        else:
+###-###            curval = None;
+###-###            try:
+###-###                #Find if there is an existing object for this key locally/remotely.
+###-###                curval = self.__getattribute__(key);
+###-###            except:
+###-###                pass;
+###-###
+###-###            if(curval):
+###-###                #If there is currently an object which is a remote object stub,
+###-###                if(isinstance(curval, aidacommon.rop.RObjStub)):
+###-###                    # but the new one is not, we cannot allow this.
+###-###                    if(not isinstance(value, aidacommon.rop.RObjStub)):
+###-###                        raise AttributeError("Error: cannot replace a remote stub with a regular object")
+###-###                    #If we are replacing one remote obj stub with another, they need to have compatible stubs.
+###-###                    if(not (isinstance(value, curval.__class__))):
+###-###                        raise AttributeError("Error: the remote stubs are not compatible {} {}".format(value.__class__, curval.__class__))
+###-###                #TODO if curval and value are the same, do nothing.
+###-###
+###-###            #Ask the remote object to set this attribute. it can also return a stub if this a stub and we do not have
+###-###            #currently a stub pointing to it.
+###-###            #TODO ... do we need to get stub back from do this ? why cannot we just use the existing stub ?
+###-###            robj = self._setattr_(key, value, not(curval) and isinstance(value, aidacommon.rop.RObjStub) );
+###-###            if(robj): #The remote object returned a stub.
+###-###                self._registerProxy_(key, robj.proxyid);
+###-###                super().__setattr__(key, robj);
+###-###
+###-###    #TODO: trap __del__ and call _close ?
+###-###
+###-###
+###-###copyreg.pickle(DBCRemoteStub, DBCRemoteStub.serializeObj);
 
 # Class to trap all calls to DBC from remote execution function if it only needs the NumPy objects.
 # This class will trap any TabularData objects and pass out only their NumPy representation.

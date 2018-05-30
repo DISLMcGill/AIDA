@@ -1652,6 +1652,9 @@ class DataFrame(TabularData):
             self.dbc._toTable(self);
             self.__tableUDFExists__ = True;
 
+    def _toUDF_(self):
+        return self.__toUDF__();
+
     def describe(self):
         self.__toUDF__();
         return self.dbc._describe(self);
