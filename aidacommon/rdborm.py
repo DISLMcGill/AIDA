@@ -158,7 +158,7 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _save(self, tblrData, tableName, dbName=None, drop=False):
+    def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()

@@ -77,7 +77,7 @@ class DBC(metaclass=ABCMeta):
     def _toTable(self, tblrData, tableName=None): pass;
 
     @abstractmethod
-    def _save(self, tblrData, tableName, dbName=None, drop=False): pass;
+    def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False): pass;
 
     @abstractmethod
     def _dropTable(self, tableName, dbName=None): pass;
@@ -159,18 +159,19 @@ class DBC(metaclass=ABCMeta):
         self._setattr_(key, value, False);
 
     def __delattr__(self, item):
+        logging.debug("DBC: __delattr__ : have to remove attribute : {}.".format(item));
         if(item.startswith('_')):
             return super().__delattr__(item);
         try:
             del self._tableRepo_[item];
+            logging.debug("DBC: __delattr__ : removed {} from tableRepo.".format(item));
         except KeyError:
             pass;
-
-        self._dropTable(item);
         try:
             super().__delattr__(item);
         except:
             pass;
+        self._dropTable(item);
 
 copyreg.pickle(DBC, DBCRemoteStub.serializeObj);
 

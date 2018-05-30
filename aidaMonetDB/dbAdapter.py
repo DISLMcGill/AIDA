@@ -193,8 +193,6 @@ class DBCMonetDB(DBC):
             logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
             raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed")
 
-        #Keep track of our UDFs/Virtual tables;
-        self._tableRepo_[tableName] = tblrData;
         #TODO: instead of infering the data type from the data, use columns to figure it out.
         #TODO: WARNING !! that might not work, as it means a sql calling table udf may need the udf to execute another sql to load its data.
         data = tblrData.rows;
@@ -234,8 +232,10 @@ class DBCMonetDB(DBC):
                 except IndexError:
                     pass;
             self.__connection.registerTable(data, tableName, self.dbName, options);
+        #Keep track of our UDFs/Virtual tables;
+        self._tableRepo_[tableName] = tblrData;
 
-    def _save(self, tblrData, tableName, dbName=None, drop=False):
+    def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
         if(isinstance(tblrData, DBTable)):
             logging.error("TabularData object is already a table, {}".format(tblrData.tableName));
             raise TypeError("TabularData object is already a table, {}".format(tblrData.tableName));
@@ -248,23 +248,33 @@ class DBCMonetDB(DBC):
                 logging.error('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName) else self.dbName));
                 raise ValueError('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName) else self.dbName));
             else:
-                delattr(self, tableName);
-                #TODO: remove possible references in dw workspace, etc., ?
+                self._dropTable(tableName);
+                #delattr(self, tableName);
+            #    #TODO: remove possible references in dw workspace, etc., ?
         except KeyError:
             pass
 
         if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
             tblrData._toUDF_();
-            ctbl = 'CREATE TABLE {} AS SELECT * FROM {}()'.format(tableName, tblrData.tableName);
+            ctbl = 'CREATE TABLE {} AS SELECT * FROM {}();'.format(tableName, tblrData.tableName);
             self._executeQry(ctbl, sqlType=DBC.SQLTYPE.CREATE);
-            self._toTable(tblrData, tableName);
+            #self._toTable(tblrData, tableName);
         else:
             self._toTable(tblrData, tableName);
-            self.__connection.persistTable(tableName, self.dbName);
+            try:
+                #logging.debug('DEBUG: _saveTblrData: persisting table {}'.format(tableName));
+                self.__connection.persistTable(tableName, dbName if (dbName) else self.dbName);
+                #pass;
+                #logging.debug('DEBUG: _saveTblrData: persisted table {}'.format(tableName));
+            except:
+                logging.exception("ERROR: _saveTblrData : while persisting");
+                raise;
+
+        setattr(self, tableName, self._getDBTable(tableName, dbName));
 
 
     def _dropTable(self, tableName, dbName=None):
-        dtbl = 'DROP TABLE {}.{}'.format( dbName if(dbName) else self.dbName, tableName );
+        dtbl = 'DROP TABLE {}.{};'.format( dbName if(dbName) else self.dbName, tableName );
         self._executeQry(dtbl, DBC.SQLTYPE.DROP);
 
         try:
@@ -399,9 +409,11 @@ class DBCMonetDB(DBC):
 
         for obj in self._tableRepo_.keys():
             try:
-                #logging.debug("Dropping {} {}".format(dropObjectType, obj));
-                self._executeQry('DROP {} {};'.format(dropObjectType, obj), sqlType=DBC.SQLTYPE.DROP);
-                #logging.debug("dropped {} {}".format(dropObjectType, obj));
+                objval = self._tableRepo_[obj];
+                if(not isinstance(objval, DBTable)):
+                    #logging.debug("Dropping {} {}".format(dropObjectType, obj));
+                    self._executeQry('DROP {} {};'.format(dropObjectType, obj), sqlType=DBC.SQLTYPE.DROP);
+                    #logging.debug("dropped {} {}".format(dropObjectType, obj));
             except:
                 pass;
         if(self.__extDBCcon):
