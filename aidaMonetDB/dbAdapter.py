@@ -231,7 +231,7 @@ class DBCMonetDB(DBC):
                            pass;
                 except IndexError:
                     pass;
-            self.__connection.registerTable(data, tableName, self.dbName, options);
+            self.__connection.registerTable(data, tableName, self.dbName, cols=list(data.keys()), options=options);
         #Keep track of our UDFs/Virtual tables;
         self._tableRepo_[tableName] = tblrData;
 
