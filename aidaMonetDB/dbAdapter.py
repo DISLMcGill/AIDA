@@ -22,7 +22,7 @@ class DBCMonetDB(DBC):
 
     #We will use this to map numpy data types to MonetDB compatible types.
     typeConverter = {np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
-                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING'};
+                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'};
 
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
 
@@ -206,7 +206,15 @@ class DBCMonetDB(DBC):
             collist=None;
             for colname in data:
                 collist = (collist + ',') if(collist) else '';
-                collist += colname + ' ' +DBCMonetDB.typeConverter[data[colname].dtype.type] ;
+                dataType = data[colname].dtype.type;
+                if(dataType is np.object_):
+                    try:
+                        if(isinstance(data[colname][0], bytearray)):
+                            dataType = bytearray;
+                    except IndexError:
+                        pass;
+                #logging.debug("UDF column {} type {}".format(colname, dataType));
+                collist += colname + ' ' +DBCMonetDB.typeConverter[dataType] ;
 
             cudf = cudf.format(tableName, collist, tableName)
             #logging.debug("Creating Table UDF {}".format(cudf));
