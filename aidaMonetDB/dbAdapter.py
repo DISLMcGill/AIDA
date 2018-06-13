@@ -219,6 +219,8 @@ class DBCMonetDB(DBC):
             for c in data:
                 try:
                     cd = data[c][0];
+                    if(isinstance(cd, bytearray)):
+                        options[c] = 'blob';
                     if(not isinstance(cd, str)):
                         continue;
                     for f in self.datetimeFormats:
@@ -231,8 +233,10 @@ class DBCMonetDB(DBC):
                            pass;
                 except IndexError:
                     pass;
+            #logging.debug("__connection.registerTable : data={} tableName={} dbname={} cols={} options={}".format(data, tableName, self.dbName, list(data.keys()), options));
             self.__connection.registerTable(data, tableName, self.dbName, cols=list(data.keys()), options=options);
         #Keep track of our UDFs/Virtual tables;
+        #logging.debug("Created Table UDF/VT {}.{}".format(self.dbName, tableName));
         self._tableRepo_[tableName] = tblrData;
 
     def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
@@ -262,7 +266,7 @@ class DBCMonetDB(DBC):
         else:
             self._toTable(tblrData, tableName);
             try:
-                #logging.debug('DEBUG: _saveTblrData: persisting table {}'.format(tableName));
+                #logging.debug('DEBUG: _saveTblrData: persisting table {} in {}'.format(tableName, dbName if (dbName) else self.dbName));
                 self.__connection.persistTable(tableName, dbName if (dbName) else self.dbName);
                 #pass;
                 #logging.debug('DEBUG: _saveTblrData: persisted table {}'.format(tableName));
@@ -291,6 +295,7 @@ class DBCMonetDB(DBC):
             logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
             raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed");
 
+        #logging.debug("Dropping Table UDF/VT {}".format(tableName));
         dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
         dobj = 'DROP {} {};'.format(dropObjectType, tableName);
         #logging.debug("Dropping Table UDF/Virtual table {}".format(dobj));
