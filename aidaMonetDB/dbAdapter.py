@@ -151,7 +151,7 @@ class DBCMonetDB(DBC):
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
         #TODO: either support row format results or throw an exception for not supported.
-        logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
+        #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
 
         with self.__qryLock__:
             try:

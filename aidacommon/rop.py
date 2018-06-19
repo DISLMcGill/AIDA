@@ -124,7 +124,7 @@ class ROMgr(metaclass=ABCMeta):
                                             custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
                                 else:
                                     msg = custompickle.load(self.rfile);
-                                    logging.debug("RemoteMethod : request for compressing {}".format(msg));
+                                    #logging.debug("RemoteMethod : request for compressing {}".format(msg));
                                     #Request for an attribute
                                     if(msg == ROMessages._GET_ATTRIBUTE_):
                                         item = custompickle.load(self.rfile);
@@ -489,12 +489,12 @@ class RObjStub (metaclass=ABCMeta):
                 def wrap(that, *args, **kwargs):
                     """Decorator function, sends the function name and arguments to the remote proxy object and returns the results."""
 
-                    logging.debug("RemoteMethod {} enter time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    #logging.debug("RemoteMethod {} enter time {:0.20f}".format(rmfunc.__name__, time.time()));
                     custompickle.dump(ROMessages._COMPRESS_,that._wf); #that._wf.flush();
                     custompickle.dump(rmfunc.__name__,that._wf); #that._wf.flush();
                     custompickle.dump(args, that._wf); #that._wf.flush();
                     custompickle.dump(kwargs, that._wf); that._wf.flush();
-                    logging.debug("RemoteMethod {} send time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    #logging.debug("RemoteMethod {} send time {:0.20f}".format(rmfunc.__name__, time.time()));
 
                     #read back the exception or result.
                     exception = custompickle.load(that._rf);
