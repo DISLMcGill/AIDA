@@ -3,6 +3,7 @@ import os;
 import configparser;
 import importlib;
 
+import aidacommon.aidaConfig;
 from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon import rop;
 import aidas.dmro as dmro;
@@ -10,40 +11,42 @@ import aidas.aidas as aidas;
 
 def bootstrap():
 
-    try:
-        configfile = os.environ['AIDACONFIG'];
-    except KeyError:
-        raise EnvironmentError('Environment variable AIDACONFIG is not set.');
+##    try:
+##        configfile = os.environ['AIDACONFIG'];
+##    except KeyError:
+##        raise EnvironmentError('Environment variable AIDACONFIG is not set.');
+##
+##        # Check if the config file exists.
+##    if (not os.path.isfile(configfile)):
+##        raise FileNotFoundError("Error configuration file {} not found.".format(configfile));
+##
+##        # Load the configuration settings.
+##    config = configparser.ConfigParser();
+##    config.read(configfile);
+##    defaultConfig = config['DEFAULT'];
+##    serverConfig = config['AIDASERVER'];
+##    AConfig.DATABASEPORT = serverConfig.getint('DATABASEPORT', defaultConfig['DATABASEPORT']);
+##    AConfig.DATABASEADAPTER = serverConfig.get('DATABASEADAPTER', defaultConfig['DATABASEADAPTER']);
+##    AConfig.LOGLEVEL = serverConfig.get('LOGLEVEL', defaultConfig['LOGLEVEL']);
+##    AConfig.LOGFILE = serverConfig.get('LOGFILE', defaultConfig['LOGFILE']);
+##    AConfig.RMIPORT = serverConfig.getint('RMIPORT', defaultConfig['RMIPORT']);
+##    AConfig.CONNECTIONMANAGERPORT = serverConfig.getint('CONNECTIONMANAGERPORT', defaultConfig['CONNECTIONMANAGERPORT']);
+##    udfType = serverConfig.get('UDFTYPE', defaultConfig['UDFTYPE']);
+##    AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else UDFTYPE.VIRTUALTABLE;
+##
+##    # Setup the logging mechanism.
+##    if (AConfig.LOGLEVEL == 'DEBUG'):
+##        logl = logging.DEBUG;
+##    elif (AConfig.LOGLEVEL == 'WARNING'):
+##        logl = logging.WARNING;
+##    elif (AConfig.LOGLEVEL == 'ERROR'):
+##        logl = logging.ERROR;
+##    else:
+##        logl = logging.INFO;
+##    logging.basicConfig(filename=AConfig.LOGFILE, level=logl);
+##    logging.info('AIDA: Bootstrap procedure aidas_bootstrap starting...');
 
-        # Check if the config file exists.
-    if (not os.path.isfile(configfile)):
-        raise FileNotFoundError("Error configuration file {} not found.".format(configfile));
-
-        # Load the configuration settings.
-    config = configparser.ConfigParser();
-    config.read(configfile);
-    defaultConfig = config['DEFAULT'];
-    serverConfig = config['AIDASERVER'];
-    AConfig.DATABASEPORT = serverConfig.getint('DATABASEPORT', defaultConfig['DATABASEPORT']);
-    AConfig.DATABASEADAPTER = serverConfig.get('DATABASEADAPTER', defaultConfig['DATABASEADAPTER']);
-    AConfig.LOGLEVEL = serverConfig.get('LOGLEVEL', defaultConfig['LOGLEVEL']);
-    AConfig.LOGFILE = serverConfig.get('LOGFILE', defaultConfig['LOGFILE']);
-    AConfig.RMIPORT = serverConfig.getint('RMIPORT', defaultConfig['RMIPORT']);
-    AConfig.CONNECTIONMANAGERPORT = serverConfig.getint('CONNECTIONMANAGERPORT', defaultConfig['CONNECTIONMANAGERPORT']);
-    udfType = serverConfig.get('UDFTYPE', defaultConfig['UDFTYPE']);
-    AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else UDFTYPE.VIRTUALTABLE;
-
-    # Setup the logging mechanism.
-    if (AConfig.LOGLEVEL == 'DEBUG'):
-        logl = logging.DEBUG;
-    elif (AConfig.LOGLEVEL == 'WARNING'):
-        logl = logging.WARNING;
-    elif (AConfig.LOGLEVEL == 'ERROR'):
-        logl = logging.ERROR;
-    else:
-        logl = logging.INFO;
-    logging.basicConfig(filename=AConfig.LOGFILE, level=logl);
-    logging.info('AIDA: Bootstrap procedure aidas_bootstrap starting...');
+    aidacommon.aidaConfig.loadConfig('AIDASERVER');
 
     # Initialize the DMRO repository.
     try:

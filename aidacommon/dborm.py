@@ -414,7 +414,8 @@ class TabularData(metaclass=ABCMeta):
     @abstractmethod
     def __rmatmul__(self, other): pass;
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def T(self): pass;
 
     @abstractmethod
@@ -425,7 +426,8 @@ class TabularData(metaclass=ABCMeta):
     #@abstractmethod
     #def __len__(self): pass;
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def shape(self): pass;
 
     @abstractmethod
@@ -470,6 +472,9 @@ class TabularData(metaclass=ABCMeta):
     @abstractmethod
     def _genSQL_(self, *args, **kwargs): pass;
 
+    @property
+    @abstractmethod
+    def cdata(self): pass;
 
 #This is an object in the database.
 class DBObject(metaclass=ABCMeta):

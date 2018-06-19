@@ -117,6 +117,11 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _genSQL_(self, *args, **kwargs): pass;
 
+    @property
+    @aidacommon.rop.RObjStub.RemoteMethod(compressResults=True)
+    def cdata(self): pass;
+
+
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
 

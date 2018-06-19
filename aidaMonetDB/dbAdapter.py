@@ -110,13 +110,14 @@ class DBCMonetDB(DBC):
 
     def __setDBC__(self):
         con = pymonetdb.Connection(self.dbName,hostname='localhost',username=self._username,password=self._password,autocommit=True);
-        cursor = con.cursor();
+        ##cursor = con.cursor();
         #This function call should set the internal database connection to MonetDB in THIS DBC object, using the jobName passed to it.
         #The database function basically calls back the _setConnection method.
-        rows = cursor.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
-        data = cursor.fetchall();
+        ##rows = cursor.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
+        ##data = cursor.fetchall();
         #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
-        cursor.close();
+        ##cursor.close();
+        con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
         self.__extDBCcon = con;
 
     def _tables(self):
@@ -127,10 +128,10 @@ class DBCMonetDB(DBC):
         #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
-        (metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
+        (metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self.dbName, relName));
         if(rows ==0):
-            logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName) else self.dbName ));
-            raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName) else self.dbName ));
+            logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self.dbName ));
+            raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self.dbName ));
         #logging.debug("execute query returned for table metadata {}".format(metaData_));
         #metaData = _collections.OrderedDict();
         #for column in [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
@@ -150,7 +151,7 @@ class DBCMonetDB(DBC):
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
         #TODO: either support row format results or throw an exception for not supported.
-        #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
+        logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
 
         with self.__qryLock__:
             try:
@@ -186,10 +187,10 @@ class DBCMonetDB(DBC):
             #TODO: format....
 
     def _toTable(self, tblrData, tableName=None):
-        if(not tableName):
+        if(tableName is None):
             if(hasattr(tblrData, 'tableName')):
                 tableName = tblrData.tableName;
-        if(not tableName):
+        if(tableName is None):
             logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
             raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed")
 
@@ -205,7 +206,7 @@ class DBCMonetDB(DBC):
             #The column list returned by this table udf.
             collist=None;
             for colname in data:
-                collist = (collist + ',') if(collist) else '';
+                collist = (collist + ',') if(collist is not None) else '';
                 dataType = data[colname].dtype.type;
                 if(dataType is np.object_):
                     try:
@@ -257,8 +258,8 @@ class DBCMonetDB(DBC):
             self._getDBTable(tableName, dbName);
             #Should it be dropped ?
             if(not drop):
-                logging.error('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName) else self.dbName));
-                raise ValueError('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName) else self.dbName));
+                logging.error('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName is not None) else self.dbName));
+                raise ValueError('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName is not None) else self.dbName));
             else:
                 self._dropTable(tableName);
                 #delattr(self, tableName);
@@ -275,7 +276,7 @@ class DBCMonetDB(DBC):
             self._toTable(tblrData, tableName);
             try:
                 #logging.debug('DEBUG: _saveTblrData: persisting table {} in {}'.format(tableName, dbName if (dbName) else self.dbName));
-                self.__connection.persistTable(tableName, dbName if (dbName) else self.dbName);
+                self.__connection.persistTable(tableName, dbName if (dbName is not None) else self.dbName);
                 #pass;
                 #logging.debug('DEBUG: _saveTblrData: persisted table {}'.format(tableName));
             except:
@@ -286,7 +287,7 @@ class DBCMonetDB(DBC):
 
 
     def _dropTable(self, tableName, dbName=None):
-        dtbl = 'DROP TABLE {}.{};'.format( dbName if(dbName) else self.dbName, tableName );
+        dtbl = 'DROP TABLE {}.{};'.format( dbName if(dbName is not None) else self.dbName, tableName );
         self._executeQry(dtbl, DBC.SQLTYPE.DROP);
 
         try:
@@ -296,10 +297,10 @@ class DBCMonetDB(DBC):
 
 
     def _dropTblUDF(self, tblrData, tableName=None):
-        if(not tableName):
+        if(tableName is None):
             if(hasattr(tblrData, 'tableName')):
                 tableName = tblrData.tableName;
-        if(not tableName):
+        if(tableName is None):
             logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
             raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed");
 
@@ -325,7 +326,7 @@ class DBCMonetDB(DBC):
                     colsel = DBCMonetDB.__CHAR_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
                 else:
                     colsel = DBCMonetDB.__NUMERIC_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
-                sqlsel = ((sqlsel + '\n,') if(sqlsel) else '\n' ) + colsel;
+                sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {};".format(sqlsel, tblrData.tableName);
             #logging.debug("Performing describe : {}".format(sqlsel));
@@ -350,7 +351,7 @@ class DBCMonetDB(DBC):
                     colsel = DBCMonetDB.__CHAR_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
                 else:
                     colsel = DBCMonetDB.__NUMERIC_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
-                sqlsel = ((sqlsel + '\n,') if(sqlsel) else '\n' ) + colsel;
+                sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {}{};".format(sqlsel, tblrData.tableName, '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '');
             #logging.debug("Performing describe : {}".format(sqlsel));
@@ -381,7 +382,7 @@ class DBCMonetDB(DBC):
                         colsel = "'' AS agg_{}".format(cname);
                     else:
                         colsel = agfn.value.format(cname) + (' AS agg_{}').format(cname);
-                    sqlsel = ((sqlsel + '\n,') if(sqlsel) else '\n' ) + colsel;
+                    sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {};".format(sqlsel, tblrData.tableName);
             data,rows = self._executeQry(sqlsel);
@@ -399,7 +400,7 @@ class DBCMonetDB(DBC):
                     colsel = "'' AS agg_{}".format(cname);
                 else:
                     colsel = agfn.value.format(cname) + (' AS agg_{}').format(cname);
-                sqlsel = ((sqlsel + '\n,') if(sqlsel) else '\n' ) + colsel;
+                sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {}{};".format(sqlsel, tblrData.tableName, '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '');
             #logging.info("Performing agg : {}".format(sqlsel));
@@ -429,7 +430,7 @@ class DBCMonetDB(DBC):
                     #logging.debug("dropped {} {}".format(dropObjectType, obj));
             except:
                 pass;
-        if(self.__extDBCcon):
+        if(self.__extDBCcon is not None):
             self.__extDBCcon.close();
             self.__extDBCcon = None;
 

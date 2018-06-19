@@ -25,8 +25,10 @@ from six import  reraise;
 
 from socketserver import ThreadingTCPServer, StreamRequestHandler;
 
+from aidacommon.aidaConfig import AConfig;
+
 class ROMessages(metaclass=ABCMeta):
-    _INIT_ = '__I'; _NOT_FOUND_ = '__N'; _OK_ = '__O'; _GET_ATTRIBUTE_='__A'; _DUMMY_=None;
+    _INIT_ = '__I'; _NOT_FOUND_ = '__N'; _OK_ = '__O'; _GET_ATTRIBUTE_='__A'; _COMPRESS_ = '__C'; _DUMMY_=None;
 
 class ROMgr(metaclass=ABCMeta):
 
@@ -78,48 +80,92 @@ class ROMgr(metaclass=ABCMeta):
                                     else:
                                         logging.warning("_INIT_ message object {} not found".format(robjName));
                                         custompickle.dump(ROMessages._NOT_FOUND_, self.wfile); self.wfile.flush();
-                                #Request for an attribute
-                                elif(msg == ROMessages._GET_ATTRIBUTE_):
-                                    item = custompickle.load(self.rfile);
-                                    try:
-                                        val = self.obj.__getattribute__(item);
-                                        custompickle.dump(None,self.wfile);
-                                        custompickle.dump(val, self.wfile); self.wfile.flush();
-                                    except Exception as e:
-                                        #An exception occured. send traceback info the client stub.
-                                        custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
-                                #Regular client stub messages contain the name of the function to be invoked and any arguments.
+                                #Check if the return should be compressed or not.
+                                elif(msg != ROMessages._COMPRESS_):
+                                    #logging.debug("RemoteMethod: {} is not a compress directive.".format(msg));
+                                    #Request for an attribute
+                                    if(msg == ROMessages._GET_ATTRIBUTE_):
+                                        item = custompickle.load(self.rfile);
+                                        try:
+                                            val = self.obj.__getattribute__(item);
+                                            custompickle.dump(None,self.wfile); custompickle.dump(val, self.wfile); self.wfile.flush();
+                                        except Exception as e:
+                                            #An exception occured. send traceback info the client stub.
+                                            custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
+                                    #Regular client stub messages contain the name of the function to be invoked and any arguments.
+                                    else:
+                                        #logging.debug("ROProxy {} reading args time {:0.20f}".format(msg, time.time()));
+                                        args   = custompickle.load(self.rfile); kwargs = custompickle.load(self.rfile);
+                                        #logging.debug("ROProxy {} read args time {:0.20f}".format(msg, time.time()));
+
+                                        #Execute the function locally and send back any results/exceptions.
+                                        try:
+                                            #Execute the local function, store the results.
+                                            func = self.obj.__getattribute__(msg);
+                                            if(inspect.ismethod(func)):
+                                                result = func(*args, **kwargs);
+                                                args = kwargs = None;
+                                            else: #This is probably a property, in which case we already have the value, return it.
+                                                result = func;
+                                            #logging.debug("ROProxy {} local result time {:0.20f}".format(msg, time.time()));
+
+                                            #No exception to report.
+                                            custompickle.dump(None,self.wfile);#self.wfile.flush();
+                                            #logging.debug("ROProxy {} exception send time {:0.20f}".format(msg, time.time()));
+                                            #Return the results.
+                                            custompickle.dump(result, self.wfile); self.wfile.flush();
+                                            #logging.debug("ROProxy {} result send time {:0.20f}".format(msg, time.time()));
+                                            #Hand shake to make sure this function scope is active till the other side has setup remote object stubs if any
+                                            #the contents of this message is irrelevant to us.
+                                            #NOT REQUIRED: this object reference (result) is alive in this space till next remote function call reaches it.
+                                            #custompickle.load(self.rfile);
+                                        except Exception as e:
+                                            #An exception occured. send traceback info the client stub.
+                                            custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
                                 else:
-                                    #logging.debug("ROProxy {} reading args time {:0.20f}".format(msg, time.time()));
-                                    args   = custompickle.load(self.rfile);
-                                    kwargs = custompickle.load(self.rfile);
-                                    #logging.debug("ROProxy {} read args time {:0.20f}".format(msg, time.time()));
+                                    msg = custompickle.load(self.rfile);
+                                    logging.debug("RemoteMethod : request for compressing {}".format(msg));
+                                    #Request for an attribute
+                                    if(msg == ROMessages._GET_ATTRIBUTE_):
+                                        item = custompickle.load(self.rfile);
+                                        try:
+                                            val = self.obj.__getattribute__(item);
+                                            custompickle.dump(None, self.wfile); self.wfile.flush();
+                                            AConfig.NTWKCHANNEL.transmit(val, self.wfile);
+                                        except Exception as e:
+                                            #An exception occured. send traceback info the client stub.
+                                            custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
+                                    #Regular client stub messages contain the name of the function to be invoked and any arguments.
+                                    else:
+                                        #logging.debug("ROProxy {} reading args time {:0.20f}".format(msg, time.time()));
+                                        args   = custompickle.load(self.rfile); kwargs = custompickle.load(self.rfile);
+                                        #logging.debug("ROProxy {} read args time {:0.20f}".format(msg, time.time()));
 
-                                    #Execute the function locally and send back any results/exceptions.
-                                    try:
-                                        #Execute the local function, store the results.
-                                        func = self.obj.__getattribute__(msg);
-                                        if(inspect.ismethod(func)):
-                                            result = func(*args, **kwargs);
-                                            args = kwargs = None;
-                                        else: #This is probably a property, in which case we already have the value, return it.
-                                            result = func;
-                                        #logging.debug("ROProxy {} local result time {:0.20f}".format(msg, time.time()));
+                                        #Execute the function locally and send back any results/exceptions.
+                                        try:
+                                            #Execute the local function, store the results.
+                                            func = self.obj.__getattribute__(msg);
+                                            if(inspect.ismethod(func)):
+                                                result = func(*args, **kwargs);
+                                                args = kwargs = None;
+                                            else: #This is probably a property, in which case we already have the value, return it.
+                                                result = func;
+                                            #logging.debug("ROProxy {} local result time {:0.20f}".format(msg, time.time()));
 
-                                        #No exception to report.
-                                        custompickle.dump(None,self.wfile);#self.wfile.flush();
-                                        #logging.debug("ROProxy {} exception send time {:0.20f}".format(msg, time.time()));
-                                        #Return the results.
-                                        custompickle.dump(result, self.wfile); self.wfile.flush();
-                                        #logging.debug("ROProxy {} result send time {:0.20f}".format(msg, time.time()));
-                                        #Hand shake to make sure this function scope is active till the other side has setup remote object stubs if any
-                                        #the contents of this message is irrelevant to us.
-                                        #NOT REQUIRED: this object reference (result) is alive in this space till next remote function call reaches it.
-                                        #custompickle.load(self.rfile);
-                                    except Exception as e:
-                                        #An exception occured. send traceback info the client stub.
-                                        custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
-                                    #logging.debug("ROProxy {} exit time {:0.20f}".format(msg, time.time()));
+                                            #No exception to report.
+                                            custompickle.dump(None,self.wfile);self.wfile.flush();
+                                            #logging.debug("ROProxy {} exception send time {:0.20f}".format(msg, time.time()));
+                                            #Return the results.
+                                            AConfig.NTWKCHANNEL.transmit(result, self.wfile);
+                                            #logging.debug("ROProxy {} result send time {:0.20f}".format(msg, time.time()));
+                                            #Hand shake to make sure this function scope is active till the other side has setup remote object stubs if any
+                                            #the contents of this message is irrelevant to us.
+                                            #NOT REQUIRED: this object reference (result) is alive in this space till next remote function call reaches it.
+                                            #custompickle.load(self.rfile);
+                                        except Exception as e:
+                                            #An exception occured. send traceback info the client stub.
+                                            custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
+                                #logging.debug("ROProxy {} exit time {:0.20f}".format(msg, time.time()));
 
                         except EOFError:
                             pass;
@@ -403,36 +449,69 @@ class RObjStub (metaclass=ABCMeta):
     class RemoteMethod:
         """Decorator for all methods that needs to be executed remotely."""
 
+        def __init__(self, compressResults=False):
+            """Constructor optionally takes an argument which indicates whether the remote function's return results should be compressed before sending back"""
+            self.__compressResults__ = compressResults;
+
         def __call__(self, rmfunc):
             if (not hasattr(rmfunc, '__call__')):
                 raise TypeError("Argument rmfunc should be callable, {} does not satisfy this.".format(type(rmfunc)));
 
-            @functools.wraps(rmfunc)
-            def wrap(that, *args, **kwargs):
-                """Decorator function, sends the function name and arguments to the remote proxy object and returns the results."""
+            if(not self.__compressResults__):
+                @functools.wraps(rmfunc)
+                def wrap(that, *args, **kwargs):
+                    """Decorator function, sends the function name and arguments to the remote proxy object and returns the results."""
 
-                #logging.debug("RemoteMethod {} enter time {:0.20f}".format(rmfunc.__name__, time.time()));
-                custompickle.dump(rmfunc.__name__,that._wf); #that._wf.flush();
-                custompickle.dump(args, that._wf); #that._wf.flush();
-                custompickle.dump(kwargs, that._wf); that._wf.flush();
-                #logging.debug("RemoteMethod {} send time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    #logging.debug("RemoteMethod {} enter time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    custompickle.dump(rmfunc.__name__,that._wf); #that._wf.flush();
+                    custompickle.dump(args, that._wf); #that._wf.flush();
+                    custompickle.dump(kwargs, that._wf); that._wf.flush();
+                    #logging.debug("RemoteMethod {} send time {:0.20f}".format(rmfunc.__name__, time.time()));
 
-                #read back the exception or result.
-                exception = custompickle.load(that._rf);
-                if(exception != None): #If there was an exception at the remote object, raise it locally.
-                    reraise(*exception);
-                #logging.debug("RemoteMethod {} exception time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    #read back the exception or result.
+                    exception = custompickle.load(that._rf);
+                    if(exception != None): #If there was an exception at the remote object, raise it locally.
+                        reraise(*exception);
+                    #logging.debug("RemoteMethod {} exception time {:0.20f}".format(rmfunc.__name__, time.time()));
 
-                result = custompickle.load(that._rf);
-                #logging.debug("RemoteMethod {} result time {:0.20f}".format(rmfunc.__name__, time.time()));
-                #Hand shake to tell the sending side that we got the result, and has setup remote object stubs.
-                #NOT REQUIRED: see note in ROProxy
-                #custompickle.dump(ROMessages._DUMMY_, that._wf); that._wf.flush();
-                #logging.debug('RemoteMethod for {} returning data type {}'.format(rmfunc.__name__, type(result)));
-                #logging.debug("RemoteMethod {} exit time {:0.20f}".format(rmfunc.__name__, time.time()));
-                return result;
+                    result = custompickle.load(that._rf);
+                    #logging.debug("RemoteMethod {} result time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    #Hand shake to tell the sending side that we got the result, and has setup remote object stubs.
+                    #NOT REQUIRED: see note in ROProxy
+                    #custompickle.dump(ROMessages._DUMMY_, that._wf); that._wf.flush();
+                    #logging.debug('RemoteMethod for {} returning data type {}'.format(rmfunc.__name__, type(result)));
+                    #logging.debug("RemoteMethod {} exit time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    return result;
 
-            return wrap;
+                return wrap;
+            else:
+                @functools.wraps(rmfunc)
+                def wrap(that, *args, **kwargs):
+                    """Decorator function, sends the function name and arguments to the remote proxy object and returns the results."""
+
+                    logging.debug("RemoteMethod {} enter time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    custompickle.dump(ROMessages._COMPRESS_,that._wf); #that._wf.flush();
+                    custompickle.dump(rmfunc.__name__,that._wf); #that._wf.flush();
+                    custompickle.dump(args, that._wf); #that._wf.flush();
+                    custompickle.dump(kwargs, that._wf); that._wf.flush();
+                    logging.debug("RemoteMethod {} send time {:0.20f}".format(rmfunc.__name__, time.time()));
+
+                    #read back the exception or result.
+                    exception = custompickle.load(that._rf);
+                    if(exception != None): #If there was an exception at the remote object, raise it locally.
+                        reraise(*exception);
+                    #logging.debug("RemoteMethod {} exception time {:0.20f}".format(rmfunc.__name__, time.time()));
+
+                    result = AConfig.NTWKCHANNEL.receive(that._rf);
+                    #logging.debug("RemoteMethod {} result time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    #Hand shake to tell the sending side that we got the result, and has setup remote object stubs.
+                    #NOT REQUIRED: see note in ROProxy
+                    #custompickle.dump(ROMessages._DUMMY_, that._wf); that._wf.flush();
+                    #logging.debug('RemoteMethod for {} returning data type {}'.format(rmfunc.__name__, type(result)));
+                    #logging.debug("RemoteMethod {} exit time {:0.20f}".format(rmfunc.__name__, time.time()));
+                    return result;
+
+                return wrap;
 
 
 class RObj(RObjStub):

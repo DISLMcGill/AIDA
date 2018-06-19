@@ -128,7 +128,7 @@ class DBC(metaclass=ABCMeta):
         except:
             cur = None;
 
-        if(cur):
+        if(cur is not None):
             if(isinstance(cur, DBObject)):
                 logging.error("Error: there is already an object {} in the database.".format(key));
                 raise TypeError("Error: there is already an object {} in the database.".format(key));
@@ -137,20 +137,20 @@ class DBC(metaclass=ABCMeta):
             curtype = copyreg.dispatch_table.get(type(cur));
             valuetype = copyreg.dispatch_table.get(type(value));
             #logging.debug("_setattr_ called for an existing attribute {} curtype {} valuetype {}".format(key, curtype, valuetype));
-            if(curtype and curtype != valuetype):
+            if(curtype is not None and curtype != valuetype):
                 logging.error("Error: unable to set {} remote stub for new type {} does not match that of the current type {}".format(key, type(key), type(cur)));
                 raise TypeError("Error: unable to set {} remote stub for new type {} does not match that of the current type {}".format(key, type(key), type(cur)));
             #If current attributes's type is one with a remote stub assigned,
             # replace the reference of current proxies with the new obj.
-            if(curtype):
+            if(curtype is not None):
                 proxies = self._workSpaceProxies_.get(key);
-                if(proxies):
+                if(proxies is not None):
                     #logging.debug("Replacing object in place for attribute {}".format(key));
                     self._roMgrObj.replace(proxies, value);
 
         #Do the actual setting of the attribute.
         super().__setattr__(key, value);
-        if(returnAttr):
+        if(returnAttr is not None):
             return value;
 
     def __setattr__(self, key, value):

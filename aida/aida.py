@@ -6,6 +6,8 @@ from tblib import pickling_support;
 pickling_support.install();
 import dill as custompickle;
 
+import aidacommon.aidaConfig;
+
 from aidacommon.dborm import *;
 
 #import logging;
@@ -14,6 +16,8 @@ from aidacommon.dborm import *;
 class AIDA(metaclass=ABCMeta):
     @staticmethod
     def connect (host, dbname, user, passwd, jobName=None, port=55660):
+
+        aidacommon.aidaConfig.loadConfig(topic='AIDACLIENT');
 
         # Make network connection.
         sock = socket.socket();
