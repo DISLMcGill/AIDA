@@ -767,7 +767,7 @@ class AlgebraicVectorTransform(AlgebraicTransform):
         #logging.debug("AlgebraicVectorTransform operation {} init enter time {:0.20f}".format(op.value, time.time()));
         super().__init__(None);
         self._source1_ = weakref.proxy(source1);
-        self._source2_ = weakref.proxy(source2) if(source2) else None;
+        self._source2_ = weakref.proxy(source2) if(source2 is not None) else None;
         self.op = op;
         self.side = side;
 
