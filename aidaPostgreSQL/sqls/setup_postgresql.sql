@@ -1,44 +1,26 @@
 CREATE OR REPLACE FUNCTION aidas_bootstrap()
   RETURNS TABLE(module text)
 AS $$
-  import logging
-  from datetime import datetime
   import aidas.bootstrap;
   aidas.bootstrap.bootstrap();
+  
+  import queue;
+  requestQueue = queue.Queue();
+  resultQueue = queue.Queue();
+
   import aidasys;
-  conMgr = aidasys.conMgr;
-  GD['conMgr'] = conMgr;
-  conMgr._currentJobName = None;
+  aidasys.requestQueue = requestQueue;
+  aidasys.resultQueue = resultQueue;
+  conMgr = aidasys.conMgr
   
   while True:
-    while conMgr._currentJobName is None:
-      pass;
-    
-    dbcObj = conMgr.get(conMgr._currentJobName);
-
-    import plpy
-    dbcObj._setConnection(plpy);
-    logging.info("went back from pre exe")
-    logging.info(datetime.now())
-    del plpy
+    (jobName, request) = requestQueue.get();
+    dbcObj = conMgr.get(jobName);
+    dbcObj._executeRequest(plpy,request);
+    requestQueue.task_done()
   return ['OK'];
 $$ LANGUAGE plpython3u;
-
-
-CREATE OR REPLACE FUNCTION prepare_execution(jobname text) 
-  RETURNS TABLE(status text)
-AS $$
-  from datetime import datetime
-  import aidas.aidas;
-  import logging;
-  coMgr = GD['conMgr']
-  dbcObj = coMgr.get(jobname);
-  dbcObj._preparePlpy(plpy);
-  logging.info('after execution')
-  logging.info(datetime.now())
-  return ['OK'];
-$$ LANGUAGE plpython3u;
---SELECT * FROM aidas_setdbccon('jobName_01');
+--SELECT * FROM aidas_bootstrap();
 
 
 CREATE OR REPLACE FUNCTION aidas_listpyinfo() 
@@ -113,4 +95,3 @@ AS $$
   return ( (objid[i],objtype[i]) for i in range(0,len(objid) ) );
 $$ LANGUAGE plpython3u;
 --SELECT * FROM aidas_tmp_pygc_garbage();
-

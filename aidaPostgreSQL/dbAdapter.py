@@ -21,9 +21,9 @@ DBC._dataFrameClass_ = DataFrame;
 class DBCPostgreSQL(DBC):
     """Database adapter class for PostgreSQL"""
 
-    # Map numpy data types to Postgresql compatible types.
-    typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint'
-                    , np.float32:'double precision', np.float64:'double precision', np.object:'text', np.object_:'text'};
+    # Map numpy data types to PostgreSQL compatible types.
+    typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'double precision'
+    , np.float64:'double precision', np.object:'text', np.object_:'text', bytearray:'bytea'};
 
 
     #Query to get the names of all tables in the database.
@@ -36,7 +36,7 @@ class DBCPostgreSQL(DBC):
 
     # Not enough information to find  columnSize
 
-    #Query to fetch a table schema in MonetDB (does not support other database objects such as views)
+    #Query to fetch a table schema in PostgreSQL (does not support other database objects such as views)
     __TABLE_METADATA_QRY__ = \
         "SELECT table_schema as schemaName, table_name as tableName, column_name as columnName, data_type as columnType, " \
         "0 as columnSize, ordinal_position as columnPos, is_nullable as columnNullable " \
@@ -45,7 +45,7 @@ class DBCPostgreSQL(DBC):
         "ORDER BY schemaName, tableName, columnPos " \
         ";"
 
-    #Query to fetch a table schema in MonetDB (does not support other database objects such as views)
+    #Query to fetch a table schema in PostgreSQL (does not support other database objects such as views)
     __COLUMN_METADATA_QRY__ = \
         "SELECT column_name as columnName, data_type as columnType, " \
         "0 as columnSize, ordinal_position as columnPos, is_nullable  as columnNullable " \
@@ -54,27 +54,25 @@ class DBCPostgreSQL(DBC):
         "ORDER BY columnPos " \
         ";"
 
-    """unfinished"""
     __NUMERIC_COL_DESCRIBE__ = \
-        "  RIGHT ('                    ' || CAST(CAST(SYS.COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.COUNT(DISTINCT {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countd_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.SUM(CASE WHEN {} IS NULL THEN 1 ELSE 0 END) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countn_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.MAX({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS max_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.MIN({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS min_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.AVG({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS avg_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.MEDIAN({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS median_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.QUANTILE({}, 0.25) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q25_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.QUANTILE({}, 0.50) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q50_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.QUANTILE({}, 0.75) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q75_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.STDDEV_POP({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS std_{}";
+        "  RIGHT ('                    ' || CAST(CAST(COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(COUNT(DISTINCT {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countd_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(SUM(CASE WHEN {} IS NULL THEN 1 ELSE 0 END) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countn_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(MAX({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS max_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(MIN({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS min_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(AVG({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS avg_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(MEDIAN({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS median_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {})) AS DECIMAL(20,2))) AS VARCHAR(20)), 20) AS q25_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY {})) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q50_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {})) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q75_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(STDDEV_POP({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS std_{}";
 
-    """unfinished"""
     __CHAR_COL_DESCRIBE__ = \
-        "  RIGHT ('                    ' || CAST(CAST(SYS.COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.COUNT(DISTINCT {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countd_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(SYS.SUM(CASE WHEN {} IS NULL THEN 1 ELSE 0 END) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countn_{}" \
-        ", RIGHT ('                    ' || CAST(SYS.MAX({}) AS VARCHAR(20)), 20) AS max_{}" \
-        ", RIGHT ('                    ' || CAST(SYS.MIN({}) AS VARCHAR(20)), 20) AS min_{}" \
+        "  RIGHT ('                    ' || CAST(CAST(COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(COUNT(DISTINCT {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countd_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(SUM(CASE WHEN {} IS NULL THEN 1 ELSE 0 END) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countn_{}" \
+        ", RIGHT ('                    ' || CAST(MAX({}) AS VARCHAR(20)), 20) AS max_{}" \
+        ", RIGHT ('                    ' || CAST(MIN({}) AS VARCHAR(20)), 20) AS min_{}" \
         ", '                    ' AS avg_{}" \
         ", '                    ' AS median_{}" \
         ", '                    ' AS q25_{}" \
@@ -100,76 +98,58 @@ class DBCPostgreSQL(DBC):
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname);
 
-        self._executeEmpty = threading.Semaphore(1);
-        self._executeFull = threading.Semaphore(0);
-        self._executeLock = threading.RLock();
-        #Setup the actual database connection to be used.
-        self.__setDBC__();
-
-
-    def __setDBC__(self):
-        con = psycopg2.connect(dbname=self.dbName,user=self._username,password=self._password,host='localhost');
-        con.autocommit = True
-        cursor = con.cursor();
-        #This function call should set the internal database connection to MonetDB in THIS DBC object, using the jobName passed to it.
-        #The database function basically calls back the _setConnection method.
-        #rows = cursor.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
-        #data = cursor.fetchall();
-        #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
-        cursor.close();
-        self.__extDBCcon = con;
-
+        import aidasys;
+        self.__requestQueue = aidasys.requestQueue;
+        self.__resultQueue = aidasys.resultQueue;
 
     def _tables(self):
-        self._sql = DBCPostgreSQL.__TABLE_LIST_QRY__.format(self.dbName);
-        (tables,rows) = self._getOutput();
+        sql = DBCPostgreSQL.__TABLE_LIST_QRY__.format(self.dbName);
+        self._executeQry(sql);
+        (tables,rows) = self._getResult();
         return pd.DataFrame(tables);
 
         #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
     def _getDBTable(self, relName, dbName=None):
-        pass;
+        #logging.debug(DBCPostgreSQL.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
+        sql = DBCPostgreSQL.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self.dbName, relName);
+        self._executeQry(sql);
+        (metaData_, rows) = self._getResult();
+        if(rows ==0):
+            logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self.dbName ));
+            raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self.dbName ));
+        #logging.debug("execute query returned for table metadata {}".format(metaData_));
+        #metaData = _collections.OrderedDict();
+        #for column in [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
+        #    logging.debug("For column {} data is {}".format(column, metaData_[column].data if hasattr(metaData_[column], 'data') else metaData_[column]));
+        #    metaData[column] = metaData_[column].data if hasattr(metaData_[column], 'data') else metaData_[column];
 
-    def _setConnection(self, con):
-        """Called by the database function to set the internal database connection for executing queries"""
-        #logging.debug("__setConnection_ called for {} with {}".format(self._jobName, con));
-        con.execute('select status from prepare_execution(\'{}\');'.format(self._jobName))
-        self._isWaitingforExecution = False;
- 
-    def _preparePlpy(self,con):
-        if self._isWaitingforExecution:
-            self.__connection = con;
-            self._executeEmpty.acquire();
-            self._executeLock.acquire();
-            (self._x,self._y)  = self._executeQry(self._sql);
-            self._executeLock.release();
-            self._executeFull.release();
-            del self.__connection;
-   
-    def _getOutput(self):
-        self._conMgr._currentJobName = self._jobName;
-        self._isWaitingforExecution = True;
-        self._executeFull.acquire();
-        self._executeLock.acquire();
-        (result,rows) = (self._x,self._y);
-        self._executeLock.release();
-        self._executeEmpty.release();
-        self._conMgr._currentJobName = None;
-        self._isWaitingforExecution = False;
-        return (result,rows);
+        #return DBTable(self, metaData_);
+        d = DBTable(self, metaData_);
+        return d;
 
+    def _getResult(self):
+        result = self.__resultQueue.get();
+        self.__resultQueue.task_done();
+        return result;
+
+    def _executeRequest(self, conn, request):
+        self.__connection = conn;
+        (result, rows) = self._execution(*request);
+        self.__resultQueue.put((result, rows));
     
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
+        self.__requestQueue.put( (self._jobName , (sql, resultFormat, sqlType) ) );
+
+    def _execution(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
         #TODO: either support row format results or throw an exception for not supported.
-        #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
-
+        #logging.debug("_execution called for {} with {}".format(self._jobName, sql));
         with self.__qryLock__:
             try:
-                rv = self.__connection.execute(self._sql);
+                rv = self.__connection.execute(sql);
                 result = {}
                 for k in rv[0]:
-                   result[k] = np.array([d[k] for d in rv]).astype(object)
-                logging.info("__executeQry result {}".format(result));
+                   result[k] = np.array([d[k] for d in rv])
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
                         #get some columns
@@ -177,7 +157,7 @@ class DBCPostgreSQL(DBC):
                         #Find the length of the array (or masked array) that is the number of rows
                         rows = len(c_tmp.data if hasattr(c_tmp, 'data')  else c_tmp);
                         #for col in result:
-                            #logging.debug("_executeQry col {} size {}  references {}".format(col, sys.getsizeof(result[col]), sys.getrefcount(result[col])));
+                            #logging.debug("_execution col {} size {}  references {}".format(col, sys.getsizeof(result[col]), sys.getrefcount(result[col])));
                         #for c in result:
                         #    logging.debug("Result column {} type {}".format(c, result[c].dtype));
                         return (result, rows);
@@ -188,8 +168,6 @@ class DBCPostgreSQL(DBC):
                 the_type, the_value, the_traceback = sys.exc_info();
                 logging.error("An exception occured while trying to execute query {}".format((the_type, the_value, the_traceback)));
                 logging.exception("An exception occured while executing query {}".format(sql));
-                #TODO: This is a patch fix as for some reason we are not able to execut queries using the connection once an exception is thrown.
-                self.__setDBC__();
                 #re-raise the exception.
                 if (sqlType != DBC.SQLTYPE.DROP):
                     raise;
@@ -197,35 +175,266 @@ class DBCPostgreSQL(DBC):
             #TODO: format....
 
     def _toTable(self, tblrData, tableName=None):
-        pass;
+        if(tableName is None):
+            if(hasattr(tblrData, 'tableName')):
+                tableName = tblrData.tableName;
+        if(tableName is None):
+            logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
+            raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed")
+
+        #TODO: instead of infering the data type from the data, use columns to figure it out.
+        #TODO: WARNING !! that might not work, as it means a sql calling table udf may need the udf to execute another sql to load its data.
+        data = tblrData.rows;
+
+        #Should we create a regular UDF or use a virtual table ?
+        if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
+            cudf = 'CREATE FUNCTION {}() RETURNS TABLE({}) LANGUAGE PYTHON \n{{\n import copy; from aidacommon.dbAdapter import DBC; return copy.deepcopy(DBC._getDBTable(\'{}\').rows); \n}}\n;';
+            #cudf = 'CREATE FUNCTION {}() RETURNS TABLE({}) LANGUAGE PYTHON \n{{\n from aidacommon.dbAdapter import DBC; return DBC._getDBTable(\'{}\').rows; \n}}\n;';
+
+            #The column list returned by this table udf.
+            collist=None;
+            for colname in data:
+                collist = (collist + ',') if(collist is not None) else '';
+                dataType = data[colname].dtype.type;
+                if(dataType is np.object_):
+                    try:
+                        if(isinstance(data[colname][0], bytearray)):
+                            dataType = bytearray;
+                    except IndexError:
+                        pass;
+                #logging.debug("UDF column {} type {}".format(colname, dataType));
+                collist += colname + ' ' +DBCPostgreSQL.typeConverter[dataType] ;
+
+            cudf = cudf.format(tableName, collist, tableName)
+            #logging.debug("Creating Table UDF {}".format(cudf));
+            self._executeQry(cudf, DBC.SQLTYPE.CREATE);
+            self._getResult();
+        else :
+            #for c in data:
+                #logging.debug("Table {} Column {} Type {}".format(tableName, c, data[c].dtype ));
+                #logging.debug("Table {} Column {} Type {}".format(tableName, c, type(data[c])));
+            options = {}; #Figure out if we have any date, time, timetamp fields and use it for lazy evaluation and data type conversion.
+            for c in data:
+                try:
+                    cd = data[c][0];
+                    if(isinstance(cd, bytearray)):
+                        options[c] = 'blob';
+                    if(not isinstance(cd, str)):
+                        continue;
+                    for f in self.datetimeFormats:
+                        try:
+                           datetime.datetime.strptime(cd, f);
+                           options[c] = self.datetimeFormats[f];
+                           #logging.debug("VirtualTable: {} will be converted to {}".format(c, options[c]));
+                           break;
+                        except ValueError:
+                           pass;
+                except IndexError:
+                    pass;
+            #logging.debug("__connection.registerTable : data={} tableName={} dbname={} cols={} options={}".format(data, tableName, self.dbName, list(data.keys()), options));
+            """self.__connection.registerTable(data, tableName, self.dbName, cols=list(data.keys()), options=options);"""
+        #Keep track of our UDFs/Virtual tables;
+        #logging.debug("Created Table UDF/VT {}.{}".format(self.dbName, tableName));
+        self._tableRepo_[tableName] = tblrData;
            
                        
 
     def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
-        pass;
+        if(isinstance(tblrData, DBTable)):
+            logging.error("TabularData object is already a table, {}".format(tblrData.tableName));
+            raise TypeError("TabularData object is already a table, {}".format(tblrData.tableName));
+
+        try:
+            #Does the table already exist ?
+            self._getDBTable(tableName, dbName);
+            #Should it be dropped ?
+            if(not drop):
+                logging.error('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName is not None) else self.dbName));
+                raise ValueError('ERROR: {} already exists in {}'.format(tableName, dbName if (dbName is not None) else self.dbName));
+            else:
+                self._dropTable(tableName);
+                #delattr(self, tableName);
+            #    #TODO: remove possible references in dw workspace, etc., ?
+        except KeyError:
+            pass
+
+        if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
+            tblrData._toUDF_();
+            ctbl = 'CREATE TABLE {} AS SELECT * FROM {}();'.format(tableName, tblrData.tableName);
+            self._executeQry(ctbl, DBC.SQLTYPE.CREATE);
+            self._getResult();
+            #self._toTable(tblrData, tableName);
+        else:
+            self._toTable(tblrData, tableName);
+            try:
+                #logging.debug('DEBUG: _saveTblrData: persisting table {} in {}'.format(tableName, dbName if (dbName) else self.dbName));
+                """self.__connection.persistTable(tableName, dbName if (dbName is not None) else self.dbName);"""
+                #pass;
+                #logging.debug('DEBUG: _saveTblrData: persisted table {}'.format(tableName));
+            except:
+                logging.exception("ERROR: _saveTblrData : while persisting");
+                raise;
+
+        setattr(self, tableName, self._getDBTable(tableName, dbName));
 
 
     def _dropTable(self, tableName, dbName=None):
-        pass;
+        dtbl = 'DROP TABLE {}.{};'.format( dbName if(dbName is not None) else self.dbName, tableName );
+        self._executeQry(dtbl, DBC.SQLTYPE.DROP);
+        self._getResult();
 
+        try:
+            del self._tableRepo_[tableName];
+        except KeyError:
+            pass;
 
     def _dropTblUDF(self, tblrData, tableName=None):
-        pass;
+        if(tableName is None):
+            if(hasattr(tblrData, 'tableName')):
+                tableName = tblrData.tableName;
+        if(tableName is None):
+            logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
+            raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed");
+
+        #logging.debug("Dropping Table UDF/VT {}".format(tableName));
+        dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
+        dobj = 'DROP {} {};'.format(dropObjectType, tableName);
+        #logging.debug("Dropping Table UDF/Virtual table {}".format(dobj));
+        self._executeQry(dobj, DBC.SQLTYPE.DROP);
+        self._getResult();
 
     def _describe(self, tblrData):
-        pass;
+        
+        #logging.info("describing {}".format(type(tblrData)));
+        if(isinstance(tblrData, DBTable)):
+            #logging.info("describing DBTable ");
+            #logging.info(DBCPostgreSQL.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName));
+            sql = DBCPostgreSQL.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName);
+            self._executeQry(sql);
+            colMeta, numcols = self._getResult();
+            sqlsel = None;
+            for c in range(0, numcols):
+                cname = colMeta["columnname"][c];
+                ctype = colMeta["columntype"][c];
+                if(ctype in ('char', 'varchar', 'timestamp')):
+                    colsel = DBCPostgreSQL.__CHAR_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
+                else:
+                    colsel = DBCPostgreSQL.__NUMERIC_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
+                sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
+
+            sqlsel = "SELECT {} \n FROM {};".format(sqlsel, tblrData.tableName);
+            #logging.debug("Performing describe : {}".format(sqlsel));
+            self._executeQry(sqlsel);
+            data,rows = self._getResult();
+            #descData = {};
+            descData = collections.OrderedDict();
+            for c in range(0, numcols):
+                cname = colMeta["columnname"][c];
+                cmetrics = [];
+                for sinfo in ['count_', 'countd_', 'countn_', 'max_', 'min_', 'avg_', 'median_', 'q25_', 'q50_', 'q75_', 'std_']:
+                    cmetrics.append(data[sinfo+cname]);
+                descData[cname] = cmetrics;
+            desc = ['count', 'unique', 'nulls', 'max', 'min', 'avg', 'median', '25%', '50%', '75%', 'stddev'];
+            return pd.DataFrame(data=descData, index=desc);
+
+        else:
+            tdata = tblrData.rows;
+            sqlsel = None;
+            for cname in tdata:
+                #logging.info("{} maps to {} {}".format(cname, tdata[cname].dtype.type, DBCPostgreSQL.typeConverter[tdata[cname].dtype.type]));
+                if(DBCPostgreSQL.typeConverter[tdata[cname].dtype.type] in ['text']):
+                    colsel = DBCPostgreSQL.__CHAR_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
+                else:
+                    colsel = DBCPostgreSQL.__NUMERIC_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
+                sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
+
+            sqlsel = "SELECT {} \n FROM {}{};".format(sqlsel, tblrData.tableName, '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '');
+            #logging.debug("Performing describe : {}".format(sqlsel));
+            self._executeQry(sqlsel);
+            data,rows = self._getResult();
+            #descData = {};
+            descData = collections.OrderedDict();
+            for cname in tdata:
+                cmetrics = [];
+                for sinfo in ['count_', 'countd_', 'countn_', 'max_', 'min_', 'avg_', 'median_', 'q25_', 'q50_', 'q75_', 'std_']:
+                    cmetrics.append(data[sinfo+cname]);
+                descData[cname] = cmetrics;
+            desc = ['count', 'unique', 'nulls', 'max', 'min', 'avg', 'median', '25%', '50%', '75%', 'stddev'];
+            return pd.DataFrame(data=descData, index=desc);
 
 
     def _agg(self, agfn, tblrData, collist=None, valueOnly=True):
-        pass;
+        collist = None if(collist is None) else [collist] if(isinstance(collist, str)) else collist;
+        result = collections.OrderedDict();
+
+        if(isinstance(tblrData, DBTable)):
+            sql = DBCPostgreSQL.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName)
+            self._executeQry(sql);
+            colMeta, numcols = self._getResult();
+            sqlsel = None;
+            for c in range(0, numcols):
+                cname = colMeta["columnname"][c];
+                ctype = colMeta["columntype"][c];
+                if(collist is None or cname in collist):
+                    if(ctype in ('char', 'varchar') and agfn in (DBC.AGGTYPE.SUM, DBC.AGGTYPE.AVG)):
+                        colsel = "'' AS agg_{}".format(cname);
+                    else:
+                        colsel = agfn.value.format(cname) + (' AS agg_{}').format(cname);
+                    sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
+
+            sqlsel = "SELECT {} \n FROM {};".format(sqlsel, tblrData.tableName);
+            self._executeQry(sqlsel);
+            data,rows = self._getResult();
+            #logging.debug("Performing agg : {}".format(sqlsel));
+            for c in range(0, numcols):
+                cname = colMeta["columnname"][c];
+                if(collist is None or cname in collist):
+                    result[cname] = data['agg_{}'.format(cname)][0];
+        else:
+            tdata = tblrData.rows;
+            sqlsel = None;
+            for cname in tdata:
+                #logging.info("{} maps to {} {}".format(cname, tdata[cname].dtype.type, DBCPostgreSQL.typeConverter[tdata[cname].dtype.type]));
+                if(DBCPostgreSQL.typeConverter[tdata[cname].dtype.type] in ['text'] and agfn in (DBC.AGGTYPE.SUM, DBC.AGGTYPE.AVG)):
+                    colsel = "'' AS agg_{}".format(cname);
+                else:
+                    colsel = agfn.value.format(cname) + (' AS agg_{}').format(cname);
+                sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
+
+            sqlsel = "SELECT {} \n FROM {}{};".format(sqlsel, tblrData.tableName, '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '');
+            #logging.info("Performing agg : {}".format(sqlsel));
+            self._executeQry(sqlsel);
+            data,rows = self._getResult();
+            for cname in tdata:
+                if(collist is None or cname in collist):
+                    result[cname] = data['agg_{}'.format(cname)][0];
+
+        #logging.debug("DEBUG: returning agg results {}".format(result));
+
+        #return result[list(result.keys())[0]] if(len(result)==1 and collist is not None) else result;
+        return result[list(result.keys())[0]] if(len(result)==1 and valueOnly) else result;
 
 
     def __del__(self):
-        pass;
+        #logging.debug("__del__ called for {}".format(self._jobName));
+
+        #Where we using regular Table UDFs or Virtuable Tables ?
+        dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
+
+        for obj in self._tableRepo_.keys():
+            try:
+                objval = self._tableRepo_[obj];
+                if(not isinstance(objval, DBTable)):
+                    #logging.debug("Dropping {} {}".format(dropObjectType, obj));
+                    sql = 'DROP {} {};'.format(dropObjectType, obj)
+                    self._executeQry(sql, DBC.SQLTYPE.DROP);
+                    self._getResult();
+                    #logging.debug("dropped {} {}".format(dropObjectType, obj));
+            except:
+                pass;
 
 class DBCPostgreSQLStub(DBCRemoteStub):
     pass;
 
 copyreg.pickle(DBCPostgreSQL, DBCPostgreSQLStub.serializeObj);
 copyreg.pickle(DBCPostgreSQLStub, DBCPostgreSQLStub.serializeObj);
-
