@@ -23,8 +23,22 @@ class DBCPostgreSQL(DBC):
 
     # Map numpy data types to PostgreSQL compatible types.
     typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'double precision'
-    , np.float64:'double precision', np.object:'text', np.object_:'text', bytearray:'bytea'};
+    , np.float64:'double precision', np.object:'text', 'date':'date', bytearray:'bytea'};
 
+    typeConverter_re = {'int':np.int64, 'Decimal':np.float64, 'float':np.float64 };
+    
+    datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
+
+    def validateDate(date_text):
+        try:
+            datetime.datetime.strptime(date_text, '%Y-%m-%d')
+            return True
+        except ValueError:
+            try:
+                datetime.datetime.strptime(date_text, '%Y-%m-%d %H:%M:%S')
+                return True
+            except ValueError:
+                return False
 
     #Query to get the names of all tables in the database.
     __TABLE_LIST_QRY__ = \
@@ -62,9 +76,9 @@ class DBCPostgreSQL(DBC):
         ", RIGHT ('                    ' || CAST(CAST(MIN({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS min_{}" \
         ", RIGHT ('                    ' || CAST(CAST(AVG({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS avg_{}" \
         ", RIGHT ('                    ' || CAST(CAST(MEDIAN({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS median_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {})) AS DECIMAL(20,2))) AS VARCHAR(20)), 20) AS q25_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY {})) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q50_{}" \
-        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {})) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q75_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q25_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q50_{}" \
+        ", RIGHT ('                    ' || CAST(CAST(PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS q75_{}" \
         ", RIGHT ('                    ' || CAST(CAST(STDDEV_POP({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS std_{}";
 
     __CHAR_COL_DESCRIBE__ = \
@@ -104,16 +118,15 @@ class DBCPostgreSQL(DBC):
 
     def _tables(self):
         sql = DBCPostgreSQL.__TABLE_LIST_QRY__.format(self.dbName);
-        self._executeQry(sql);
-        (tables,rows) = self._getResult();
+        (tables,rows) = self._executeQry(sql);
         return pd.DataFrame(tables);
 
         #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCPostgreSQL.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
         sql = DBCPostgreSQL.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self.dbName, relName);
-        self._executeQry(sql);
-        (metaData_, rows) = self._getResult();
+        (metaData_, rows) = self._executeQry(sql);
+
         if(rows ==0):
             logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self.dbName ));
             raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self.dbName ));
@@ -139,6 +152,9 @@ class DBCPostgreSQL(DBC):
     
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         self.__requestQueue.put( (self._jobName , (sql, resultFormat, sqlType) ) );
+        result = self._getResult();
+        return result;
+
 
     def _execution(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
@@ -146,10 +162,37 @@ class DBCPostgreSQL(DBC):
         #logging.debug("_execution called for {} with {}".format(self._jobName, sql));
         with self.__qryLock__:
             try:
+                #logging.debug(sql)
                 rv = self.__connection.execute(sql);
-                result = {}
-                for k in rv[0]:
-                   result[k] = np.array([d[k] for d in rv])
+               
+                if(rv.nrows() == 0):
+                    return (dict(),0)
+               
+                # converting with python module
+                """
+                col = list(rv)
+                cs = rv.colnames()
+                r = len(col)
+                c = len(cs)
+                import nz
+                result = nz.nz(col,cs,r,c)
+                """
+
+                # original converting method
+                result = {}                
+                for k in rv.colnames():
+                    col = [row[k].rstrip() if(isinstance(row[k], str)) else row[k] for row in rv]                    
+                    
+                    if type(col[0]).__name__ == 'NoneType':
+                        result[k] = np.array( [] )
+                    elif (type(col[0]).__name__) in DBCPostgreSQL.typeConverter_re:
+                        result[k] = np.array(col, dtype = DBCPostgreSQL.typeConverter_re[type(col[0]).__name__])
+                    else:
+                        result[k] = np.array(col, dtype = np.object)
+                
+                # converting with modified plpy module
+                """ """
+                   
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
                         #get some columns
@@ -185,30 +228,42 @@ class DBCPostgreSQL(DBC):
         #TODO: instead of infering the data type from the data, use columns to figure it out.
         #TODO: WARNING !! that might not work, as it means a sql calling table udf may need the udf to execute another sql to load its data.
         data = tblrData.rows;
-
+        logging.info(data)
         #Should we create a regular UDF or use a virtual table ?
         if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
-            cudf = 'CREATE FUNCTION {}() RETURNS TABLE({}) LANGUAGE PYTHON \n{{\n import copy; from aidacommon.dbAdapter import DBC; return copy.deepcopy(DBC._getDBTable(\'{}\').rows); \n}}\n;';
+            cudf = 'CREATE FUNCTION {}() RETURNS TABLE({})\nAS $$\n import copy;\n from aidacommon.dbAdapter import DBC;'
+            cudf += '\n data = copy.deepcopy(DBC._getDBTable(\'{}\').rows);\n cols = [{}]'
+            cudf += '\n result = list()\n for i in range(0, 0 if(len(data.values()) == 0) else len(list(data.values())[0]) ):'
+            cudf += '\n     if len(cols) == 1:\n         result.append(data[cols[0]][i])'
+            cudf += '\n     else:\n         row = list()\n         for k in cols:'
+            cudf += '\n             row.append(data[k][i])\n         result.append(row)'
+            cudf += '\n return result \n$$ LANGUAGE plpython3u;';
+            #cudf = 'CREATE FUNCTION {}() RETURNS TABLE({})\nAS $$\n import copy;\n from aidacommon.dbAdapter import DBC;\n return copy.deepcopy(DBC._getDBTable(\'{}\').rows); \n$$ LANGUAGE plpython3u;';
             #cudf = 'CREATE FUNCTION {}() RETURNS TABLE({}) LANGUAGE PYTHON \n{{\n from aidacommon.dbAdapter import DBC; return DBC._getDBTable(\'{}\').rows; \n}}\n;';
 
             #The column list returned by this table udf.
             collist=None;
+            colnames=None;
             for colname in data:
                 collist = (collist + ',') if(collist is not None) else '';
+                colnames = (colnames + ',') if(colnames is not None) else '';
                 dataType = data[colname].dtype.type;
                 if(dataType is np.object_):
                     try:
                         if(isinstance(data[colname][0], bytearray)):
                             dataType = bytearray;
+                        if(DBCPostgreSQL.validateDate(data[colname][0])):
+                            dataType = 'date'
                     except IndexError:
                         pass;
                 #logging.debug("UDF column {} type {}".format(colname, dataType));
-                collist += colname + ' ' +DBCPostgreSQL.typeConverter[dataType] ;
+                collist += colname + ' ' + ('text' if(dataType not in DBCPostgreSQL.typeConverter) else DBCPostgreSQL.typeConverter[dataType]) ;
+                colnames += '\'' + colname + '\'';
 
-            cudf = cudf.format(tableName, collist, tableName)
+            cudf = cudf.format(tableName, collist, tableName, colnames)            
+
             #logging.debug("Creating Table UDF {}".format(cudf));
             self._executeQry(cudf, DBC.SQLTYPE.CREATE);
-            self._getResult();
         else :
             #for c in data:
                 #logging.debug("Table {} Column {} Type {}".format(tableName, c, data[c].dtype ));
@@ -262,7 +317,6 @@ class DBCPostgreSQL(DBC):
             tblrData._toUDF_();
             ctbl = 'CREATE TABLE {} AS SELECT * FROM {}();'.format(tableName, tblrData.tableName);
             self._executeQry(ctbl, DBC.SQLTYPE.CREATE);
-            self._getResult();
             #self._toTable(tblrData, tableName);
         else:
             self._toTable(tblrData, tableName);
@@ -281,7 +335,6 @@ class DBCPostgreSQL(DBC):
     def _dropTable(self, tableName, dbName=None):
         dtbl = 'DROP TABLE {}.{};'.format( dbName if(dbName is not None) else self.dbName, tableName );
         self._executeQry(dtbl, DBC.SQLTYPE.DROP);
-        self._getResult();
 
         try:
             del self._tableRepo_[tableName];
@@ -301,7 +354,6 @@ class DBCPostgreSQL(DBC):
         dobj = 'DROP {} {};'.format(dropObjectType, tableName);
         #logging.debug("Dropping Table UDF/Virtual table {}".format(dobj));
         self._executeQry(dobj, DBC.SQLTYPE.DROP);
-        self._getResult();
 
     def _describe(self, tblrData):
         
@@ -310,13 +362,12 @@ class DBCPostgreSQL(DBC):
             #logging.info("describing DBTable ");
             #logging.info(DBCPostgreSQL.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName));
             sql = DBCPostgreSQL.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName);
-            self._executeQry(sql);
-            colMeta, numcols = self._getResult();
+            colMeta, numcols = self._executeQry(sql);
             sqlsel = None;
             for c in range(0, numcols):
                 cname = colMeta["columnname"][c];
                 ctype = colMeta["columntype"][c];
-                if(ctype in ('char', 'varchar', 'timestamp')):
+                if(ctype in ('character', 'character varying', 'timestamp', 'timestamp without time zone')):
                     colsel = DBCPostgreSQL.__CHAR_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
                 else:
                     colsel = DBCPostgreSQL.__NUMERIC_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
@@ -324,8 +375,7 @@ class DBCPostgreSQL(DBC):
 
             sqlsel = "SELECT {} \n FROM {};".format(sqlsel, tblrData.tableName);
             #logging.debug("Performing describe : {}".format(sqlsel));
-            self._executeQry(sqlsel);
-            data,rows = self._getResult();
+            data,rows = self._executeQry(sqlsel);
             #descData = {};
             descData = collections.OrderedDict();
             for c in range(0, numcols):
@@ -341,7 +391,7 @@ class DBCPostgreSQL(DBC):
             tdata = tblrData.rows;
             sqlsel = None;
             for cname in tdata:
-                #logging.info("{} maps to {} {}".format(cname, tdata[cname].dtype.type, DBCPostgreSQL.typeConverter[tdata[cname].dtype.type]));
+                #.info("{} maps to {} {}".format(cname, tdata[cname].dtype.type, DBCPostgreSQL.typeConverter[tdata[cname].dtype.type]));
                 if(DBCPostgreSQL.typeConverter[tdata[cname].dtype.type] in ['text']):
                     colsel = DBCPostgreSQL.__CHAR_COL_DESCRIBE__.format(cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname, cname);
                 else:
@@ -349,9 +399,8 @@ class DBCPostgreSQL(DBC):
                 sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {}{};".format(sqlsel, tblrData.tableName, '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '');
-            #logging.debug("Performing describe : {}".format(sqlsel));
-            self._executeQry(sqlsel);
-            data,rows = self._getResult();
+            #.debug("Performing describe : {}".format(sqlsel));
+            data,rows = self._executeQry(sqlsel);
             #descData = {};
             descData = collections.OrderedDict();
             for cname in tdata:
@@ -369,23 +418,21 @@ class DBCPostgreSQL(DBC):
 
         if(isinstance(tblrData, DBTable)):
             sql = DBCPostgreSQL.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName)
-            self._executeQry(sql);
-            colMeta, numcols = self._getResult();
+            colMeta, numcols = self._executeQry(sql);
             sqlsel = None;
             for c in range(0, numcols):
                 cname = colMeta["columnname"][c];
                 ctype = colMeta["columntype"][c];
                 if(collist is None or cname in collist):
-                    if(ctype in ('char', 'varchar') and agfn in (DBC.AGGTYPE.SUM, DBC.AGGTYPE.AVG)):
+                    if(ctype in ('character', 'character varying') and agfn in (DBC.AGGTYPE.SUM, DBC.AGGTYPE.AVG)):
                         colsel = "'' AS agg_{}".format(cname);
                     else:
                         colsel = agfn.value.format(cname) + (' AS agg_{}').format(cname);
                     sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {};".format(sqlsel, tblrData.tableName);
-            self._executeQry(sqlsel);
-            data,rows = self._getResult();
-            #logging.debug("Performing agg : {}".format(sqlsel));
+            data,rows = self._executeQry(sqlsel);
+            #.debug("Performing agg : {}".format(sqlsel));
             for c in range(0, numcols):
                 cname = colMeta["columnname"][c];
                 if(collist is None or cname in collist):
@@ -394,7 +441,7 @@ class DBCPostgreSQL(DBC):
             tdata = tblrData.rows;
             sqlsel = None;
             for cname in tdata:
-                #logging.info("{} maps to {} {}".format(cname, tdata[cname].dtype.type, DBCPostgreSQL.typeConverter[tdata[cname].dtype.type]));
+                #.info("{} maps to {} {}".format(cname, tdata[cname].dtype.type, DBCPostgreSQL.typeConverter[tdata[cname].dtype.type]));
                 if(DBCPostgreSQL.typeConverter[tdata[cname].dtype.type] in ['text'] and agfn in (DBC.AGGTYPE.SUM, DBC.AGGTYPE.AVG)):
                     colsel = "'' AS agg_{}".format(cname);
                 else:
@@ -402,21 +449,20 @@ class DBCPostgreSQL(DBC):
                 sqlsel = ((sqlsel + '\n,') if(sqlsel is not None) else '\n' ) + colsel;
 
             sqlsel = "SELECT {} \n FROM {}{};".format(sqlsel, tblrData.tableName, '()' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else '');
-            #logging.info("Performing agg : {}".format(sqlsel));
-            self._executeQry(sqlsel);
-            data,rows = self._getResult();
+            #.info("Performing agg : {}".format(sqlsel));
+            data,rows = self._executeQry(sqlsel);
             for cname in tdata:
                 if(collist is None or cname in collist):
                     result[cname] = data['agg_{}'.format(cname)][0];
 
-        #logging.debug("DEBUG: returning agg results {}".format(result));
+        #.debug("DEBUG: returning agg results {}".format(result));
 
         #return result[list(result.keys())[0]] if(len(result)==1 and collist is not None) else result;
         return result[list(result.keys())[0]] if(len(result)==1 and valueOnly) else result;
 
 
     def __del__(self):
-        #logging.debug("__del__ called for {}".format(self._jobName));
+        #.debug("__del__ called for {}".format(self._jobName));
 
         #Where we using regular Table UDFs or Virtuable Tables ?
         dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
@@ -425,11 +471,10 @@ class DBCPostgreSQL(DBC):
             try:
                 objval = self._tableRepo_[obj];
                 if(not isinstance(objval, DBTable)):
-                    #logging.debug("Dropping {} {}".format(dropObjectType, obj));
+                    #.debug("Dropping {} {}".format(dropObjectType, obj));
                     sql = 'DROP {} {};'.format(dropObjectType, obj)
                     self._executeQry(sql, DBC.SQLTYPE.DROP);
-                    self._getResult();
-                    #logging.debug("dropped {} {}".format(dropObjectType, obj));
+                    #.debug("dropped {} {}".format(dropObjectType, obj));
             except:
                 pass;
 
