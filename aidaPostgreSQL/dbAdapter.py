@@ -15,6 +15,8 @@ from aidacommon.dbAdapter import *;
 from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 
+from time import time;
+from convert import convert;
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -162,23 +164,27 @@ class DBCPostgreSQL(DBC):
         #logging.debug("_execution called for {} with {}".format(self._jobName, sql));
         with self.__qryLock__:
             try:
-                #logging.debug(sql)
+                logging.debug(sql)
+                t1 = time()
                 rv = self.__connection.execute(sql);
-               
-                if(rv.nrows() == 0):
-                    return (dict(),0)
-               
-                # converting with python module
-                """
+
+                if(rv.nrows() == 0 ):
+                    try:
+                        return ({k: [] for k in rv.colnames()},0)
+                    except:
+                        return ([],0)      
+                 
+                # these step take almost no time
                 col = list(rv)
                 cs = rv.colnames()
                 r = len(col)
                 c = len(cs)
-                import nz
-                result = nz.nz(col,cs,r,c)
-                """
+
+                result = convert(col,cs,r,c)
 
                 # original converting method
+
+                """
                 result = {}                
                 for k in rv.colnames():
                     col = [row[k].rstrip() if(isinstance(row[k], str)) else row[k] for row in rv]                    
@@ -189,10 +195,9 @@ class DBCPostgreSQL(DBC):
                         result[k] = np.array(col, dtype = DBCPostgreSQL.typeConverter_re[type(col[0]).__name__])
                     else:
                         result[k] = np.array(col, dtype = np.object)
+                """
                 
-                # converting with modified plpy module
-                """ """
-                   
+                
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
                         #get some columns
@@ -228,15 +233,19 @@ class DBCPostgreSQL(DBC):
         #TODO: instead of infering the data type from the data, use columns to figure it out.
         #TODO: WARNING !! that might not work, as it means a sql calling table udf may need the udf to execute another sql to load its data.
         data = tblrData.rows;
-        logging.info(data)
+        
         #Should we create a regular UDF or use a virtual table ?
         if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
-            cudf = 'CREATE FUNCTION {}() RETURNS TABLE({})\nAS $$\n import copy;\n from aidacommon.dbAdapter import DBC;'
-            cudf += '\n data = copy.deepcopy(DBC._getDBTable(\'{}\').rows);\n cols = [{}]'
-            cudf += '\n result = list()\n for i in range(0, 0 if(len(data.values()) == 0) else len(list(data.values())[0]) ):'
-            cudf += '\n     if len(cols) == 1:\n         result.append(data[cols[0]][i])'
-            cudf += '\n     else:\n         row = list()\n         for k in cols:'
-            cudf += '\n             row.append(data[k][i])\n         result.append(row)'
+            cudf = 'CREATE FUNCTION {}() RETURNS TABLE({})\nAS $$\n from aidacommon.dbAdapter import DBC;'
+            cudf += '\n data = (DBC._getDBTable(\'{}\').rows);'
+            cudf += '\n cols = [{}]'
+            cudf += '\n if len(cols) == 1:\n     result = data[cols[0]]'
+            cudf += '\n else:\n     result = [dict(zip(data,t)) for t in zip(*data.values())]'
+            #cudf += '\n result = list()\n for i in range(0, 0 if(len(data.values()) == 0) else len(list(data.values())[0]) ):'
+            #cudf += '\n     if len(cols) == 1:\n         result.append(data[cols[0]][i])'
+            #cudf += '\n     else:\n         row = list()\n         for k in cols:'
+            #cudf += '\n             row.append( (data[k][i]).rstrip() ) if(isinstance(data[k][i], str))  '
+            #cudf += 'else  row.append(data[k][i])\n         result.append(row)'
             cudf += '\n return result \n$$ LANGUAGE plpython3u;';
             #cudf = 'CREATE FUNCTION {}() RETURNS TABLE({})\nAS $$\n import copy;\n from aidacommon.dbAdapter import DBC;\n return copy.deepcopy(DBC._getDBTable(\'{}\').rows); \n$$ LANGUAGE plpython3u;';
             #cudf = 'CREATE FUNCTION {}() RETURNS TABLE({}) LANGUAGE PYTHON \n{{\n from aidacommon.dbAdapter import DBC; return DBC._getDBTable(\'{}\').rows; \n}}\n;';
