@@ -546,23 +546,33 @@ class VStackTransform(StackTransform):
     def __processTransform__(self):
         #srcdatalist = []
         numcols=None; src1=None;
+        cols = collections.defaultdict(list);
         for src in self._sourcelist_:
-            rows=src.rows;
-            if(numcols is None):
-                numcols = len(rows);
-                src1 = src;
-            elif(numcols != len(rows)):
-                logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
-                raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
-            #srcdatalist.append(rows);
+            try:
+                rows=src.rows;
+                if(numcols is None):
+                    numcols = len(rows);
+                    src1 = src;
+                elif(numcols != len(rows)):
+                    logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                    raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                for c, col in zip(range(0, numcols), rows):
+                    cols[c].append(rows[col]);
+            except AttributeError:
+                if(numcols != len(src)):
+                    logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                    raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                for c, col in zip(range(0, numcols), src):
+                    cols[c].append(src[col]);
+
         resultrows=collections.OrderedDict();
         colnames = list(src1.rows.keys());
-        for i in range(0, numcols):
-            #resultcoldata = np.vstack([ srcdata[:,i].matrix for srcdata in srcdatalist ]);
-            resultcoldata = np.vstack([ srcdata[:,i].matrix for srcdata in self._sourcelist_ ]);
-            resultrows[colnames[i]] = resultcoldata;
+        for c,col in zip(range(0, numcols), colnames):
+            resultrows[col] = np.hstack(cols[c]);
+
         self.__data__ = resultrows;
         self.__columns__ = src1.columns;
+
 
 
 class UserTransform(Transform):
@@ -1193,7 +1203,11 @@ class DBTable(TabularData):
 
     #For stacking columns one on top of the other
     def vstack(self, otherdatalist):
-        return DataFrame(self, VStackTransform([self, *otherdatalist]));
+        if(isinstance(otherdatalist, tuple) or isinstance(otherdatalist, list)):
+            return DataFrame(self, VStackTransform([self, *otherdatalist]));
+        else:
+            return DataFrame(self, VStackTransform([self, otherdatalist]));
+        #return DataFrame(self, VStackTransform([self, *otherdatalist]));
 
     #For stacking columns side by side.
     def hstack(self, otherdatalist, colprefixlist=None):
