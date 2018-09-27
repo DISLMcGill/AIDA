@@ -438,6 +438,10 @@ class SliceTransform(Transform):
                 rowslice = slice(rowinfo, rowinfo+1, 1);
             elif (isinstance(rowinfo, slice)):
                 rowslice = rowinfo;
+            elif (isinstance(rowinfo, list)):
+                rowslice = rowinfo;
+            elif (isinstance(rowinfo, np.ndarray)):
+                rowslice = rowinfo;
             #column information is the second element in the tuple.
             colinfo = sliceinfo[1];
             #column information is passed on as an integer.
@@ -446,6 +450,8 @@ class SliceTransform(Transform):
             #column information is passed on as a name.
             elif(isinstance(colinfo, str)):
                 cols = [str];
+            elif(isinstance(colinfo, slice)):
+                cols = srcdataKeysList[colinfo];
             #Otherwise it is already a list of columns
             else:
                 #convert any integer positions in the column list to column names.
