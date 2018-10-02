@@ -150,7 +150,7 @@ class DBC(metaclass=ABCMeta):
 
         #Do the actual setting of the attribute.
         super().__setattr__(key, value);
-        if(returnAttr is not None):
+        if(returnAttr):
             return value;
 
     def __setattr__(self, key, value):
