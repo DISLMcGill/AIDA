@@ -21,8 +21,9 @@ class DBCMonetDB(DBC):
     """Database adapter class for MonetDB"""
 
     #We will use this to map numpy data types to MonetDB compatible types.
-    typeConverter = {np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
-                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'};
+    typeConverter = { np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
+                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'
+                    , 'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP' };
 
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
 
@@ -210,8 +211,17 @@ class DBCMonetDB(DBC):
                 dataType = data[colname].dtype.type;
                 if(dataType is np.object_):
                     try:
-                        if(isinstance(data[colname][0], bytearray)):
+                        cd = data[colname][0];
+                        if(isinstance(cd, bytearray)):
                             dataType = bytearray;
+                        elif(isinstance(cd, str)):
+                            for f in self.datetimeFormats:
+                                try:
+                                    datetime.datetime.strptime(cd, f);
+                                    dataType = self.datetimeFormats[f];
+                                    break;
+                                except ValueError:
+                                    pass;
                     except IndexError:
                         pass;
                 #logging.debug("UDF column {} type {}".format(colname, dataType));
