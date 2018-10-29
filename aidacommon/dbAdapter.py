@@ -55,6 +55,8 @@ class DBC(metaclass=ABCMeta):
     def _X(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
         return func(self, *args, **kwargs);
 
     def _XP(self, func, *args, **kwargs):
@@ -62,6 +64,8 @@ class DBC(metaclass=ABCMeta):
         #Execute the function with this workspace as the argument and return the results if any.
         #Wrap the DBC object to make sure that the DBC object returns only NumPy matrix representations of the TabularData objects.
         #TODO: Go over the args and kwargs and replace TabularData objects with NumPy matrix representations.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
         return func(DBCWrap(self), *args, **kwargs);
 
     def _ones(self, shape, cols=None):
