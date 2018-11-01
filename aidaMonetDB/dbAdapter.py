@@ -3,6 +3,8 @@ import threading;
 
 import collections;
 import datetime;
+## -- QLOG -- ##
+##from timeit import default_timer as timer;
 
 import numpy as np;
 import pandas as pd;
@@ -156,7 +158,12 @@ class DBCMonetDB(DBC):
 
         with self.__qryLock__:
             try:
+                ## -- QLOG -- ##
+                ##st = timer();
                 result = self.__connection.execute(sql);
+                ## -- QLOG -- 2##
+                ##et = timer();
+                ##logging.info("_executeQry: {} {}".format(et-st, sql.replace("\n", "")))
                 #logging.debug("__executeQry result {}".format(result));
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
@@ -253,7 +260,12 @@ class DBCMonetDB(DBC):
                 except IndexError:
                     pass;
             #logging.debug("__connection.registerTable : data={} tableName={} dbname={} cols={} options={}".format(data, tableName, self.dbName, list(data.keys()), options));
+            ## -- QLOG -- ##
+            ##st = timer();
             self.__connection.registerTable(data, tableName, self.dbName, cols=list(data.keys()), options=options);
+            ## -- QLOG -- 2##
+            ##et = timer();
+            ##logging.info("_registerTable: {} CREATE FUNCTION {}".format(et-st, tableName));
         #Keep track of our UDFs/Virtual tables;
         #logging.debug("Created Table UDF/VT {}.{}".format(self.dbName, tableName));
         self._tableRepo_[tableName] = tblrData;
