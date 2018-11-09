@@ -1280,7 +1280,7 @@ class DBTable(TabularData):
     def __del__(self):
         #logging.debug("Removing dborm {}".format(self.__tableName__));
         if(self.__data__ is not None):
-            self.__data__.clear();
+            ##-##self.__data__.clear();
             del self.__data__;
         if(self.__matrix__ is not None):
             del self.__matrix__;
@@ -1733,7 +1733,7 @@ class DataFrame(TabularData):
         if(self.tableUDFExists):
             self.dbc._dropTblUDF(self);
         if(self.__data__ is not None):
-            self.__data__.clear();
+            ##-##self.__data__.clear();
             del self.__data__;
         if(self.__matrix__ is not None):
             del self.__matrix__;
