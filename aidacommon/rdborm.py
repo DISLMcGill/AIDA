@@ -139,6 +139,14 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def _Page(self, func, *args, **kwargs):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _Plot(self, func, *args, **kwargs):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def _X(self, func, *args, **kwargs):
         pass
 

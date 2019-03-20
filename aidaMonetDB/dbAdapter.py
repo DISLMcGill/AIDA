@@ -92,7 +92,7 @@ class DBCMonetDB(DBC):
         ", '                    ' AS std_{}";
 
     #TODO: Throw an error and abort object creation in case of failures.
-    def __new__(cls, dbname, username, password, jobName, dbcRepoMgr):
+    def __new__(cls, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""
         #logging.debug("__new__ called for {}".format(jobName));
         con = pymonetdb.Connection(dbname,hostname='localhost',username=username,password=password,autocommit=True);
@@ -100,13 +100,13 @@ class DBCMonetDB(DBC):
         con.close();
         return super().__new__(cls);
 
-    def __init__(self, dbname, username, password, jobName, dbcRepoMgr):
+    def __init__(self, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """Actual object creation"""
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName, dbname);
+        super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
         self.__setDBC__();
 

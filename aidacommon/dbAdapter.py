@@ -1,4 +1,5 @@
 import weakref;
+import inspect;
 import copyreg;
 from enum import Enum;
 from abc import ABCMeta, abstractmethod;
@@ -9,8 +10,11 @@ import logging;
 
 import numpy as np;
 
+from aidacommon.aidaConfig import AConfig;
 from aidacommon.rop import ROMgr;
 from aidacommon.rdborm import *;
+
+from aidacommon.gbackend import GBackendApp;
 
 class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
@@ -24,13 +28,15 @@ class DBC(metaclass=ABCMeta):
         MAX='MAX({})'; MIN='MIN({})';
 
     _tableRepo_ = weakref.WeakValueDictionary();
+    _plotURLRepo_ = {};
 
-    def __init__(self, conMgr, jobName, dbName):
+    def __init__(self, conMgr, jobName, dbName, serverIPAddr):
         self._conMgr = conMgr;
         self._jobName = jobName;
         self._conMgr.add(jobName, self);
         self._roMgrObj = ROMgr.getROMgr();
         self._dbName = dbName;
+        self._serverIPAddr = serverIPAddr;
         self._workSpaceProxies_ = {};
 
     #@abstractmethod
@@ -51,6 +57,45 @@ class DBC(metaclass=ABCMeta):
 
     @abstractmethod
     def _executeQry(self, sql, resultFormat='column'): pass;
+
+    def _Page(self, func, *args, **kwargs):
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+
+        appObj = GBackendApp.getGBackendAppObj();
+        plotLayout =  func(weakref.proxy(self), appObj.app, *args, **kwargs);
+        plotURL = GBackendApp.genURLPath(self._jobName);
+        self._plotURLRepo_[plotURL] = plotLayout;
+        appObj.addURL(plotURL,self);
+
+        if(AConfig.PAGETUNNEL is None):
+            return 'http://' + self._serverIPAddr + ':' + str(AConfig.DASHPORT) + plotURL;
+        else:
+            return 'https://' + AConfig.PAGETUNNEL + plotURL;
+
+    def genDivId(self, id):
+        func = inspect.stack()[1][3];
+        return self._jobName + '-' + func + '-' + id + '-' + hex(abs(hash((self._jobName, func, id))));
+
+    def _Plot(self, func, *args, **kwargs):
+        """Function that is called from stub to execute a Dash graph plotting python function in this workspace"""
+        #Execute the function with this workspace as the argument and return the results if any.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+
+        plotLayout =  GBackendApp.wrapGraph(func(self, *args, **kwargs));
+        plotURL = GBackendApp.genURLPath(self._jobName);
+        self._plotURLRepo_[plotURL] = plotLayout;
+        GBackendApp.getGBackendAppObj().addURL(plotURL,self);
+
+        if(AConfig.PAGETUNNEL is None):
+            return 'http://' + self._serverIPAddr + ':' + str(AConfig.DASHPORT) + plotURL;
+        else:
+            return 'https://' + AConfig.PAGETUNNEL + plotURL;
+
+    def getPlotLayout(self, plotURL):
+        """Function that is invoked by the GBackendApp to obtain the layout of a plot"""
+        return self._plotURLRepo_[plotURL];
 
     def _X(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""

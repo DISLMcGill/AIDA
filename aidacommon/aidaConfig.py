@@ -34,9 +34,12 @@ def loadConfig(topic='AIDASERVER'):
     if(topic == 'AIDASERVER'):
         config_ = config['AIDASERVER'];
         AConfig.DATABASEPORT = config_.getint('DATABASEPORT', defaultConfig['DATABASEPORT']);
+        AConfig.DASHPORT = config_.getint('DASHPORT', defaultConfig['DASHPORT']);
         AConfig.DATABASEADAPTER = config_.get('DATABASEADAPTER', defaultConfig['DATABASEADAPTER']);
         udfType = config_.get('UDFTYPE', defaultConfig['UDFTYPE']);
         AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else UDFTYPE.VIRTUALTABLE;
+        AConfig.MAPBOXTOKEN = config_.get('MAPBOXTOKEN', defaultConfig['MAPBOXTOKEN']);
+        AConfig.PAGETUNNEL = config_.get('PAGETUNNEL', None);
     else:
         config_ = config['AIDACLIENT'];
 
@@ -45,6 +48,7 @@ def loadConfig(topic='AIDASERVER'):
     AConfig.LOGFILE = config_.get('LOGFILE', defaultConfig['LOGFILE']);
     AConfig.CONNECTIONMANAGERPORT = config_.getint('CONNECTIONMANAGERPORT', defaultConfig['CONNECTIONMANAGERPORT']);
     AConfig.RMIPORT = config_.getint('RMIPORT', defaultConfig['RMIPORT']);
+
 
     # Setup the logging mechanism.
     if (AConfig.LOGLEVEL == 'DEBUG'):

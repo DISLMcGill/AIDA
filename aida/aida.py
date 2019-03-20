@@ -37,3 +37,20 @@ class AIDA(metaclass=ABCMeta):
         #TODO check ret and throw it as an exception in case of some error.
         return ret;
 
+
+def head(tdata, n=5):
+    print(tdata.head(n));
+
+def tail(tdata, n=5):
+    print(tdata.tail(n));
+
+def describe(tdata):
+    print(tdata.describe());
+
+def tables(dw):
+    print(dw._tables());
+
+from IPython.core.display import display;
+from IPython.display import IFrame;
+def show(url, width='100%', height=500):
+    display(IFrame(src=url, width=width, height=height));
