@@ -10,6 +10,8 @@ import logging;
 
 import numpy as np;
 
+import random;
+
 from aidacommon.aidaConfig import AConfig;
 from aidacommon.rop import ROMgr;
 from aidacommon.rdborm import *;
@@ -38,6 +40,7 @@ class DBC(metaclass=ABCMeta):
         self._dbName = dbName;
         self._serverIPAddr = serverIPAddr;
         self._workSpaceProxies_ = {};
+        self._webDivIds = {};
 
     #@abstractmethod
     #def _getDBTable(self, relName, dbName=None): pass;
@@ -74,8 +77,14 @@ class DBC(metaclass=ABCMeta):
             return 'https://' + AConfig.PAGETUNNEL + plotURL;
 
     def genDivId(self, id):
-        func = inspect.stack()[1][3];
-        return self._jobName + '-' + func + '-' + id + '-' + hex(abs(hash((self._jobName, func, id))));
+        #func = inspect.stack()[1][3];
+        #divId =  self._jobName + '-' + func + '-' + id + '-' + hex(abs(hash((self._jobName, func, id, random.random()))));
+        divId =  self._jobName + '-' + id + '-' + hex(abs(hash((self._jobName, id, random.random()))));
+        self._webDivIds[id] = divId;
+        return divId;
+
+    def getDivId(self, id):
+        return self._webDivIds[id];
 
     def _Plot(self, func, *args, **kwargs):
         """Function that is called from stub to execute a Dash graph plotting python function in this workspace"""
