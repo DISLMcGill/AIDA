@@ -71,6 +71,14 @@ def bootstrap():
     conMgr = aidas.ConnectionManager.getConnectionManager(dadapt);
     aidasys.conMgr = conMgr;
 
+    #Visualization
+    import builtins;
+    import matplotlib;
+    matplotlib.use('Agg');
+    builtins.matplotlib = matplotlib;
+    import matplotlib.pyplot as plt;
+    builtins.plt = plt;
+
     gBApp = gbackend.GBackendApp(AConfig.DASHPORT)
     aidasys.gBApp = gBApp;
     gBApp.start();

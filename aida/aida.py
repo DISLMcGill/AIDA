@@ -50,7 +50,12 @@ def describe(tdata):
 def tables(dw):
     print(dw._tables());
 
-from IPython.core.display import display;
+#from IPython.core.display import display;
+from IPython.display import display;
 from IPython.display import IFrame;
-def show(url, width='100%', height=500):
-    display(IFrame(src=url, width=width, height=height));
+from PIL import Image;
+def show(resource, width='100%', height=500):
+    if(isinstance(resource, str)): #IF this is a URL
+        display(IFrame(src=resource, width=width, height=height));
+    else:
+        display(Image.open(resource));

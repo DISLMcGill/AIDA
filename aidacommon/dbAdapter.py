@@ -12,6 +12,9 @@ import numpy as np;
 
 import random;
 
+from io import BytesIO;
+from PIL import Image;
+
 from aidacommon.aidaConfig import AConfig;
 from aidacommon.rop import ROMgr;
 from aidacommon.rdborm import *;
@@ -92,15 +95,23 @@ class DBC(metaclass=ABCMeta):
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
 
-        plotLayout =  GBackendApp.wrapGraph(func(self, *args, **kwargs));
-        plotURL = GBackendApp.genURLPath(self._jobName);
-        self._plotURLRepo_[plotURL] = plotLayout;
-        GBackendApp.getGBackendAppObj().addURL(plotURL,self);
+        plotData =  func(self, *args, **kwargs);
 
-        if(AConfig.PAGETUNNEL is None):
-            return 'http://' + self._serverIPAddr + ':' + str(AConfig.DASHPORT) + plotURL;
+        if(isinstance(plotData, dict)):
+            #plotLayout =  GBackendApp.wrapGraph(func(self, *args, **kwargs));
+            plotLayout =  GBackendApp.wrapGraph(plotData);
+            plotURL = GBackendApp.genURLPath(self._jobName);
+            self._plotURLRepo_[plotURL] = plotLayout;
+            GBackendApp.getGBackendAppObj().addURL(plotURL,self);
+
+            if(AConfig.PAGETUNNEL is None):
+                return 'http://' + self._serverIPAddr + ':' + str(AConfig.DASHPORT) + plotURL;
+            else:
+                return 'https://' + AConfig.PAGETUNNEL + plotURL;
         else:
-            return 'https://' + AConfig.PAGETUNNEL + plotURL;
+            imgData = BytesIO();
+            plotData.savefig(imgData, format='png');
+            return imgData;
 
     def getPlotLayout(self, plotURL):
         """Function that is invoked by the GBackendApp to obtain the layout of a plot"""
