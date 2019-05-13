@@ -9,7 +9,7 @@ import json_tricks as json
 def transmit(result, sock):
 
 
-    logging.debug("Ntwk channel json-zstd: to transmit : ");
+    #logging.debug("Ntwk channel json-zstd: to transmit : ");
 
     numArray = len(result) #number of numpy arrays in the dict
     pickler = pickle.Pickler(sock)
@@ -28,12 +28,12 @@ def transmit(result, sock):
             compressor.write(y)
 
 
-    logging.debug("Ntwk channel json-zstd: transmission completed : ");
+    #logging.debug("Ntwk channel json-zstd: transmission completed : ");
 
 
 def receive(sock):
 
-    logging.debug("Ntwk channel json-zstd: waiting to receieve : ");
+    #logging.debug("Ntwk channel json-zstd: waiting to receieve : ");
 
     unpickler = pickle.Unpickler(sock)
 
@@ -58,6 +58,6 @@ def receive(sock):
 
 
 
-    logging.debug("Ntwk channel json-zstd: data received : ");
+    #logging.debug("Ntwk channel json-zstd: data received : ");
     return result;
 

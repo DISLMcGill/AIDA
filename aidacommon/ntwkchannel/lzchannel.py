@@ -9,7 +9,7 @@ import json_tricks as json
 def transmit(result, sock):
 
 
-    logging.debug("Ntwk channel json-lz-pipe: to transmit : ");
+    #logging.debug("Ntwk channel json-lz-pipe: to transmit : ");
 
     numArray = len(result) #number of numpy arrays in the dict
     pickler = pickle.Pickler(sock)
@@ -27,17 +27,19 @@ def transmit(result, sock):
             try:
                 compressor.update(y)
             except lz4framed.lz4FramedNoDataError:
-                logging.debug("lz4framed no data error")
+                #logging.error("lz4framed no data error")
+                pass
             except EOFError:
-                logging.debug("eoferror")
+                pass;
+                #logging.debug("eoferror")
         sft = time.time() ###
 
-    logging.debug("Ntwk channel json-lz-pipe: transmission completed : ");
+    #logging.debug("Ntwk channel json-lz-pipe: transmission completed : ");
 
 
 def receive(sock):
 
-    logging.debug("Ntwk channel json-lz-pipe: waiting to receieve : ");
+    #logging.debug("Ntwk channel json-lz-pipe: waiting to receieve : ");
 
     unpickler = pickle.Unpickler(sock)
     numArray = unpickler.load()
@@ -54,13 +56,15 @@ def receive(sock):
             for chunk in lz4framed.Decompressor(sock):
                 data += chunk.decode('utf-8')
         except lz4framed.Lz4FramedNoDataError:
-            print("nde")
+            #print("nde")
+            pass;
         except EOFError:
-            print("eof")
+            #print("eof")
+            pass;
 
         val = json.loads(data)
         result.update({keylist[i]:val})
 
-    logging.debug("Ntwk channel json-lz-pipe: data received : ");
+    #logging.debug("Ntwk channel json-lz-pipe: data received : ");
     return result;
 

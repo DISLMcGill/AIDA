@@ -1620,21 +1620,22 @@ class DataFrame(TabularData):
     @classmethod
     def ones(cls, shape, cols=None, dbc=None):
         #return cls._virtualData_( lambda:np.ones(shape), cols, dbc);
-        return cls._virtualData_(lambda :np.ones((shape[0],)) if(len(shape)==1 or shape[1]==1) else np.ones((shape[1], shape[0])), cols=cols, dbc=dbc);
+        if(isinstance(shape, tuple)):
+            return cls._virtualData_(lambda :np.ones(shape[0]) if(len(shape)==1 or shape[1]==1) else np.ones((shape[1], shape[0])), cols=cols, dbc=dbc);
+        else:
+            return cls._virtualData_(lambda :np.ones(shape), cols=cols, dbc=dbc);
 
-    #TODO fix the processing of shape similar to that of ones.
     @classmethod
     def rand(cls, shape, cols=None, dbc=None):
         if(isinstance(shape, tuple)):
-            return cls._virtualData_( lambda:np.random.rand(*shape), cols=cols, dbc=dbc);
+            return cls._virtualData_(lambda :np.random.rand(shape[0]) if(len(shape)==1 or shape[1]==1) else np.random.rand(shape[1], shape[0]), cols=cols, dbc=dbc);
         else:
             return cls._virtualData_( lambda:np.random.rand(shape), cols=cols, dbc=dbc);
 
-    #TODO fix the processing of shape similar to that of ones.
     @classmethod
     def randn(cls, shape, cols=None, dbc=None):
         if(isinstance(shape, tuple)):
-            return cls._virtualData_( lambda:np.random.randn(*shape), cols=cols, dbc=dbc);
+            return cls._virtualData_(lambda :np.random.randn(shape[0]) if(len(shape)==1 or shape[1]==1) else np.random.randn(shape[1], shape[0]), cols=cols, dbc=dbc);
         else:
             return cls._virtualData_( lambda:np.random.randn(shape), cols=cols, dbc=dbc);
 

@@ -11,7 +11,7 @@ import struct
 def transmit(result, sock):
 
 
-    logging.debug("Ntwk channel json-snappy: to transmit : ");
+    #logging.debug("Ntwk channel json-snappy: to transmit : ");
 
     numArray = len(result) #number of numpy arrays in the dict
     pickler = pickle.Pickler(sock)
@@ -29,12 +29,12 @@ def transmit(result, sock):
         sock.write(struct.pack("!I", len(data)))
         sock.write(data)
 
-    logging.debug("Ntwk channel json-snappy: transmission completed : ");
+    #logging.debug("Ntwk channel json-snappy: transmission completed : ");
 
 
 def receive(sock):
 
-    logging.debug("Ntwk channel json-snappy: waiting to receieve : ");
+    #logging.debug("Ntwk channel json-snappy: waiting to receieve : ");
 
 
     unpickler = pickle.Unpickler(sock)
@@ -55,6 +55,6 @@ def receive(sock):
         val = json.loads(data)
         result.update({keylist[i]:val})
 
-    logging.debug("Ntwk channel json-lz-pipe: data received : ");
+    #logging.debug("Ntwk channel json-lz-pipe: data received : ");
     return result;
 
