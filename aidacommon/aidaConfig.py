@@ -42,6 +42,19 @@ def loadConfig(topic='AIDASERVER'):
         AConfig.PAGETUNNEL = config_.get('PAGETUNNEL', None);
     else:
         config_ = config['AIDACLIENT'];
+        try:
+            AConfig.PORTMAPFILE = config_.get('PORTMAPFILE');   #ADVANCED - for tunnelling ports.
+            pmaps = configparser.ConfigParser();
+            pmaps.read(AConfig.PORTMAPFILE);
+            pmaps = pmaps['OVERRIDE']
+            maps = {}
+            for hp in pmaps.keys():
+                mp = pmaps[hp]; hp_ = hp.split('^'); mp_ = mp.split('^');
+                maps[(hp_[0],int(hp_[1]))] = (mp_[0],int(mp_[1]))
+            AConfig.PORTMAPS = maps;
+        except KeyError:
+            AConfig.PORTMAPS = {};
+            pass
 
     #AConfig.NTWKCHANNEL =  config_.get('NTWKCHANNEL', defaultConfig['NTWKCHANNEL']);
     AConfig.LOGLEVEL = config_.get('LOGLEVEL', defaultConfig['LOGLEVEL']);
@@ -71,3 +84,9 @@ def loadConfig(topic='AIDASERVER'):
 #        dadapt = getattr(dmod, dbAdapterClass);
 #        logging.info('AIDA: Loading database adapter {} for connection manager'.format(dadapt))
 
+
+def portMapper(host,port):
+    try:
+        return AConfig.PORTMAPS[(host,port)];
+    except:
+        return (host,port);

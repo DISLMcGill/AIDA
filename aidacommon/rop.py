@@ -25,7 +25,7 @@ from six import  reraise;
 
 from socketserver import ThreadingTCPServer, StreamRequestHandler;
 
-from aidacommon.aidaConfig import AConfig;
+from aidacommon.aidaConfig import AConfig, portMapper;
 
 class ROMessages(metaclass=ABCMeta):
     _INIT_ = '__I'; _NOT_FOUND_ = '__N'; _OK_ = '__O'; _GET_ATTRIBUTE_='__A'; _COMPRESS_ = '__C'; _DUMMY_=None;
@@ -594,6 +594,7 @@ class ROStubMgr (metaclass=ABCMeta):
         #sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1);
         sock = socket.socket();
         sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1);
+        (host,port) = portMapper(host,port); #See if this port is tunnelled.
         sock.connect((host, port));
 
         #File handles to work directly with the custompickle functions.
