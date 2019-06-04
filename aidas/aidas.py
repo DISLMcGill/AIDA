@@ -38,6 +38,8 @@ class ConnectionManager(metaclass=ABCMeta):
                     def handle(self):
                         "Called by TCPServer for each client connection request"
                         try:
+                            ###For VLDB demo monitoring
+                            AConfig.AIDALOG.log('A', 1);
                             (dbname, username, password, jobName) = custompickle.load(self.rfile);
                             #logging.debug("connection request received {}".format((dbname,username,jobName)));
                             #dbc = dborm.dbAdapter.DBCMonetDB(dbname, username, password, jobName, CoMgrObj);
@@ -49,6 +51,8 @@ class ConnectionManager(metaclass=ABCMeta):
                         except Exception as e:
                             logging.error("error {} occured while creating dbc for {}".format(e, (dbname,username,jobName)));
                             logging.exception(e);
+                        finally:
+                            AConfig.AIDALOG.log('A', 0);
 
                     def finish(self):
                         self.wfile.close();

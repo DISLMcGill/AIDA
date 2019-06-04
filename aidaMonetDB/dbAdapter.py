@@ -160,7 +160,10 @@ class DBCMonetDB(DBC):
             try:
                 ## -- QLOG -- ##
                 ##st = timer();
+                ### For VLDB demo monitoring
+                AConfig.AIDALOG.log(['A','D'], 1);
                 result = self.__connection.execute(sql);
+                AConfig.AIDALOG.log(['A','D'], 0);
                 ## -- QLOG -- 2##
                 ##et = timer();
                 ##logging.info("_executeQry: {} {}".format(et-st, sql.replace("\n", "")))
@@ -183,6 +186,8 @@ class DBCMonetDB(DBC):
                         pass;
 
             except Exception as e:
+                ### For VLDB demo monitoring
+                AConfig.AIDALOG.log(['A','D'], 0);
                 the_type, the_value, the_traceback = sys.exc_info();
                 logging.error("An exception occured while trying to execute query {}".format((the_type, the_value, the_traceback)));
                 logging.exception("An exception occured while executing query {}".format(sql));

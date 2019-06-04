@@ -40,6 +40,12 @@ def loadConfig(topic='AIDASERVER'):
         AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else UDFTYPE.VIRTUALTABLE;
         AConfig.MAPBOXTOKEN = config_.get('MAPBOXTOKEN', defaultConfig['MAPBOXTOKEN']);
         AConfig.PAGETUNNEL = config_.get('PAGETUNNEL', None);
+
+###[3]For VLDB demo monitoring
+        from misc.aidalog import AIDALog;
+        AConfig.AIDALOG = AIDALog;
+        #Number of seconds worth of perfdata to be retained.
+        AConfig.AIDALOG.MAXPERFRETENTION = config_.getint('MAXPERFRETENTION', 300);
     else:
         config_ = config['AIDACLIENT'];
         try:

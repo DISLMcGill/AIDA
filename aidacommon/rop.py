@@ -66,6 +66,8 @@ class ROMgr(metaclass=ABCMeta):
                         try:
                             while True:
                                 msg = custompickle.load(self.rfile);
+                                ### For VLDB demo monitoring
+                                AConfig.AIDALOG.log('A', 1);
                                 #logging.debug("ROProxy {}  {:0.20f}".format(msg, time.time()));
 
                                 #First message from client stub, check if object exists or not.
@@ -165,9 +167,13 @@ class ROMgr(metaclass=ABCMeta):
                                         except Exception as e:
                                             #An exception occured. send traceback info the client stub.
                                             custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
+                                ### For VLDB demo monitoring
+                                AConfig.AIDALOG.log('A', 0);
                                 #logging.debug("ROProxy {} exit time {:0.20f}".format(msg, time.time()));
 
                         except EOFError:
+                            ### For VLDB demo monitoring
+                            AConfig.AIDALOG.log('A', 0);
                             pass;
 
                         #if(hasattr(self, 'obj')):
