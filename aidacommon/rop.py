@@ -209,7 +209,7 @@ class ROMgr(metaclass=ABCMeta):
 
                 #Setup a TCP Server to listen to client stub connection requests.
                 #self.__srvr = ThreadingTCPServer((host, port), ROProxy, True);
-                __srvr = ThreadingTCPServer((host, port), ROProxy, False);
+                __srvr = ThreadingTCPServer(("", port), ROProxy, False);
                 __srvr.allow_reuse_address = True;
                 __srvr.server_bind();
                 __srvr.server_activate();

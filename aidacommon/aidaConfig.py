@@ -61,6 +61,9 @@ def loadConfig(topic='AIDASERVER'):
         except KeyError:
             AConfig.PORTMAPS = {};
             pass
+        except TypeError:
+            AConfig.PORTMAPS = {};
+            pass
 
     #AConfig.NTWKCHANNEL =  config_.get('NTWKCHANNEL', defaultConfig['NTWKCHANNEL']);
     AConfig.LOGLEVEL = config_.get('LOGLEVEL', defaultConfig['LOGLEVEL']);
