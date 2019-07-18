@@ -10,51 +10,27 @@ import struct
 
 def transmit(result, sock):
 
+    pickler = pickle.Pickler(sock);
+    cols = list(result.keys());
+    pickler.dump(cols);
 
-    #logging.debug("Ntwk channel json-snappy: to transmit : ");
-
-    numArray = len(result) #number of numpy arrays in the dict
-    pickler = pickle.Pickler(sock)
-    pickler.dump(numArray)
-    items = list(result.items())
-
-    for i in range(numArray):
-        key = items[i][0]
-        pickler.dump(key)
-
-    for i in range(numArray):
-        val = items[i][1]
-        y = (json.dumps(val, ensure_ascii=False)).encode('utf-8')
+    for col in cols:
+        y = (json.dumps(result[col], ensure_ascii=False)).encode('utf-8')
         data = snappy.compress(y)
         sock.write(struct.pack("!I", len(data)))
         sock.write(data)
 
-    #logging.debug("Ntwk channel json-snappy: transmission completed : ");
-
 
 def receive(sock):
 
-    #logging.debug("Ntwk channel json-snappy: waiting to receieve : ");
+    unpickler = pickle.Unpickler(sock);
+    result = OrderedDict([]);
+    keylist = unpickler.load();
 
-
-    unpickler = pickle.Unpickler(sock)
-
-    numArray = unpickler.load()
-    result = OrderedDict([])
-    keylist = []
-
-    for i in range(numArray):
-        key = unpickler.load()
-        keylist.append(key)
-
-
-
-    for i in range(numArray):
+    for col in keylist:
         (length,) = struct.unpack("!I", sock.read(4))
         data = snappy.decompress(sock.read(length)).decode('utf-8')
-        val = json.loads(data)
-        result.update({keylist[i]:val})
+        result[col] = json.loads(data)
 
-    #logging.debug("Ntwk channel json-lz-pipe: data received : ");
     return result;
 
