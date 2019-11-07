@@ -649,6 +649,82 @@ class UserTransform(Transform):
         return self.__columns__;
 
 
+class ExternalDataTransform(Transform):
+
+    def __init__(self, func, dbc, *args, **kwargs):
+        self.__loadfunc__ = func;
+        self._dbc_ = weakref.proxy(dbc);
+        self.__args__ = args;
+        self.__kwargs__ = kwargs;
+        self.__data__ = self.__matrix__ = self.__columns__ = None;
+
+    def __processTransform__(self):
+        func = self.__loadfunc__;
+        args = self.__args__;
+        kwargs = self.__kwargs__;
+
+        #execute the external data load function
+        data = func(*args, **kwargs);
+        #external data load functions are allowed to return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.
+        if(isinstance(data, collections.OrderedDict)):
+            self.__data__ = data;
+        elif(isinstance(data, dict)):
+            self.__data__ = collections.OrderedDict(data)
+        elif(isinstance(data, tuple) and len(data)==2):
+            _umat = data[0];
+            _ucols = data[1];
+            if(_umat.shape[1] != len(_ucols)):
+                logging.error("Error: external data transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+                raise TypeError("Error: external data transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+            #Create virtual columns for each of the matrix columns.
+            _data = collections.OrderedDict();
+            for i in range(0, len(_ucols)):
+                _data[_ucols[i]] = _umat[:,i] ;
+            self.__data__ = _data;
+            self.__matrix__ = _umat;
+        else:
+            logging.error("Error: external data transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+            raise TypeError("Error: external data transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+
+        newCols = collections.OrderedDict();
+        #for c in src.rows:
+        for c in self.__data__:
+            if(not isinstance(self.__data__[c], np.ndarray)):
+                self.__data__[c] = np.asarray(self.__data__[c]);
+            #TODO: make column metadata accurate.
+            newCols[c] = DBTable.Column((self._dbc_.dbName, None, c, None, None, 0, False));
+        self.__columns__ = newCols;
+
+
+    @property
+    def rows(self):
+        if(not self.__data__ ):
+            self.__processTransform__();
+        return self.__data__;
+
+    @property
+    def matrix(self):
+        if(not self.__matrix__ ):
+            if(not self.__data__):
+                self.__processTransform__();
+            #Sometimes processing the transform can result in a matrix, so check again.
+            if(not self.__matrix__):
+                rows = self.rows;
+                self.__matrix__ = np.stack(tuple(rows[col] for col in rows));
+        return self.__matrix__;
+
+    @property
+    def hasMatrix(self):
+        return self.__matrix__ is not None;
+
+    @property
+    def columns(self):
+        if(not self.__columns__ ):
+            self.__processTransform__();
+        return self.__columns__;
+
+
+
 class VirtualDataTransform(Transform):
     def __init__(self, transformFunc, dbc, colmeta, *args, **kwargs):
         self._dbc_ = weakref.proxy(dbc);
@@ -1100,6 +1176,9 @@ class DBTable(TabularData):
     def aggregate(self, projcols, groupcols=None):
         return DataFrame(self, SQLAggregateTransform(self, projcols, groupcols));
 
+    #Short form
+    agg = aggregate;
+
     def project(self, projcols):
         return DataFrame(self, SQLProjectionTransform(self, projcols));
 
@@ -1336,6 +1415,9 @@ class DataFrame(TabularData):
     def aggregate(self, projcols, groupcols=None):
         return DataFrame(self, SQLAggregateTransform(self, projcols, groupcols));
 
+    #Short form
+    agg = aggregate;
+
     def project(self, projcols):
         return DataFrame(self, SQLProjectionTransform(self, projcols));
 
@@ -1454,7 +1536,7 @@ class DataFrame(TabularData):
                 self.__matrix__ = self.__transform__.matrix;
                 self.__rowNames__ = self.__transform__.rowNames;
                 #logging.debug("rows : this DataFrame is of instance AlgebraicVectorTransform and produced {} columns {}".format(len(self.__columns__), time.time()));
-            elif(isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, VirtualDataTransform) or isinstance(self.__transform__, StackTransform)):
+            elif(isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, ExternalDataTransform) or isinstance(self.__transform__, VirtualDataTransform) or isinstance(self.__transform__, StackTransform)):
                 #logging.debug("DataFrame: {} : rows called retrieving source rows.".format(self.tableName));
                 self.__data__ = self.__transform__.rows;
                 #logging.debug("DataFrame: {} : rows transform rows retrieved.".format(self.tableName));
@@ -1529,7 +1611,7 @@ class DataFrame(TabularData):
     @property
     def rowsNtransform(self):
         #Either the data has already been computed, or will be now computed via SQL or from an AlgebraicVectorTransform
-        if(self.isDBQry or self.isCached or isinstance(self.__transform__, AlgebraicVectorTransform) or isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, VirtualDataTransform)):
+        if(self.isDBQry or self.isCached or isinstance(self.__transform__, AlgebraicVectorTransform) or isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, ExternalDataTransform) or isinstance(self.__transform__, VirtualDataTransform)):
             rows = self.rows;
             rowNames = self.rowNames if(self.hasRowNames) else None;
             return (rows, None, rowNames);
@@ -1616,6 +1698,11 @@ class DataFrame(TabularData):
     #User transformations.
     def _U(self, func, *args, **kwargs):
         return DataFrame(self, UserTransform(self, func, *args, **kwargs));
+
+    #Load external data -> called by database workspace (DB Adapter)
+    @classmethod
+    def _loadExtData_(cls, func, dbc, *args, **kwargs):
+        return DataFrame(None, ExternalDataTransform(func, dbc, *args, **kwargs), dbc=dbc);
 
     @classmethod
     def ones(cls, shape, cols=None, dbc=None):

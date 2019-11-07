@@ -15,6 +15,9 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
     def aggregate(self, projcols, groupcols=None): pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def agg(self, projcols, groupcols=None): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def project(self, projcols): pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
@@ -152,6 +155,10 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _XP(self, func, *args, **kwargs):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _L(self, func, *args, **kwargs):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()

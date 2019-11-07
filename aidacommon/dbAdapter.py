@@ -133,6 +133,9 @@ class DBC(metaclass=ABCMeta):
             func = super().__getattribute__(func);
         return func(DBCWrap(self), *args, **kwargs);
 
+    def _L(self, func, *args, **kwargs):
+        return DBC._dataFrameClass_._loadExtData_(func, self, *args, **kwargs);
+
     def _ones(self, shape, cols=None):
         return DBC._dataFrameClass_.ones(shape, cols, self);
 
