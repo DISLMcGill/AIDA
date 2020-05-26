@@ -133,8 +133,26 @@ class DBC(metaclass=ABCMeta):
             func = super().__getattribute__(func);
         return func(DBCWrap(self), *args, **kwargs);
 
-    def _HelloWorld(self, name):
-	print ("Hello World to", name);
+    def _helloWorld(self):
+        logging.info("Hello World");
+
+    def _linearRegression(self):
+        import pandas as pd
+        import numpy as np
+        from sklearn.linear_model import LinearRegression
+        import matplotlib.pyplot as plt
+        
+        data=pd.read_csv("Fish.csv")
+        X=data['Height'].values.reshape(-1,1)
+        y=data['Weight'].values.reshape(-1,1)
+
+        model=LinearRegression()
+        model.fit(X,y)
+        y_pred=model.predict(X)
+        plt.scatter(X,y)
+        plt.plot(X,y_pred,color='green')
+        plt.show()
+
 
     def _L(self, func, *args, **kwargs):
         return DBC._dataFrameClass_._loadExtData_(func, self, *args, **kwargs);

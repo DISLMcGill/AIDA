@@ -158,8 +158,12 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _HelloWorld(self,name):
-	pass
+    def _helloWorld(self,name):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _linearRegression(self):
+        pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _L(self, func, *args, **kwargs):
