@@ -162,10 +162,10 @@ class DBC(metaclass=ABCMeta):
 
         X=data1.get(key_list[numerical_indices[0]]).reshape(-1,1)
         for index in range(1,len(numerical_indices)):
-            X=np.concatenate((X,data1.get(key_list[[numerical_indices[index]]).reshape(-1,1)),axis=1)
+            X=np.concatenate((X,data1.get(key_list[numerical_indices[index]]).reshape(-1,1)),axis=1)
         
         # dependent values set as the first column of the tabular data for now
-        y=data1.get(key_list[[numerical_indices[0])
+        y=data1.get(key_list[numerical_indices[0]])
         X_train=X[20::,::]
         X_test=X[:20:,::]
         y_train=y[20::]
