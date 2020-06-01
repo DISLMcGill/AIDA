@@ -136,23 +136,44 @@ class DBC(metaclass=ABCMeta):
     def _helloWorld(self):
         logging.info("Hello World");
 
-    def _linearRegression(self):
-        import pandas as pd
+    def _linearRegression(self,TabularDataObject1):
         import numpy as np
         from sklearn.linear_model import LinearRegression
-        import matplotlib.pyplot as plt
-        
-        data=pd.read_csv("Fish.csv")
-        X=data['Height'].values.reshape(-1,1)
-        y=data['Weight'].values.reshape(-1,1)
+       
+        data1=TabularDataObject1.cdata        
+        key_list=list()
 
+        for key in data1:
+            key_list.append(key)
+
+        def is_number(n):
+            try:
+                float(n)
+            except ValueError:
+                return False
+            return True
+
+        numerical_indices=list()
+
+        for i in range(len(key_list)):
+            n=data1.get(key_list[i])[0]
+            if is_number(n):
+                numerical_indices.append(i)
+
+        X=data1.get(key_list[numerical_indices[0]]).reshape(-1,1)
+        for index in range(1,len(numerical_indices)):
+            X=np.concatenate((X,data1.get(key_list[[numerical_indices[index]]).reshape(-1,1)),axis=1)
+        
+        # dependent values set as the first column of the tabular data for now
+        y=data1.get(key_list[[numerical_indices[0])
+        X_train=X[20::,::]
+        X_test=X[:20:,::]
+        y_train=y[20::]
+        y_test=y[:20:]
+        
         model=LinearRegression()
         model.fit(X,y)
-        y_pred=model.predict(X)
-        plt.scatter(X,y)
-        plt.plot(X,y_pred,color='green')
-        plt.show()
-
+        return model
 
     def _L(self, func, *args, **kwargs):
         return DBC._dataFrameClass_._loadExtData_(func, self, *args, **kwargs);
