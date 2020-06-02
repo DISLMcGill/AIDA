@@ -136,7 +136,7 @@ class DBC(metaclass=ABCMeta):
     def _helloWorld(self):
         logging.info("Hello World");
 
-    def _linearRegression(self,TabularDataObject1,TabularDataObject2):
+    def _linearRegression(self,TabularDataObject1,TabularDataObject2,*args,**kwargs):
         import numpy as np
         from sklearn.linear_model import LinearRegression
        
@@ -169,8 +169,7 @@ class DBC(metaclass=ABCMeta):
  
         # if TabularDataObject1 does not have numerical columns
         if (len(numerical_indices)==0):
-            logging.info("Error: No X values are numerical")
-            return 1
+            raise ValueError("Error: No X values are numerical")
 
         # TabularDataObject1 has numerical columns, then extract the numpy arrays as features 
         X=data1.get(key_list[numerical_indices[0]]).reshape(-1,1)
@@ -189,20 +188,14 @@ class DBC(metaclass=ABCMeta):
 
         # if TabularDataObject2 does not have numerical columns
         if count>=len(data2):
-            logging.info("Error: No y values are numerical")
-            return 2
+            raise ValueError("Error: No y values are numerical")
+           
 
         # TabularDataObject2 has numerical columns, then extract the numpy aray as label
-        y=data1.get(key)        
-
-        # split test and train data
-        X_train=X[20::,::]
-        X_test=X[:20:,::]
-        y_train=y[20::]
-        y_test=y[:20:]
+        y=data2.get(key)        
 
         # create the model
-        model=LinearRegression()
+        model=LinearRegression(*args,**kwargs)
         model.fit(X,y)
 
         '''some attributes and functions of the model
