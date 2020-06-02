@@ -136,16 +136,21 @@ class DBC(metaclass=ABCMeta):
     def _helloWorld(self):
         logging.info("Hello World");
 
-    def _linearRegression(self,TabularDataObject1):
+    def _linearRegression(self,TabularDataObject1,TabularDataObject2):
         import numpy as np
         from sklearn.linear_model import LinearRegression
        
-        data1=TabularDataObject1.cdata        
-        key_list=list()
+        # feature(x values) data
+        data1=TabularDataObject1.cdata 
+        # label(y values) data
+        data2=TabularDataObject2.cdata
 
+        # a list of names of keys (column names) of TabularDataObject1       
+        key_list=list()
         for key in data1:
             key_list.append(key)
 
+        # a function to identify whether a variable contains a numerical value
         def is_number(n):
             try:
                 float(n)
@@ -153,26 +158,59 @@ class DBC(metaclass=ABCMeta):
                 return False
             return True
 
+        # a list of indices of keys which contain numerical values in TabularDataOjbect1
         numerical_indices=list()
-
         for i in range(len(key_list)):
+            # assume all values under one column are of the same type
+            # if the first value of a column is numerical, then the column is a numerical column
             n=data1.get(key_list[i])[0]
             if is_number(n):
                 numerical_indices.append(i)
+ 
+        # if TabularDataObject1 does not have numerical columns
+        if (len(numerical_indices)==0):
+            logging.info("Error: No X values are numerical")
+            return 1
 
+        # TabularDataObject1 has numerical columns, then extract the numpy arrays as features 
         X=data1.get(key_list[numerical_indices[0]]).reshape(-1,1)
         for index in range(1,len(numerical_indices)):
+            # a matrix of shape (n_sample,n_feature)
             X=np.concatenate((X,data1.get(key_list[numerical_indices[index]]).reshape(-1,1)),axis=1)
         
-        # dependent values set as the first column of the tabular data for now
-        y=data1.get(key_list[numerical_indices[0]])
+        # the first numerical column in TabularDataObject2 set as label
+        count=0
+        for key in data2:
+            n=data2[key][0]
+            if is_number(n):
+                break
+            else:
+                count+=1
+
+        # if TabularDataObject2 does not have numerical columns
+        if count>=len(data2):
+            logging.info("Error: No y values are numerical")
+            return 2
+
+        # TabularDataObject2 has numerical columns, then extract the numpy aray as label
+        y=data1.get(key)        
+
+        # split test and train data
         X_train=X[20::,::]
         X_test=X[:20:,::]
         y_train=y[20::]
         y_test=y[:20:]
-        
+
+        # create the model
         model=LinearRegression()
         model.fit(X,y)
+
+        '''some attributes and functions of the model
+        coefficients=model.coef_
+        intercept=model.intercept_
+        y_pred=model.predict(X_test)
+        R_square=model.score(X_train,y_train)
+        '''
         return model
 
     def _L(self, func, *args, **kwargs):
