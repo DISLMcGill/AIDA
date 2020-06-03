@@ -21,6 +21,31 @@ from aidacommon.rdborm import *;
 
 from aidacommon.gbackend import GBackendApp;
 
+from sklearn.linear_model import LinearRegression
+class LinearRegressionModel(LinearRegression,metaclass=ABCMeta):
+    
+    def fit(self,X,y,sample_weight=None):
+        return super().fit(X,y,sample_weight)
+    
+    def get_params(self,deep=True):
+        return super().get_params(deep)
+
+    def predict(self,X):
+        return super().predict(X)
+
+    def score(self,X,y,sample_weight=None):
+        return super().score(X,y,sample_weight)
+
+    def set_params(self,**params):
+        return super().set_params(**params)
+
+copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);	
+
+class HelloWorld(metaclass=ABCMeta):
+    def _helloWorld(self):
+        logging.info("Hello World")
+copyreg.pickle(HelloWorld,HelloWorldRemoteStub.serializeObj);
+
 class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
 
@@ -134,7 +159,8 @@ class DBC(metaclass=ABCMeta):
         return func(DBCWrap(self), *args, **kwargs);
 
     def _helloWorld(self):
-        logging.info("Hello World");
+        hw=HelloWorld()
+        return hw        
 
     def _linearRegression(self,TabularDataObject1,TabularDataObject2,*args,**kwargs):
         import numpy as np
@@ -190,12 +216,11 @@ class DBC(metaclass=ABCMeta):
         if count>=len(data2):
             raise ValueError("Error: No y values are numerical")
            
-
         # TabularDataObject2 has numerical columns, then extract the numpy aray as label
         y=data2.get(key)        
 
         # create the model
-        model=LinearRegression(*args,**kwargs)
+        model=LinearRegressionModel(*args,**kwargs)
         model.fit(X,y)
 
         '''some attributes and functions of the model

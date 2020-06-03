@@ -127,6 +127,35 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
+class LinearRegressionModelRemoteStub(aidacommon.rop.RObjStub):
+    
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def fit(self,X,y,sample_weight=None):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def get_params(self,deep=True):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict(self,X):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def score(self,X,y,sample_weight=None):
+        pass;
+    
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def set_params(self,**params):
+        pass;
+ 
+copyreg.pickle(LinearRegressionModelRemoteStub, LinearRegressionModelRemoteStub.serializeObj);
+
+class HelloWorldRemoteStub(aidacommon.rop.RObjStub):
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _helloWorld(self):
+        pass;
+copyreg.pickle(HelloWorldRemoteStub, HelloWorldRemoteStub.serializeObj);
 
 class DBCRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
