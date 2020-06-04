@@ -148,6 +148,22 @@ class LinearRegressionModelRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def set_params(self,**params):
         pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def coef(self):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def rank(self):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def singular(self):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def intercept(self):
+        pass;
  
 copyreg.pickle(LinearRegressionModelRemoteStub, LinearRegressionModelRemoteStub.serializeObj);
 

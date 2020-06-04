@@ -103,6 +103,18 @@ class LinearRegressionModel(LinearRegression,metaclass=ABCMeta):
     def set_params(self,**params):
         return super().set_params(**params)
 
+    def coef(self):
+        return self.coef_
+
+    def rank(self):
+        return self.rank_
+
+    def singular(self):
+        return self.singular_
+
+    def intercept(self):
+        return self.intercept_ 
+
 copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);	
 
 class HelloWorld(metaclass=ABCMeta):
