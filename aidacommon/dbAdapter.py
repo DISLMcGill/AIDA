@@ -22,18 +22,82 @@ from aidacommon.rdborm import *;
 from aidacommon.gbackend import GBackendApp;
 
 from sklearn.linear_model import LinearRegression
+import numpy as np
 class LinearRegressionModel(LinearRegression,metaclass=ABCMeta):
     
+    # a static function to identify whether a variable contains a numerical value
+    def is_number(n):
+        try:
+            float(n)
+        except ValueError:
+            return False
+        return True
+    
+    # a static function to convert the TabularData containing X values into numpy matrix 
+    def extract_X(TabularDataX):
+        data_X=TabularDataX.cdata
+
+        key_list=list()
+        for key in data_X:
+            key_list.append(key)
+        
+        # a list of indices of keys which contain numerical values in TabularDataX
+        numerical_indices=list()
+        for i in range(len(key_list)):
+            # assume all values under one column are of the same type
+            # if the first value of a column is numerical, then the column is a numerical column
+            n=data_X.get(key_list[i])[0]
+            if LinearRegressionModel.is_number(n):
+                numerical_indices.append(i)
+
+        # if TabularDataX does not have numerical columns
+        if (len(numerical_indices)==0):
+            raise ValueError("Error: No X values are numerical")
+
+        # TabularDataX has numerical columns, then extract the numpy arrays as features 
+        X=data_X.get(key_list[numerical_indices[0]]).reshape(-1,1)
+        for index in range(1,len(numerical_indices)):
+            # a matrix of shape (n_sample,n_feature)
+            X=np.concatenate((X,data_X.get(key_list[numerical_indices[index]]).reshape(-1,1)),axis=1)
+
+        return X
+
+    # a static function to convert the TabularData containing y values into numpy array
+    def extract_y(TabularDatay):
+        data_y=TabularDatay.cdata
+        count=0
+        for key in data_y:
+            n=data_y[key][0]
+            if LinearRegressionModel.is_number(n):
+                break
+            else:
+                count+=1
+
+        # if TabularDataObject2 does not have numerical columns
+        if count>=len(data_y):
+            raise ValueError("Error: No y values are numerical")
+
+        # TabularDataObject2 has numerical columns, then extract the numpy aray as label
+        y=data_y.get(key)
+        return y
+
     def fit(self,X,y,sample_weight=None):
+        X=LinearRegressionModel.extract_X(X)
+        y=LinearRegressionModel.extract_y(y)
         return super().fit(X,y,sample_weight)
     
     def get_params(self,deep=True):
         return super().get_params(deep)
 
     def predict(self,X):
+        # if statement added to avoid converting TabularData twice when predict() is called inside score()
+        if (isinstance(X,TabularData)):
+            X=LinearRegressionModel.extract_X(X)
         return super().predict(X)
 
     def score(self,X,y,sample_weight=None):
+        X=LinearRegressionModel.extract_X(X)
+        y=LinearRegressionModel.extract_y(y)
         return super().score(X,y,sample_weight)
 
     def set_params(self,**params):
@@ -165,7 +229,7 @@ class DBC(metaclass=ABCMeta):
     def _linearRegression(self,TabularDataObject1,TabularDataObject2,*args,**kwargs):
         import numpy as np
         from sklearn.linear_model import LinearRegression
-       
+        '''       
         # feature(x values) data
         data1=TabularDataObject1.cdata 
         # label(y values) data
@@ -218,10 +282,10 @@ class DBC(metaclass=ABCMeta):
            
         # TabularDataObject2 has numerical columns, then extract the numpy aray as label
         y=data2.get(key)        
-
+        '''
         # create the model
         model=LinearRegressionModel(*args,**kwargs)
-        model.fit(X,y)
+        model.fit(TabularDataObject1,TabularDataObject2)
 
         '''some attributes and functions of the model
         coefficients=model.coef_
