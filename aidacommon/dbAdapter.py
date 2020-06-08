@@ -9,6 +9,7 @@ import collections;
 import logging;
 
 import numpy as np;
+import cupy as cp;
 
 import random;
 
@@ -132,6 +133,15 @@ class DBC(metaclass=ABCMeta):
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
         return func(DBCWrap(self), *args, **kwargs);
+    
+    def _GPU(self, func, *args, **kwargs):
+        """Function that is called from stub to execute a python function in this workspace"""
+        #Execute the function with this workspace as the argument and return the results if any.
+        #Wrap the DBC object to make sure that the DBC object returns only CuPy matrix representations of the TabularData objects.
+        #TODO: Go over the args and kwargs and replace TabularData objects with NumPy matrix representations.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+        return func(GPUWrap(self), *args, **kwargs);
 
     def _L(self, func, *args, **kwargs):
         return DBC._dataFrameClass_._loadExtData_(func, self, *args, **kwargs);
@@ -400,3 +410,62 @@ class DBCWrap:
             logging.exception("DBCWrap : Exception ");
             pass;
         setattr(self.__dbcObj__, key, value);
+
+        
+
+# Class to trap all calls to DBC from remote execution function if it only needs the CuPy objects.
+# This class will trap any TabularData objects and pass out only their NumPy representation.
+class GPUWrap:
+    def __init__(self, dbcObj):
+        self.__dbcObj__ = dbcObj; #This is the DBC workspace object we are wrapping
+        self.__tDataColumns__ = {}; #Keep track of the column metadata of all TabularData variable names that we have seen so far.
+
+    def __getattribute__(self, item):
+        #Trap the calls to ALL my object variables here itself.
+        if (item in ('__dbcObj__', '__tDataColumns__')):
+            return super().__getattribute__(item);
+
+        #Every other variable must come from the DBC object that we are wrapping.
+
+        val = getattr(super().__getattribute__('__dbcObj__'), item);
+        if(isinstance(val, TabularData)): #If the value returned from the DBC object is of type TabularData
+            tDataCols = super().__getattribute__('__tDataColumns__');
+            tDataCols[item] = val.columns; #We will keep track of that variable/objects metadata
+            #Instead of returning the TabularData object, we will return only the NumPy matrix representation.
+            #But since tabular data objects internally stored matrices in transposed format, we will have to transpose it
+            # Back to regular format first.
+            val = val.matrix.T;
+            if(not val.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
+                val = cp.copy(val, order='C');
+            if(len(val.shape) == 1):
+                val = val.reshape(len(val), 1, order='C');
+            #logging.debug("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
+        return val;
+
+    """def __setattr__(self, key, value):
+        #Trap the calls to ALL my object variables here itself.
+        if (key in ('__dbcObj__', '__tDataColumns__')):
+            return super().__setattr__(key, value);
+
+        #logging.debug("DBCWrap, setting called : item {}, value type {}".format(key, type(value)));
+        #Every other variable is set inside the DBC object that we are wrapping.
+        try:
+            #Check if this was a TabularData object in the DBC object which we had reduced to just matrix representation.
+            #logging.debug("DBCWrap: setattr : current known tabular data objects : {}".format(self.__tDataColumns__.keys()));
+            tDataCols = self.__tDataColumns__[key];
+            #If we got to this line, then it means it was a TabularData object.
+            # So we need to build a new TabularData object using the original column metadata.
+            #First step, transpose the matrix to fit the internal form of TabularData objects.
+            value = value.T;
+            if(not value.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
+                value = np.copy(value, order='C');
+            #Build a new TabularData object using virtual transformation.
+            #logging.debug("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
+            valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+            setattr(self.__dbcObj__, key, valueDF);
+            return;
+        except :
+            logging.exception("DBCWrap : Exception ");
+            pass;
+        setattr(self.__dbcObj__, key, value);
+"""
