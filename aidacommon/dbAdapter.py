@@ -414,7 +414,7 @@ class DBCWrap:
         
 
 # Class to trap all calls to DBC from remote execution function if it only needs the CuPy objects.
-# This class will trap any TabularData objects and pass out only their NumPy representation.
+# This class will trap any TabularData objects and pass out only their CuPy representation.
 class GPUWrap:
     def __init__(self, dbcObj):
         self.__dbcObj__ = dbcObj; #This is the DBC workspace object we are wrapping
@@ -431,16 +431,17 @@ class GPUWrap:
         if(isinstance(val, TabularData)): #If the value returned from the DBC object is of type TabularData
             tDataCols = super().__getattribute__('__tDataColumns__');
             tDataCols[item] = val.columns; #We will keep track of that variable/objects metadata
-            #Instead of returning the TabularData object, we will return only the NumPy matrix representation.
+            #Instead of returning the TabularData object, we will return only the CuPy matrix representation.
             #But since tabular data objects internally stored matrices in transposed format, we will have to transpose it
             # Back to regular format first.
             val = val.matrix.T;
-            if(not val.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
-                val = cp.copy(val, order='C');
-            if(len(val.shape) == 1):
-                val = val.reshape(len(val), 1, order='C');
+            cp_val=cp.asarray(val, order='C');#convert to CuPy ndarray
+            #if(not cp_val.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
+            #    val = cp.copy(val, order='C');
+            if(len(cp_val.shape) == 1):
+                cp_val = cp_val.reshape(len(cp_val), 1, order='C');
             #logging.debug("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
-        return val;
+        return cp_val;
 
     """def __setattr__(self, key, value):
         #Trap the calls to ALL my object variables here itself.
