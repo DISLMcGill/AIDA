@@ -435,15 +435,14 @@ class GPUWrap:
             #But since tabular data objects internally stored matrices in transposed format, we will have to transpose it
             # Back to regular format first.
             val = val.matrix.T;
-            cp_val=cp.asarray(val, order='C');#convert to CuPy ndarray
-            #if(not cp_val.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
-            #    val = cp.copy(val, order='C');
+            cp_val = cp.asarray(val, order='C');#convert to CuPy ndarray
             if(len(cp_val.shape) == 1):
                 cp_val = cp_val.reshape(len(cp_val), 1, order='C');
             #logging.debug("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
         return cp_val;
 
-    """def __setattr__(self, key, value):
+    
+    def __setattr__(self, key, value):
         #Trap the calls to ALL my object variables here itself.
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
@@ -458,6 +457,8 @@ class GPUWrap:
             # So we need to build a new TabularData object using the original column metadata.
             #First step, transpose the matrix to fit the internal form of TabularData objects.
             value = value.T;
+            if(isinstance(value, cupy.ndarray)):
+                value = cp.asnumpy(value, order='C');
             if(not value.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
                 value = np.copy(value, order='C');
             #Build a new TabularData object using virtual transformation.
@@ -469,4 +470,3 @@ class GPUWrap:
             logging.exception("DBCWrap : Exception ");
             pass;
         setattr(self.__dbcObj__, key, value);
-"""
