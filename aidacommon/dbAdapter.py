@@ -18,12 +18,11 @@ from PIL import Image;
 from aidacommon.aidaConfig import AConfig;
 from aidacommon.rop import ROMgr;
 from aidacommon.rdborm import *;
-
 from aidacommon.gbackend import GBackendApp;
 
 from sklearn.linear_model import LinearRegression
 import numpy as np
-class LinearRegressionModel(LinearRegression,metaclass=ABCMeta):
+class LinearRegressionModel:
     
     # a static function to identify whether a variable contains a numerical value
     def is_number(n):
@@ -32,11 +31,35 @@ class LinearRegressionModel(LinearRegression,metaclass=ABCMeta):
         except ValueError:
             return False
         return True
+
+       
+    # extract_X and extract_y using .matrix instead of .cdata
+    #def extract_X(TabularDataX):
+    #   data_X=TabularDataX.matrix
+    #   row_indices=list()
+
+    #   for i in range(data_X.shape[0]):
+    #       if LinearRegressionModel.is_number(data_X[i][0]):
+    #           row_indices.append(i)
+        
+    #   X=data_X[row_indices,].transpose()
+    #   return X
+
+    #def extract_y(TabularDatay):
+    #   data_y=TabularDatay.matrix
+    #   i=0
+    #   while (i<data_y.shape[0]):
+    #        if LinearRegressionModel.is_number(data_y[i][0]):
+    #           break
+    #       else:
+    #            i+=1
+    #   y=data_y[i]
+    #    return y
     
+   
     # a static function to convert the TabularData containing X values into numpy matrix 
     def extract_X(TabularDataX):
         data_X=TabularDataX.cdata
-
         key_list=list()
         for key in data_X:
             key_list.append(key)
@@ -80,40 +103,55 @@ class LinearRegressionModel(LinearRegression,metaclass=ABCMeta):
         # TabularDataObject2 has numerical columns, then extract the numpy aray as label
         y=data_y.get(key)
         return y
+   
+    # initialize a LinearRegressionModel object with "model" attribute containing an actual LinearRegression object from the skLearn module
+    def __init__(self,*args,**kwargs):
+        self.model=LinearRegression(*args,**kwargs)
+
+    # a function that returns the actual LinearRegression object which the called LinearRegressionModel object wraps around
+    def get_model(self):
+        return self.model
 
     def fit(self,X,y,sample_weight=None):
         X=LinearRegressionModel.extract_X(X)
         y=LinearRegressionModel.extract_y(y)
-        return super().fit(X,y,sample_weight)
+        self.model.fit(X,y,sample_weight)
+        return self
     
     def get_params(self,deep=True):
-        return super().get_params(deep)
+        return self.model.get_params(deep)
 
     def predict(self,X):
         # if statement added to avoid converting TabularData twice when predict() is called inside score()
         if (isinstance(X,TabularData)):
             X=LinearRegressionModel.extract_X(X)
-        return super().predict(X)
+        return self.model.predict(X)
 
     def score(self,X,y,sample_weight=None):
         X=LinearRegressionModel.extract_X(X)
         y=LinearRegressionModel.extract_y(y)
-        return super().score(X,y,sample_weight)
+        return self.model.score(X,y,sample_weight)
 
     def set_params(self,**params):
-        return super().set_params(**params)
-
-    def coef(self):
-        return self.coef_
-
-    def rank(self):
-        return self.rank_
-
-    def singular(self):
-        return self.singular_
-
-    def intercept(self):
-        return self.intercept_ 
+        return self.model.set_params(**params)
+    
+    '''
+    # for testing purposes
+    def __getattribute__(self,item):
+            logging.info("The function being called: "+str(item))
+            if (item in ('fit','predict','model','get_model','score')):
+                return super().__getattribute__(item)
+    '''
+    
+    def __getattribute__(self,item):
+        # if the called function/attribute does not require X,y tabularData conversion, get the attribute value by calling the function on the actual LinearRegression model in skLearn module
+        logging.info("This function being passed", item)
+        if (item not in ('model','get_model','extract_X','extract_y','fit','predict','score')):
+            return getattr(self.model,item)
+        # else, call the function/attribute defined in the local module
+        else:
+            return object.__getattribute__(self,item)
+ 
 
 copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);	
 
@@ -238,9 +276,7 @@ class DBC(metaclass=ABCMeta):
         hw=HelloWorld()
         return hw        
 
-    def _linearRegression(self,TabularDataObject1,TabularDataObject2,*args,**kwargs):
-        import numpy as np
-        from sklearn.linear_model import LinearRegression
+    def _linearRegression(self,Tab1,Tab2,*args,**kwargs):
         '''       
         # feature(x values) data
         data1=TabularDataObject1.cdata 
@@ -297,7 +333,7 @@ class DBC(metaclass=ABCMeta):
         '''
         # create the model
         model=LinearRegressionModel(*args,**kwargs)
-        model.fit(TabularDataObject1,TabularDataObject2)
+        model.fit(Tab1,Tab2)
 
         '''some attributes and functions of the model
         coefficients=model.coef_

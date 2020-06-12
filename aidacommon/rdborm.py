@@ -128,6 +128,10 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
 class LinearRegressionModelRemoteStub(aidacommon.rop.RObjStub):
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def get_model(self):
+        pass;
     
     @aidacommon.rop.RObjStub.RemoteMethod()
     def fit(self,X,y,sample_weight=None):
