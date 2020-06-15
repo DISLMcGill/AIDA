@@ -145,13 +145,22 @@ class LinearRegressionModel:
     
     def __getattribute__(self,item):
         # if the called function/attribute does not require X,y tabularData conversion, get the attribute value by calling the function on the actual LinearRegression model in skLearn module
-        logging.info("This function being passed", item)
+        
+        # check if this object has the requested attribute
+        try:
+            return super().__getattribute__(item)
+        except:
+            pass;
+        # otherwise fetch it from the actual linear regression object
+        return getattr(self.model,item)        
+
+        '''
         if (item not in ('model','get_model','extract_X','extract_y','fit','predict','score')):
             return getattr(self.model,item)
         # else, call the function/attribute defined in the local module
         else:
             return object.__getattribute__(self,item)
- 
+        '''
 
 copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);	
 
@@ -276,7 +285,7 @@ class DBC(metaclass=ABCMeta):
         hw=HelloWorld()
         return hw        
 
-    def _linearRegression(self,Tab1,Tab2,*args,**kwargs):
+    def _linearRegression(self,*args,**kwargs):
         '''       
         # feature(x values) data
         data1=TabularDataObject1.cdata 
@@ -333,14 +342,7 @@ class DBC(metaclass=ABCMeta):
         '''
         # create the model
         model=LinearRegressionModel(*args,**kwargs)
-        model.fit(Tab1,Tab2)
 
-        '''some attributes and functions of the model
-        coefficients=model.coef_
-        intercept=model.intercept_
-        y_pred=model.predict(X_test)
-        R_square=model.score(X_train,y_train)
-        '''
         return model
 
     def _L(self, func, *args, **kwargs):
