@@ -215,6 +215,17 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def _save(self,model_name,model):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _load(self,model_name):
+        pass 
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _sql(self,sql):
+        pass
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def _L(self, func, *args, **kwargs):
         pass
 
