@@ -434,11 +434,15 @@ class GPUWrap:
             #Instead of returning the TabularData object, we will return only the CuPy matrix representation.
             #But since tabular data objects internally stored matrices in transposed format, we will have to transpose it
             # Back to regular format first.
+            logging.info("val is of type {}".format(type(val)));
+            logging.info("val.columns is of type {}".format(type(val.columns)));
             val = val.matrix.T;
-            cp_val = cp.asarray(val, order='C');#convert to CuPy ndarray
+            logging.info("val.matrix.T is of type {}".format(type(val)));
+            cp_val = cp.asarray(val, order='C'); #convert to CuPy ndarray
+            logging.info("cp_val is of type {}".format(type(cp_val)));
             if(len(cp_val.shape) == 1):
                 cp_val = cp_val.reshape(len(cp_val), 1, order='C');
-            #logging.debug("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
+            logging.info("DBCWrap, getting : item {}, shape {}".format(item, cp_val.shape));
         return cp_val;
 
     
@@ -462,7 +466,7 @@ class GPUWrap:
             if(not value.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
                 value = np.copy(value, order='C');
             #Build a new TabularData object using virtual transformation.
-            #logging.debug("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
+            logging.info("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
             valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
             return;

@@ -158,6 +158,10 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def _GPU(self, func, *args, **kwargs):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def _L(self, func, *args, **kwargs):
         pass
 
