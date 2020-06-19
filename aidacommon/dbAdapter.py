@@ -20,6 +20,7 @@ from aidacommon.rop import ROMgr;
 from aidacommon.rdborm import *;
 from aidacommon.gbackend import GBackendApp;
 
+import pickle
 from sklearn.linear_model import LinearRegression
 import numpy as np
 class LinearRegressionModel:
@@ -173,7 +174,7 @@ class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
 
     class SQLTYPE(Enum):
-        SELECT=1; CREATE=2; DROP=3;
+        SELECT=1; CREATE=2; DROP=3; INSERT=4;
 
     class AGGTYPE(Enum):
         SUM='SUM({})'; AVG='AVG({})';
@@ -210,7 +211,7 @@ class DBC(metaclass=ABCMeta):
         return cls._tableRepo_[relName];
 
     @abstractmethod
-    def _executeQry(self, sql, resultFormat='column'): pass;
+    def _executeQry(self, sql, resultFormat,sqlType): pass;
 
     def _Page(self, func, *args, **kwargs):
         if(isinstance(func, str)):
@@ -344,6 +345,22 @@ class DBC(metaclass=ABCMeta):
         model=LinearRegressionModel(*args,**kwargs)
 
         return model
+
+    def _save(self,model_name,model):
+        m = model.get_model()
+        pickled_m = pickle.dumps(m)
+        self._executeQry('INSERT INTO _sys_models_ \
+                          VALUES({},{});'.format(model_name,pickled_m),sqlType=DBC.SQLTYPE.INSERT)
+
+    def _load(self,model_name):
+        m = self._executeQry("SELECT model FROM _sys_models_ \
+                              WHERE model_name = '{}';".format(model_name))
+        model=pickle.loads(m)
+        return model
+
+    # testing sql
+    def _sql(self,sql):
+        logging.info(self._executeQry(sql))
 
     def _L(self, func, *args, **kwargs):
         return DBC._dataFrameClass_._loadExtData_(func, self, *args, **kwargs);
