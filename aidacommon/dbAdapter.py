@@ -360,7 +360,9 @@ class DBC(metaclass=ABCMeta):
         unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
         unpickled_m = unpickled_m[0]['model'][0]
         model=pickle.loads(ast.literal_eval(unpickled_m))
-        return model
+        model_wrapper = LinearRegressionModel()
+        model_wrapper.model=model
+        return model_wrapper
 
     # testing sql
     def _sql(self,sql):
