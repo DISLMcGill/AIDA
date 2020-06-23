@@ -23,6 +23,7 @@ from aidacommon.gbackend import GBackendApp;
 import pickle
 from sklearn.linear_model import LinearRegression
 import numpy as np
+import ast
 class LinearRegressionModel:
     
     # a static function to identify whether a variable contains a numerical value
@@ -170,6 +171,7 @@ class HelloWorld(metaclass=ABCMeta):
         logging.info("Hello World")
 copyreg.pickle(HelloWorld,HelloWorldRemoteStub.serializeObj);
 
+import ast
 class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
 
@@ -349,13 +351,15 @@ class DBC(metaclass=ABCMeta):
     def _save(self,model_name,model):
         m = model.get_model()
         pickled_m = pickle.dumps(m)
-        self._executeQry('INSERT INTO _sys_models_ \
-                          VALUES({},{});'.format(model_name,pickled_m),sqlType=DBC.SQLTYPE.INSERT)
+        pickled_m = str(pickled_m)
+        pickled_m = pickled_m.replace("'","''")
+        pickled_m = pickled_m.replace("\\","\\\\")
+        self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}');".format(model_name,pickled_m),sqlType=DBC.SQLTYPE.INSERT)
 
     def _load(self,model_name):
-        m = self._executeQry("SELECT model FROM _sys_models_ \
-                              WHERE model_name = '{}';".format(model_name))
-        model=pickle.loads(m)
+        unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
+        unpickled_m = unpickled_m[0]['model'][0]
+        model=pickle.loads(ast.literal_eval(unpickled_m))
         return model
 
     # testing sql
