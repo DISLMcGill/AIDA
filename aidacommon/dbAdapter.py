@@ -176,7 +176,7 @@ class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
 
     class SQLTYPE(Enum):
-        SELECT=1; CREATE=2; DROP=3; INSERT=4;
+        SELECT=1; CREATE=2; DROP=3; INSERT=4; DELETE=5;
 
     class AGGTYPE(Enum):
         SUM='SUM({})'; AVG='AVG({})';
@@ -348,20 +348,43 @@ class DBC(metaclass=ABCMeta):
 
         return model
 
-    def _save(self,model_name,model):
+    def _save(self,model_name,model,model_type,update=False):
+
+                
+        duplicate_exist = False
+        # check if there is another model already saved with <model_name>
+        temp = self._executeQry("SELECT COUNT(model) FROM _sys_models_ WHERE model_name='{}';".format(model_name))
+        # if the above SELECT COUNT query returns integer larger than 1
+        if temp[0]['L3'][0]!=0:
+            duplicate_exist = True
+    
+        # throw an error if update=False and there is another model already saved with <model_name>
+        if (update==False and duplicate_exist==True):
+            raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" ) 
+        # delete the model saved with <model_name> if update=True
+        elif (update==True and duplicate_exist==True):
+            self._executeQry("DELETE FROM _sys_models_ WHERE model_name='{}';".format(model_name),sqlType=DBC.SQLTYPE.DELETE)
+        else:
+            pass
+        
         m = model.get_model()
         pickled_m = pickle.dumps(m)
         pickled_m = str(pickled_m)
         pickled_m = pickled_m.replace("'","''")
         pickled_m = pickled_m.replace("\\","\\\\")
-        self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}');".format(model_name,pickled_m),sqlType=DBC.SQLTYPE.INSERT)
+        self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
 
     def _load(self,model_name):
         unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
-        unpickled_m = unpickled_m[0]['model'][0]
+        try:
+            unpickled_m = unpickled_m[0]['model'][0]
+        except:
+            raise Exception("no model with such name found.")
+
         model=pickle.loads(ast.literal_eval(unpickled_m))
         model_wrapper = LinearRegressionModel()
         model_wrapper.model=model
+
         return model_wrapper
 
     # testing sql
