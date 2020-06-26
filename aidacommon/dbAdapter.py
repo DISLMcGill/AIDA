@@ -21,6 +21,7 @@ from aidacommon.rdborm import *;
 from aidacommon.gbackend import GBackendApp;
 
 import pickle
+import sklearn
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import ast
@@ -175,6 +176,21 @@ import ast
 class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
 
+    class ModelRepository:
+        def __init__(self,dbc):
+            self.dbc = dbc
+
+        def __getattribute__(self,item):
+            try:
+                return object.__getattribute__(self,item)
+            except:
+                pass
+            logging.info("_load('{}')".format(item))
+            m=self.dbc._load('{}'.format(item))
+            logging.info(type(m))
+            self.__setattr__(item,m)
+            return object.__getattribute__(self,item)
+
     class SQLTYPE(Enum):
         SELECT=1; CREATE=2; DROP=3; INSERT=4; DELETE=5;
 
@@ -195,7 +211,8 @@ class DBC(metaclass=ABCMeta):
         self._serverIPAddr = serverIPAddr;
         self._workSpaceProxies_ = {};
         self._webDivIds = {};
-
+        self._models = DBC.ModelRepository(self)
+    
     #@abstractmethod
     #def _getDBTable(self, relName, dbName=None): pass;
 
@@ -348,8 +365,7 @@ class DBC(metaclass=ABCMeta):
 
         return model
 
-    def _save(self,model_name,model,model_type,update=False):
-
+    def _save(self,model_name,model,update=False):
                 
         duplicate_exist = False
         # check if there is another model already saved with <model_name>
@@ -367,6 +383,10 @@ class DBC(metaclass=ABCMeta):
         else:
             pass
         
+        model_type=''
+        if (isinstance(model.get_model(),sklearn.linear_model._base.LinearRegression)):
+            model_type = 'Linear Regression'
+
         m = model.get_model()
         pickled_m = pickle.dumps(m)
         pickled_m = str(pickled_m)
@@ -503,6 +523,7 @@ class DBC(metaclass=ABCMeta):
             pass;
         self._dropTable(item);
 
+copyreg.pickle(DBC.ModelRepository,DBCRemoteStub.ModelRepositoryRemoteStub.serializeObj);
 copyreg.pickle(DBC, DBCRemoteStub.serializeObj);
 
 ###-###class DBCRemoteStub(aidacommon.rop.RObjStub):

@@ -178,6 +178,20 @@ class HelloWorldRemoteStub(aidacommon.rop.RObjStub):
 copyreg.pickle(HelloWorldRemoteStub, HelloWorldRemoteStub.serializeObj);
 
 class DBCRemoteStub(aidacommon.rop.RObjStub):
+    
+    class ModelRepositoryRemoteStub(aidacommon.rop.RObjStub):
+        def __getattribute__(self,item):
+            try:
+                return object.__getattribute__(self,item)
+            except:
+                pass
+            result = super().__getattribute__(item)
+
+#            if (isinstance(result,aidacommon.rop.RObjStub)):
+ #               self._registerProxy_(item,result.proxyid);
+  #              super().__setattr__(item, result);
+            return result
+
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _tables(self):
         pass;
@@ -215,7 +229,7 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _save(self,model_name,model,model_type,update=False):
+    def _save(self,model_name,model,update=False):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
@@ -315,5 +329,5 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
 
     #TODO: trap __del__ and call _close ?
 
-
+copyreg.pickle(DBCRemoteStub.ModelRepositoryRemoteStub,DBCRemoteStub.ModelRepositoryRemoteStub.serializeObj);
 copyreg.pickle(DBCRemoteStub, DBCRemoteStub.serializeObj);
