@@ -413,60 +413,50 @@ class DBCWrap:
 
         
 
-# Class to trap all calls to DBC from remote execution function if it only needs the CuPy objects.
-# This class will trap any TabularData objects and pass out only their CuPy representation.
+# This class is very similar to DBCWrap class above except that here we are working on the CuPy objects instead of NumPy to accelarate the training process.
+# To simplify, only the parts that are different from above have comments beside.
 class GPUWrap:
     def __init__(self, dbcObj):
-        self.__dbcObj__ = dbcObj; #This is the DBC workspace object we are wrapping
-        self.__tDataColumns__ = {}; #Keep track of the column metadata of all TabularData variable names that we have seen so far.
+        self.__dbcObj__ = dbcObj; 
+        self.__tDataColumns__ = {}; 
 
     def __getattribute__(self, item):
-        #Trap the calls to ALL my object variables here itself.
         if (item in ('__dbcObj__', '__tDataColumns__')):
             return super().__getattribute__(item);
 
-        #Every other variable must come from the DBC object that we are wrapping.
 
         val = getattr(super().__getattribute__('__dbcObj__'), item);
-        if(isinstance(val, TabularData)): #If the value returned from the DBC object is of type TabularData
+        if(isinstance(val, TabularData)): 
             tDataCols = super().__getattribute__('__tDataColumns__');
-            tDataCols[item] = val.columns; #We will keep track of that variable/objects metadata
-            #Instead of returning the TabularData object, we will return only the CuPy matrix representation.
-            #But since tabular data objects internally stored matrices in transposed format, we will have to transpose it
-            # Back to regular format first.
-            logging.info("val is of type {}".format(type(val)));
-            logging.info("val.columns is of type {}".format(type(val.columns)));
+            tDataCols[item] = val.columns; 
             val = val.matrix.T;
-            logging.info("val.matrix.T is of type {}".format(type(val)));
-            cp_val = cp.asarray(val, order='C'); #convert to CuPy ndarray
-            logging.info("cp_val is of type {}".format(type(cp_val)));
-            if(len(cp_val.shape) == 1):
-                cp_val = cp_val.reshape(len(cp_val), 1, order='C');
-            logging.info("DBCWrap, getting : item {}, shape {}".format(item, cp_val.shape));
-        return cp_val;
+            # val now is of type numpy.ndarray
+            val = cp.asarray(val, order='C'); #convert to CuPy ndarray
+            #logging.info("after cp, val is of type {}".format(type(val)));
+            # val now is of type cupy.core.core.ndarray
+            if(len(val.shape) == 1):
+                val = val.reshape(len(val), 1, order='C');
+            logging.info("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
+        return val;
 
     
     def __setattr__(self, key, value):
-        #Trap the calls to ALL my object variables here itself.
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
 
         #logging.debug("DBCWrap, setting called : item {}, value type {}".format(key, type(value)));
-        #Every other variable is set inside the DBC object that we are wrapping.
         try:
-            #Check if this was a TabularData object in the DBC object which we had reduced to just matrix representation.
             #logging.debug("DBCWrap: setattr : current known tabular data objects : {}".format(self.__tDataColumns__.keys()));
             tDataCols = self.__tDataColumns__[key];
-            #If we got to this line, then it means it was a TabularData object.
-            # So we need to build a new TabularData object using the original column metadata.
-            #First step, transpose the matrix to fit the internal form of TabularData objects.
             value = value.T;
-            if(isinstance(value, cupy.ndarray)):
-                value = cp.asnumpy(value, order='C');
-            if(not value.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
-                value = np.copy(value, order='C');
-            #Build a new TabularData object using virtual transformation.
-            logging.info("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
+            #logging.info("value is of type {}".format(type(value)));
+            # value now is of type cuoy.core.core.ndarray
+            if(not value.flags['C_CONTIGUOUS']): 
+                value = cp.copy(value, order='C');# convert cupy object to order='C' if not C_CONTIGUOUS   
+            value = cp.asnumpy(value, order='C');# convert cupy to numpy to fit in a TabularData
+            #logging.info("cp.asnumpy(value) is of type {}".format(type(value)));
+            # value now is of type numpy.ndarray   
+            #logging.info("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
             valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
             return;
