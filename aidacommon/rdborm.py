@@ -127,6 +127,39 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
+class LogisticRegressionModelRemoteStub(aidacommon.rop.RObjStub):
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def get_model(self):
+        pass;
+    
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def decision_function(self,X):
+        pass;
+ 
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def fit(self,X,y,sample_weight=None):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict(self,X):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict_log_proba(self,X):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict_proba(self,X):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def score(self,X,y,sample_weight=None):
+        pass;
+
+copyreg.pickle(LogisticRegressionModelRemoteStub, LogisticRegressionModelRemoteStub.serializeObj);
+
+
 class LinearRegressionModelRemoteStub(aidacommon.rop.RObjStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
@@ -226,6 +259,10 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _linearRegression(self, *args, **kwargs):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _logisticRegression(self, *args, **kwargs):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
