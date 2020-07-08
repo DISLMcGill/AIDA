@@ -22,6 +22,8 @@ from aidacommon.rdborm import *;
 
 from aidacommon.gbackend import GBackendApp;
 
+import time;
+
 class DBC(metaclass=ABCMeta):
     _dataFrameClass_ = None;
 
@@ -359,10 +361,14 @@ copyreg.pickle(DBC, DBCRemoteStub.serializeObj);
 # This class will trap any TabularData objects and pass out only their NumPy representation.
 class DBCWrap:
     def __init__(self, dbcObj):
+        #init_start = time.time();
         self.__dbcObj__ = dbcObj; #This is the DBC workspace object we are wrapping
         self.__tDataColumns__ = {}; #Keep track of the column metadata of all TabularData variable names that we have seen so far.
+        #init_end = time.time();
+        #logging.info("DBCWrap init time is {}".format(init_end - init_start));
 
     def __getattribute__(self, item):
+        #getattr_start = time.time();
         #Trap the calls to ALL my object variables here itself.
         if (item in ('__dbcObj__', '__tDataColumns__')):
             return super().__getattribute__(item);
@@ -382,9 +388,12 @@ class DBCWrap:
             if(len(val.shape) == 1):
                 val = val.reshape(len(val), 1, order='C');
             #logging.debug("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
+        #getattr_end = time.time();
+        #logging.info("DBCWrap getattr time is {}".format(getattr_end - getattr_start));
         return val;
 
     def __setattr__(self, key, value):
+        #setattr_start = time.time();
         #Trap the calls to ALL my object variables here itself.
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
@@ -405,6 +414,8 @@ class DBCWrap:
             #logging.debug("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
             valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
+            #setattr_end = time.time();
+            #logging.info("DBCWrap setattr time is {}".format(setattr_end - setattr_start));
             return;
         except :
             logging.exception("DBCWrap : Exception ");
@@ -417,10 +428,14 @@ class DBCWrap:
 # To simplify, only the parts that are different from above have comments beside.
 class GPUWrap:
     def __init__(self, dbcObj):
+        init_start = time.time();
         self.__dbcObj__ = dbcObj; 
-        self.__tDataColumns__ = {}; 
+        self.__tDataColumns__ = {};
+        init_end = time.time();
+        logging.info("GPUWrap initialization time is {}".format(init_end - init_start)); 
 
     def __getattribute__(self, item):
+        getattr_start = time.time();
         if (item in ('__dbcObj__', '__tDataColumns__')):
             return super().__getattribute__(item);
 
@@ -432,15 +447,19 @@ class GPUWrap:
             val = val.matrix.T;
             # val now is of type numpy.ndarray
             val = cp.asarray(val, order='C'); #convert to CuPy ndarray
+            #logging.info("getattr val device is {}".format(val.device));
             #logging.info("after cp, val is of type {}".format(type(val)));
             # val now is of type cupy.core.core.ndarray
             if(len(val.shape) == 1):
                 val = val.reshape(len(val), 1, order='C');
-            logging.info("DBCWrap, getting : item {}, shape {}".format(item, val.shape));
+            #logging.info("GPUWrap, getting : item {}, shape {}".format(item, val.shape));
+        getattr_end = time.time();
+        logging.info("GPUWrap getattr time is {}".format(getattr_end - getattr_start));
         return val;
 
     
     def __setattr__(self, key, value):
+        setattr_start = time.time();
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
 
@@ -453,12 +472,14 @@ class GPUWrap:
             # value now is of type cuoy.core.core.ndarray
             if(not value.flags['C_CONTIGUOUS']): 
                 value = cp.copy(value, order='C');# convert cupy object to order='C' if not C_CONTIGUOUS   
+            #logging.info("setattr val device is {}".format(value.device));
             value = cp.asnumpy(value, order='C');# convert cupy to numpy to fit in a TabularData
-            #logging.info("cp.asnumpy(value) is of type {}".format(type(value)));
             # value now is of type numpy.ndarray   
             #logging.info("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
             valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
+            setattr_end = time.time();
+            logging.info("GPUWrap setattr time is {}".format(setattr_end - setattr_start)); 
             return;
         except :
             logging.exception("DBCWrap : Exception ");
