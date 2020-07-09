@@ -123,8 +123,11 @@ class DBC(metaclass=ABCMeta):
     def _X(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
+        X_start = time.time();
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
+        X_end = time.time();
+        logging.info("_X takes {}".format(X_end - X_start));
         return func(self, *args, **kwargs);
 
     def _XP(self, func, *args, **kwargs):
@@ -466,20 +469,34 @@ class GPUWrap:
         #logging.debug("DBCWrap, setting called : item {}, value type {}".format(key, type(value)));
         try:
             #logging.debug("DBCWrap: setattr : current known tabular data objects : {}".format(self.__tDataColumns__.keys()));
+            sec1_start = time.time();
             tDataCols = self.__tDataColumns__[key];
             value = value.T;
+            sec1_end = time.time();
+            logging.info("the first two lines in try: {}".format(sec1_end - sec1_start));
             #logging.info("value is of type {}".format(type(value)));
             # value now is of type cuoy.core.core.ndarray
+            sec2_start = time.time();
+            value = cp.asnumpy(value);
+            sec2_end = time.time();
+            logging.info("cp.asnumpy: {}".format(sec2_end - sec2_start));
+            C_start = time.time();
             if(not value.flags['C_CONTIGUOUS']): 
-                value = cp.copy(value, order='C');# convert cupy object to order='C' if not C_CONTIGUOUS   
+                value = cp.copy(value, order='C');# convert cupy object to order='C' if not C_CONTIGUOUS
             #logging.info("setattr val device is {}".format(value.device));
-            value = cp.asnumpy(value, order='C');# convert cupy to numpy to fit in a TabularData
-            # value now is of type numpy.ndarray   
             #logging.info("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
+            C_end = time.time();
+            logging.info("c_contiguous: {}".format(C_end - C_start));
+            sec3_start = time.time();
             valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+            sec3_end = time.time();
+            logging.info("virtualData: {}".format(sec3_end - sec3_start));
+            sec4_start = time.time();
             setattr(self.__dbcObj__, key, valueDF);
+            sec4_end = time.time();
+            logging.info("setattr: {}".format(sec4_end - sec4_start));
             setattr_end = time.time();
-            logging.info("GPUWrap setattr time is {}".format(setattr_end - setattr_start)); 
+            logging.info("GPUWrap total setattr time is {}".format(setattr_end - setattr_start)); 
             return;
         except :
             logging.exception("DBCWrap : Exception ");
