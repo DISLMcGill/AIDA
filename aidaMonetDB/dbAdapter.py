@@ -161,6 +161,7 @@ class DBCMonetDB(DBC):
                 ## -- QLOG -- ##
                 ##st = timer();
                 result = self.__connection.execute(sql);
+                self.__setDBC__();
                 ## -- QLOG -- 2##
                 ##et = timer();
                 ##logging.info("_executeQry: {} {}".format(et-st, sql.replace("\n", "")))
