@@ -95,3 +95,34 @@ AS $$
   return ( (objid[i],objtype[i]) for i in range(0,len(objid) ) );
 $$ LANGUAGE plpython3u;
 --SELECT * FROM aidas_tmp_pygc_garbage();
+
+
+--There is no built-in aggregate Median in Postgresql
+--The following snippet is on Postgres wiki and also part of the ulib_agg user-defined library
+CREATE OR REPLACE FUNCTION _final_median(anyarray) RETURNS float8 AS $$
+  WITH q AS
+  (
+     SELECT val
+     FROM unnest($1) val
+     WHERE VAL IS NOT NULL
+     ORDER BY 1
+  ),
+  cnt AS
+  (
+    SELECT COUNT(*) as c FROM q
+  )
+  SELECT AVG(val)::float8
+  FROM
+  (
+    SELECT val FROM q
+    LIMIT  2 - MOD((SELECT c FROM cnt), 2)
+    OFFSET GREATEST(CEIL((SELECT c FROM cnt) / 2.0) - 1,0)
+  ) q2;
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE AGGREGATE median(anyelement) (
+  SFUNC=array_append,
+  STYPE=anyarray,
+  FINALFUNC=_final_median,
+  INITCOND='{}'
+);

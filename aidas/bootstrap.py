@@ -1,13 +1,14 @@
 import logging;
 import os;
-import configparser;
 import importlib;
 
 import aidacommon.aidaConfig;
-from aidacommon.aidaConfig import AConfig, UDFTYPE;
+from aidacommon.aidaConfig import AConfig;
 from aidacommon import rop;
 import aidas.dmro as dmro;
 import aidas.aidas as aidas;
+
+import aidacommon.gbackend as gbackend;
 
 def bootstrap():
 
@@ -70,3 +71,14 @@ def bootstrap():
     conMgr = aidas.ConnectionManager.getConnectionManager(dadapt);
     aidasys.conMgr = conMgr;
 
+    #Visualization
+    import builtins;
+    import matplotlib;
+    matplotlib.use('Agg');
+    builtins.matplotlib = matplotlib;
+    import matplotlib.pyplot as plt;
+    builtins.plt = plt;
+
+    gBApp = gbackend.GBackendApp(AConfig.DASHPORT)
+    aidasys.gBApp = gBApp;
+    gBApp.start();

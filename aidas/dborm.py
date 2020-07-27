@@ -438,6 +438,10 @@ class SliceTransform(Transform):
                 rowslice = slice(rowinfo, rowinfo+1, 1);
             elif (isinstance(rowinfo, slice)):
                 rowslice = rowinfo;
+            elif (isinstance(rowinfo, list)):
+                rowslice = rowinfo;
+            elif (isinstance(rowinfo, np.ndarray)):
+                rowslice = rowinfo;
             #column information is the second element in the tuple.
             colinfo = sliceinfo[1];
             #column information is passed on as an integer.
@@ -446,6 +450,8 @@ class SliceTransform(Transform):
             #column information is passed on as a name.
             elif(isinstance(colinfo, str)):
                 cols = [str];
+            elif(isinstance(colinfo, slice)):
+                cols = srcdataKeysList[colinfo];
             #Otherwise it is already a list of columns
             else:
                 #convert any integer positions in the column list to column names.
@@ -540,23 +546,33 @@ class VStackTransform(StackTransform):
     def __processTransform__(self):
         #srcdatalist = []
         numcols=None; src1=None;
+        cols = collections.defaultdict(list);
         for src in self._sourcelist_:
-            rows=src.rows;
-            if(numcols is None):
-                numcols = len(rows);
-                src1 = src;
-            elif(numcols != len(rows)):
-                logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
-                raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
-            #srcdatalist.append(rows);
+            try:
+                rows=src.rows;
+                if(numcols is None):
+                    numcols = len(rows);
+                    src1 = src;
+                elif(numcols != len(rows)):
+                    logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                    raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                for c, col in zip(range(0, numcols), rows):
+                    cols[c].append(rows[col]);
+            except AttributeError:
+                if(numcols != len(src)):
+                    logging.error("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                    raise TypeError("Error: number of columns do not match across the source list. Was expecting {} columns throughout.".format(numcols));
+                for c, col in zip(range(0, numcols), src):
+                    cols[c].append(src[col]);
+
         resultrows=collections.OrderedDict();
         colnames = list(src1.rows.keys());
-        for i in range(0, numcols):
-            #resultcoldata = np.vstack([ srcdata[:,i].matrix for srcdata in srcdatalist ]);
-            resultcoldata = np.vstack([ srcdata[:,i].matrix for srcdata in self._sourcelist_ ]);
-            resultrows[colnames[i]] = resultcoldata;
+        for c,col in zip(range(0, numcols), colnames):
+            resultrows[col] = np.hstack(cols[c]);
+
         self.__data__ = resultrows;
         self.__columns__ = src1.columns;
+
 
 
 class UserTransform(Transform):
@@ -631,6 +647,82 @@ class UserTransform(Transform):
         if(not self.__columns__ ):
             self.__processTransform__();
         return self.__columns__;
+
+
+class ExternalDataTransform(Transform):
+
+    def __init__(self, func, dbc, *args, **kwargs):
+        self.__loadfunc__ = func;
+        self._dbc_ = weakref.proxy(dbc);
+        self.__args__ = args;
+        self.__kwargs__ = kwargs;
+        self.__data__ = self.__matrix__ = self.__columns__ = None;
+
+    def __processTransform__(self):
+        func = self.__loadfunc__;
+        args = self.__args__;
+        kwargs = self.__kwargs__;
+
+        #execute the external data load function
+        data = func(*args, **kwargs);
+        #external data load functions are allowed to return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.
+        if(isinstance(data, collections.OrderedDict)):
+            self.__data__ = data;
+        elif(isinstance(data, dict)):
+            self.__data__ = collections.OrderedDict(data)
+        elif(isinstance(data, tuple) and len(data)==2):
+            _umat = data[0];
+            _ucols = data[1];
+            if(_umat.shape[1] != len(_ucols)):
+                logging.error("Error: external data transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+                raise TypeError("Error: external data transform {} returned a matrix with {} columns but column list of length {}.".format(func.__name__, _umat.shape[1], len(_ucols)));
+            #Create virtual columns for each of the matrix columns.
+            _data = collections.OrderedDict();
+            for i in range(0, len(_ucols)):
+                _data[_ucols[i]] = _umat[:,i] ;
+            self.__data__ = _data;
+            self.__matrix__ = _umat;
+        else:
+            logging.error("Error: external data transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+            raise TypeError("Error: external data transform {} should return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.".format(func.__name__));
+
+        newCols = collections.OrderedDict();
+        #for c in src.rows:
+        for c in self.__data__:
+            if(not isinstance(self.__data__[c], np.ndarray)):
+                self.__data__[c] = np.asarray(self.__data__[c]);
+            #TODO: make column metadata accurate.
+            newCols[c] = DBTable.Column((self._dbc_.dbName, None, c, None, None, 0, False));
+        self.__columns__ = newCols;
+
+
+    @property
+    def rows(self):
+        if(not self.__data__ ):
+            self.__processTransform__();
+        return self.__data__;
+
+    @property
+    def matrix(self):
+        if(not self.__matrix__ ):
+            if(not self.__data__):
+                self.__processTransform__();
+            #Sometimes processing the transform can result in a matrix, so check again.
+            if(not self.__matrix__):
+                rows = self.rows;
+                self.__matrix__ = np.stack(tuple(rows[col] for col in rows));
+        return self.__matrix__;
+
+    @property
+    def hasMatrix(self):
+        return self.__matrix__ is not None;
+
+    @property
+    def columns(self):
+        if(not self.__columns__ ):
+            self.__processTransform__();
+        return self.__columns__;
+
 
 
 class VirtualDataTransform(Transform):
@@ -767,7 +859,7 @@ class AlgebraicVectorTransform(AlgebraicTransform):
         #logging.debug("AlgebraicVectorTransform operation {} init enter time {:0.20f}".format(op.value, time.time()));
         super().__init__(None);
         self._source1_ = weakref.proxy(source1);
-        self._source2_ = weakref.proxy(source2) if(source2) else None;
+        self._source2_ = weakref.proxy(source2) if(source2 is not None) else None;
         self.op = op;
         self.side = side;
 
@@ -1084,6 +1176,9 @@ class DBTable(TabularData):
     def aggregate(self, projcols, groupcols=None):
         return DataFrame(self, SQLAggregateTransform(self, projcols, groupcols));
 
+    #Short form
+    agg = aggregate;
+
     def project(self, projcols):
         return DataFrame(self, SQLProjectionTransform(self, projcols));
 
@@ -1187,7 +1282,11 @@ class DBTable(TabularData):
 
     #For stacking columns one on top of the other
     def vstack(self, otherdatalist):
-        return DataFrame(self, VStackTransform([self, *otherdatalist]));
+        if(isinstance(otherdatalist, tuple) or isinstance(otherdatalist, list)):
+            return DataFrame(self, VStackTransform([self, *otherdatalist]));
+        else:
+            return DataFrame(self, VStackTransform([self, otherdatalist]));
+        #return DataFrame(self, VStackTransform([self, *otherdatalist]));
 
     #For stacking columns side by side.
     def hstack(self, otherdatalist, colprefixlist=None):
@@ -1260,7 +1359,7 @@ class DBTable(TabularData):
     def __del__(self):
         #logging.debug("Removing dborm {}".format(self.__tableName__));
         if(self.__data__ is not None):
-            self.__data__.clear();
+            ##-##self.__data__.clear();
             del self.__data__;
         if(self.__matrix__ is not None):
             del self.__matrix__;
@@ -1315,6 +1414,9 @@ class DataFrame(TabularData):
 
     def aggregate(self, projcols, groupcols=None):
         return DataFrame(self, SQLAggregateTransform(self, projcols, groupcols));
+
+    #Short form
+    agg = aggregate;
 
     def project(self, projcols):
         return DataFrame(self, SQLProjectionTransform(self, projcols));
@@ -1434,7 +1536,7 @@ class DataFrame(TabularData):
                 self.__matrix__ = self.__transform__.matrix;
                 self.__rowNames__ = self.__transform__.rowNames;
                 #logging.debug("rows : this DataFrame is of instance AlgebraicVectorTransform and produced {} columns {}".format(len(self.__columns__), time.time()));
-            elif(isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, VirtualDataTransform) or isinstance(self.__transform__, StackTransform)):
+            elif(isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, ExternalDataTransform) or isinstance(self.__transform__, VirtualDataTransform) or isinstance(self.__transform__, StackTransform)):
                 #logging.debug("DataFrame: {} : rows called retrieving source rows.".format(self.tableName));
                 self.__data__ = self.__transform__.rows;
                 #logging.debug("DataFrame: {} : rows transform rows retrieved.".format(self.tableName));
@@ -1509,7 +1611,7 @@ class DataFrame(TabularData):
     @property
     def rowsNtransform(self):
         #Either the data has already been computed, or will be now computed via SQL or from an AlgebraicVectorTransform
-        if(self.isDBQry or self.isCached or isinstance(self.__transform__, AlgebraicVectorTransform) or isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, VirtualDataTransform)):
+        if(self.isDBQry or self.isCached or isinstance(self.__transform__, AlgebraicVectorTransform) or isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, ExternalDataTransform) or isinstance(self.__transform__, VirtualDataTransform)):
             rows = self.rows;
             rowNames = self.rowNames if(self.hasRowNames) else None;
             return (rows, None, rowNames);
@@ -1597,24 +1699,30 @@ class DataFrame(TabularData):
     def _U(self, func, *args, **kwargs):
         return DataFrame(self, UserTransform(self, func, *args, **kwargs));
 
+    #Load external data -> called by database workspace (DB Adapter)
+    @classmethod
+    def _loadExtData_(cls, func, dbc, *args, **kwargs):
+        return DataFrame(None, ExternalDataTransform(func, dbc, *args, **kwargs), dbc=dbc);
+
     @classmethod
     def ones(cls, shape, cols=None, dbc=None):
         #return cls._virtualData_( lambda:np.ones(shape), cols, dbc);
-        return cls._virtualData_(lambda :np.ones((shape[0],)) if(len(shape)==1 or shape[1]==1) else np.ones((shape[1], shape[0])), cols=cols, dbc=dbc);
+        if(isinstance(shape, tuple)):
+            return cls._virtualData_(lambda :np.ones(shape[0]) if(len(shape)==1 or shape[1]==1) else np.ones((shape[1], shape[0])), cols=cols, dbc=dbc);
+        else:
+            return cls._virtualData_(lambda :np.ones(shape), cols=cols, dbc=dbc);
 
-    #TODO fix the processing of shape similar to that of ones.
     @classmethod
     def rand(cls, shape, cols=None, dbc=None):
         if(isinstance(shape, tuple)):
-            return cls._virtualData_( lambda:np.random.rand(*shape), cols=cols, dbc=dbc);
+            return cls._virtualData_(lambda :np.random.rand(shape[0]) if(len(shape)==1 or shape[1]==1) else np.random.rand(shape[1], shape[0]), cols=cols, dbc=dbc);
         else:
             return cls._virtualData_( lambda:np.random.rand(shape), cols=cols, dbc=dbc);
 
-    #TODO fix the processing of shape similar to that of ones.
     @classmethod
     def randn(cls, shape, cols=None, dbc=None):
         if(isinstance(shape, tuple)):
-            return cls._virtualData_( lambda:np.random.randn(*shape), cols=cols, dbc=dbc);
+            return cls._virtualData_(lambda :np.random.randn(shape[0]) if(len(shape)==1 or shape[1]==1) else np.random.randn(shape[1], shape[0]), cols=cols, dbc=dbc);
         else:
             return cls._virtualData_( lambda:np.random.randn(shape), cols=cols, dbc=dbc);
 
@@ -1713,7 +1821,7 @@ class DataFrame(TabularData):
         if(self.tableUDFExists):
             self.dbc._dropTblUDF(self);
         if(self.__data__ is not None):
-            self.__data__.clear();
+            ##-##self.__data__.clear();
             del self.__data__;
         if(self.__matrix__ is not None):
             del self.__matrix__;

@@ -41,7 +41,7 @@ class ConnectionManager(metaclass=ABCMeta):
                             (dbname, username, password, jobName) = custompickle.load(self.rfile);
                             #logging.debug("connection request received {}".format((dbname,username,jobName)));
                             #dbc = dborm.dbAdapter.DBCMonetDB(dbname, username, password, jobName, CoMgrObj);
-                            dbc = dbadapter(dbname, username, password, jobName, CoMgrObj);
+                            dbc = dbadapter(dbname, username, password, jobName, CoMgrObj, self.request.getsockname()[0]);
                             #logging.debug("created dbc for {}, type {}".format((dbname,username,jobName), type(dbc)));
                             custompickle.dump(dbc, self.wfile); self.wfile.flush();
                             #Handshake to wait for the otherside to establish the stubs.

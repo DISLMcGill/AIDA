@@ -3,6 +3,8 @@ import threading;
 
 import collections;
 import datetime;
+## -- QLOG -- ##
+##from timeit import default_timer as timer;
 
 import numpy as np;
 import pandas as pd;
@@ -21,8 +23,9 @@ class DBCMonetDB(DBC):
     """Database adapter class for MonetDB"""
 
     #We will use this to map numpy data types to MonetDB compatible types.
-    typeConverter = {np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
-                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'};
+    typeConverter = { np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
+                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'
+                    , 'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP' };
 
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
 
@@ -89,7 +92,7 @@ class DBCMonetDB(DBC):
         ", '                    ' AS std_{}";
 
     #TODO: Throw an error and abort object creation in case of failures.
-    def __new__(cls, dbname, username, password, jobName, dbcRepoMgr):
+    def __new__(cls, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""
         #logging.debug("__new__ called for {}".format(jobName));
         con = pymonetdb.Connection(dbname,hostname='localhost',username=username,password=password,autocommit=True);
@@ -97,13 +100,13 @@ class DBCMonetDB(DBC):
         con.close();
         return super().__new__(cls);
 
-    def __init__(self, dbname, username, password, jobName, dbcRepoMgr):
+    def __init__(self, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """Actual object creation"""
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName, dbname);
+        super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
         self.__setDBC__();
 
@@ -155,7 +158,12 @@ class DBCMonetDB(DBC):
 
         with self.__qryLock__:
             try:
+                ## -- QLOG -- ##
+                ##st = timer();
                 result = self.__connection.execute(sql);
+                ## -- QLOG -- 2##
+                ##et = timer();
+                ##logging.info("_executeQry: {} {}".format(et-st, sql.replace("\n", "")))
                 #logging.debug("__executeQry result {}".format(result));
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
@@ -210,8 +218,17 @@ class DBCMonetDB(DBC):
                 dataType = data[colname].dtype.type;
                 if(dataType is np.object_):
                     try:
-                        if(isinstance(data[colname][0], bytearray)):
+                        cd = data[colname][0];
+                        if(isinstance(cd, bytearray)):
                             dataType = bytearray;
+                        elif(isinstance(cd, str)):
+                            for f in self.datetimeFormats:
+                                try:
+                                    datetime.datetime.strptime(cd, f);
+                                    dataType = self.datetimeFormats[f];
+                                    break;
+                                except ValueError:
+                                    pass;
                     except IndexError:
                         pass;
                 #logging.debug("UDF column {} type {}".format(colname, dataType));
@@ -243,7 +260,12 @@ class DBCMonetDB(DBC):
                 except IndexError:
                     pass;
             #logging.debug("__connection.registerTable : data={} tableName={} dbname={} cols={} options={}".format(data, tableName, self.dbName, list(data.keys()), options));
+            ## -- QLOG -- ##
+            ##st = timer();
             self.__connection.registerTable(data, tableName, self.dbName, cols=list(data.keys()), options=options);
+            ## -- QLOG -- 2##
+            ##et = timer();
+            ##logging.info("_registerTable: {} CREATE FUNCTION {}".format(et-st, tableName));
         #Keep track of our UDFs/Virtual tables;
         #logging.debug("Created Table UDF/VT {}.{}".format(self.dbName, tableName));
         self._tableRepo_[tableName] = tblrData;

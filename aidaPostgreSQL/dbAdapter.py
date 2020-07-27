@@ -2,7 +2,7 @@ import sys;
 import threading;
 
 import collections;
-from datetime import datetime;
+import datetime;
 
 import numpy as np;
 import pandas as pd;
@@ -16,7 +16,8 @@ from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 
 from time import time;
-from convert import convert;
+import decimal;
+#from convert import convert;
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -24,23 +25,11 @@ class DBCPostgreSQL(DBC):
     """Database adapter class for PostgreSQL"""
 
     # Map numpy data types to PostgreSQL compatible types.
-    typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'double precision'
-    , np.float64:'double precision', np.object:'text', 'date':'date', bytearray:'bytea'};
-
-    typeConverter_re = {'int':np.int64, 'Decimal':np.float64, 'float':np.float64 };
+    typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'real'
+    , np.float64:'double precision', np.object:'text', np.object_:'text', 'bytes':'bytea'
+    , 'decimal':'double precision' ,'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP'};
     
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
-
-    def validateDate(date_text):
-        try:
-            datetime.datetime.strptime(date_text, '%Y-%m-%d')
-            return True
-        except ValueError:
-            try:
-                datetime.datetime.strptime(date_text, '%Y-%m-%d %H:%M:%S')
-                return True
-            except ValueError:
-                return False
 
     #Query to get the names of all tables in the database.
     __TABLE_LIST_QRY__ = \
@@ -97,7 +86,7 @@ class DBCPostgreSQL(DBC):
         ", '                    ' AS std_{}";
 
     #TODO: Throw an error and abort object creation in case of failures.
-    def __new__(cls, dbname, username, password, jobName, dbcRepoMgr):
+    def __new__(cls, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""
         #logging.debug("__new__ called for {}".format(jobName));
         con = psycopg2.connect(dbname=dbname,user=username,password=password,host='localhost');
@@ -106,13 +95,13 @@ class DBCPostgreSQL(DBC):
         con.close();
         return super().__new__(cls);
 
-    def __init__(self, dbname, username, password, jobName, dbcRepoMgr):
+    def __init__(self, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """Actual object creation"""
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName, dbname);
+        super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
 
         import aidasys;
         self.__requestQueue = aidasys.requestQueue;
@@ -164,40 +153,46 @@ class DBCPostgreSQL(DBC):
         #logging.debug("_execution called for {} with {}".format(self._jobName, sql));
         with self.__qryLock__:
             try:
-                logging.debug(sql)
-                t1 = time()
+                """
                 rv = self.__connection.execute(sql);
-
                 if(rv.nrows() == 0 ):
                     try:
-                        return ({k: [] for k in rv.colnames()},0)
+                        result  =  ({k: [] for k in rv.colnames()},0)
+                        return result
                     except:
-                        return ([],0)      
-                 
-                # these step take almost no time
-                col = list(rv)
-                cs = rv.colnames()
-                r = len(col)
-                c = len(cs)
-
-                result = convert(col,cs,r,c)
-
-                # original converting method
-
+                        return ([],0)
                 """
-                result = {}                
+
+                # Naive conversion approach:
+                """
+                result = dict()               
                 for k in rv.colnames():
-                    col = [row[k].rstrip() if(isinstance(row[k], str)) else row[k] for row in rv]                    
-                    
+                    col = [row[k] for row in rv]                    
                     if type(col[0]).__name__ == 'NoneType':
                         result[k] = np.array( [] )
-                    elif (type(col[0]).__name__) in DBCPostgreSQL.typeConverter_re:
-                        result[k] = np.array(col, dtype = DBCPostgreSQL.typeConverter_re[type(col[0]).__name__])
+                    elif (type(col[0]).__name__) == 'int':
+                        result[k] = np.array(col, dtype = np.int64)
+                    elif (type(col[0]).__name__) == 'float':
+                        result[k] = np.array(col, dtype = np.float64)
                     else:
-                        result[k] = np.array(col, dtype = np.object)
+                        result[k] = np.array(col, dtype = np.object_)
                 """
-                
-                
+
+                # Conversion extension module:
+                """
+                row_list = list(rv)
+                columns = rv.colnames()
+                rowNums = len(row_list)
+                colNums = len(columns)
+                result = convert(row_list,columns,rowNums,colNums)
+                """
+
+                # Conversion function added to the source code of PostgreSQL:
+                logging.info("_execution: {} ".format(sql))
+                result = self.__connection.execute_and_convert_to_columns(sql);
+                if not result:
+                    return ([],0)
+
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
                         #get some columns
@@ -233,6 +228,7 @@ class DBCPostgreSQL(DBC):
         #TODO: instead of infering the data type from the data, use columns to figure it out.
         #TODO: WARNING !! that might not work, as it means a sql calling table udf may need the udf to execute another sql to load its data.
         data = tblrData.rows;
+        numrows = tblrData.numRows;
         
         #Should we create a regular UDF or use a virtual table ?
         if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
@@ -259,10 +255,19 @@ class DBCPostgreSQL(DBC):
                 dataType = data[colname].dtype.type;
                 if(dataType is np.object_):
                     try:
-                        if(isinstance(data[colname][0], bytearray)):
-                            dataType = bytearray;
-                        if(DBCPostgreSQL.validateDate(data[colname][0])):
-                            dataType = 'date'
+                        cd = data[colname][0];
+                        if(isinstance(cd, decimal.Decimal)):
+                            dataType = "decimal";
+                        elif(isinstance(cd, str)):
+                            for f in self.datetimeFormats:
+                                try:
+                                    datetime.datetime.strptime(cd, f);
+                                    dataType = self.datetimeFormats[f];
+                                    break;
+                                except ValueError:
+                                    pass;
+                        elif(isinstance(cd, bytes)):
+                            dataType = "bytes";
                     except IndexError:
                         pass;
                 #logging.debug("UDF column {} type {}".format(colname, dataType));
@@ -272,7 +277,47 @@ class DBCPostgreSQL(DBC):
             cudf = cudf.format(tableName, collist, tableName, colnames)            
 
             #logging.debug("Creating Table UDF {}".format(cudf));
-            self._executeQry(cudf, DBC.SQLTYPE.CREATE);
+            self._executeQry(cudf, sqlType=DBC.SQLTYPE.CREATE);
+        elif (AConfig.UDFTYPE == UDFTYPE.VIRTUALTABLE):
+            #The column list returned by this table udf.
+            collist=None;
+            colnames=None;
+            for colname in data:
+                collist = (collist + ',' + '\n') if(collist is not None) else '';
+                colnames = (colnames + ',') if(colnames is not None) else '';
+                dataType = data[colname].dtype.type;
+                if(dataType is np.object_):
+                    try:
+                        cd = data[colname][0];
+                        if(isinstance(cd, decimal.Decimal)):
+                            dataType = "decimal";
+                        elif(isinstance(cd, str)):
+                            for f in self.datetimeFormats:
+                                try:
+                                    datetime.datetime.strptime(cd, f);
+                                    dataType = self.datetimeFormats[f];
+                                    break;
+                                except ValueError:
+                                    pass;
+                        elif(isinstance(cd, bytes)):
+                            dataType = "bytes";
+                    except IndexError:
+                        pass;
+                #logging.debug("UDF column {} type {}".format(colname, dataType));
+                collist += colname + ' ' + ('text' if(dataType not in DBCPostgreSQL.typeConverter) else DBCPostgreSQL.typeConverter[dataType]) ;
+                colnames += '\'' + colname + '\'';
+
+            vrtb = "create foreign table {} ( \n"
+            vrtb += collist
+            vrtb += " ) server py_tbldata_srv options (\n "
+            vrtb += " tblname  \'{}\',\n"
+            vrtb += " numrows  \'{}\'\n);"
+
+            vrtb  = vrtb.format(tableName, tableName, numrows) 
+
+            #logging.debug("Creating Virtual Table {}".format(cudf));
+            self._executeQry(vrtb, sqlType=DBC.SQLTYPE.CREATE);
+
         else :
             #for c in data:
                 #logging.debug("Table {} Column {} Type {}".format(tableName, c, data[c].dtype ));
@@ -281,18 +326,20 @@ class DBCPostgreSQL(DBC):
             for c in data:
                 try:
                     cd = data[c][0];
-                    if(isinstance(cd, bytearray)):
-                        options[c] = 'blob';
+                    
+                    if(isinstance(cd, decimal.Decimal)):
+                        options[c] = "decimal";
+                    if(isinstance(cd, bytes)):
+                        options[c] = "bytes";
                     if(not isinstance(cd, str)):
                         continue;
                     for f in self.datetimeFormats:
                         try:
-                           datetime.datetime.strptime(cd, f);
-                           options[c] = self.datetimeFormats[f];
-                           #logging.debug("VirtualTable: {} will be converted to {}".format(c, options[c]));
-                           break;
+                            datetime.datetime.strptime(cd, f);
+                            options[c] = self.datetimeFormats[f];
+                            break;
                         except ValueError:
-                           pass;
+                            pass;
                 except IndexError:
                     pass;
             #logging.debug("__connection.registerTable : data={} tableName={} dbname={} cols={} options={}".format(data, tableName, self.dbName, list(data.keys()), options));
@@ -325,8 +372,12 @@ class DBCPostgreSQL(DBC):
         if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF):
             tblrData._toUDF_();
             ctbl = 'CREATE TABLE {} AS SELECT * FROM {}();'.format(tableName, tblrData.tableName);
-            self._executeQry(ctbl, DBC.SQLTYPE.CREATE);
+            self._executeQry(ctbl, sqlType=DBC.SQLTYPE.CREATE);
             #self._toTable(tblrData, tableName);
+        elif(AConfig.UDFTYPE == UDFTYPE.VIRTUALTABLE):
+            tblrData._toUDF_();
+            ctbl = 'CREATE TABLE {} AS SELECT * FROM {};'.format(tableName, tblrData.tableName);
+            self._executeQry(ctbl, sqlType=DBC.SQLTYPE.CREATE);
         else:
             self._toTable(tblrData, tableName);
             try:
@@ -343,7 +394,7 @@ class DBCPostgreSQL(DBC):
 
     def _dropTable(self, tableName, dbName=None):
         dtbl = 'DROP TABLE {}.{};'.format( dbName if(dbName is not None) else self.dbName, tableName );
-        self._executeQry(dtbl, DBC.SQLTYPE.DROP);
+        self._executeQry(dtbl, sqlType=DBC.SQLTYPE.DROP);
 
         try:
             del self._tableRepo_[tableName];
@@ -359,10 +410,11 @@ class DBCPostgreSQL(DBC):
             raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed");
 
         #logging.debug("Dropping Table UDF/VT {}".format(tableName));
-        dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
+        dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'FOREIGN TABLE' if (AConfig.UDFTYPE == UDFTYPE.VIRTUALTABLE) else 'TABLE';
         dobj = 'DROP {} {};'.format(dropObjectType, tableName);
         #logging.debug("Dropping Table UDF/Virtual table {}".format(dobj));
-        self._executeQry(dobj, DBC.SQLTYPE.DROP);
+        self._executeQry(dobj, sqlType=DBC.SQLTYPE.DROP);
+        tblrData.__tableUDFExists__ = False;
 
     def _describe(self, tblrData):
         
@@ -472,18 +524,18 @@ class DBCPostgreSQL(DBC):
 
     def __del__(self):
         #.debug("__del__ called for {}".format(self._jobName));
-
+         
         #Where we using regular Table UDFs or Virtuable Tables ?
-        dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
-
+        dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'FOREIGN TABLE' if (AConfig.UDFTYPE == UDFTYPE.VIRTUALTABLE) else 'TABLE';
         for obj in self._tableRepo_.keys():
             try:
                 objval = self._tableRepo_[obj];
-                if(not isinstance(objval, DBTable)):
+                if((not isinstance(objval, DBTable)) and objval.tableUDFExists):
                     #.debug("Dropping {} {}".format(dropObjectType, obj));
                     sql = 'DROP {} {};'.format(dropObjectType, obj)
-                    self._executeQry(sql, DBC.SQLTYPE.DROP);
+                    self._executeQry(sql, sqlType=DBC.SQLTYPE.DROP);
                     #.debug("dropped {} {}".format(dropObjectType, obj));
+                    objval.__tableUDFExists__ = False;
             except:
                 pass;
 
@@ -492,3 +544,5 @@ class DBCPostgreSQLStub(DBCRemoteStub):
 
 copyreg.pickle(DBCPostgreSQL, DBCPostgreSQLStub.serializeObj);
 copyreg.pickle(DBCPostgreSQLStub, DBCPostgreSQLStub.serializeObj);
+
+
