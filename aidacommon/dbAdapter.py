@@ -24,6 +24,7 @@ import pickle
 import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.linear_model import LinearRegression
+from sklearn.tree import DecisionTreeClassifier
 import numpy as np
 import ast
 
@@ -227,6 +228,69 @@ class LinearRegressionModel:
 
 copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);	
 
+class DecisionTreeModel:
+    # initialize a DecisionTreeModel object with "model" attribute containing an actual DecisionTreeClassifier object from the skLearn module
+    def __init__(self,*args,**kwargs):
+        self.model = DecisionTreeClassifier(*args, **kwargs)
+
+    def get_model(self):
+        return self.model
+
+    def apply(self,X,check_input=True):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        return self.model.apply(X,check_input)
+
+    def cost_complexity_pruning_path(self,X,y,sample_weight=None):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        if (isinstance(y,TabularData)):
+            y=DataConversion.extract_y(y)
+        return self.model.cost_complexity_pruning_path(X,y,sample_weight)        
+    def decision_path(self,X,check_input=True):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        return self.model.decision_path(X,check_input)
+    
+    def fit(self,X,y,sample_weight=None,check_input=True,X_idx_sorted=None):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        if (isinstance(y,TabularData)):
+            y=DataConversion.extract_y(y)
+        self.model.fit(X,y,sample_weight,check_input,X_idx_sorted)
+        return self
+
+    def predict(self,X,check_input=True):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        return self.model.predict(X,check_input)
+
+    def predict_log_proba(self,X):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        return self.model.predict_log_proba(X)
+
+    def predict_proba(self,X,check_input=True):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        return self.model.predict_proba(X,check_input)
+
+    def score(self,X,y,sample_weight=None):
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        if (isinstance(y,TabularData)):
+            y=DataConversion.extract_y(y)
+        return self.model.score(X,y,sample_weight)
+
+    def __getattribute__(self,item):
+        try:
+            return super().__getattribute__(item)
+        except:
+            pass;
+        return getattr(self.model,item)
+
+copyreg.pickle(DecisionTreeModel,DecisionTreeModelRemoteStub.serializeObj);
+
 class HelloWorld(metaclass=ABCMeta):
     def _helloWorld(self):
         logging.info("Hello World")
@@ -396,11 +460,13 @@ class DBC(metaclass=ABCMeta):
         '''   
         
         duplicate_exist = False
+        logging.info("before exeucing query")
         # check if there is another model already saved with <model_name>
         temp = self._executeQry("SELECT COUNT(model) FROM _sys_models_ WHERE model_name='{}';".format(model_name))
         # if the above SELECT COUNT query returns integer not equal to 0
         if temp[0]['L3'][0]!=0:
             duplicate_exist = True
+        logging.info("after executing query once , and check duplicate")
     
         # throw an error if update=False and there is another model already saved with <model_name>
         if (update==False and duplicate_exist==True):

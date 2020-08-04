@@ -204,6 +204,42 @@ class LinearRegressionModelRemoteStub(aidacommon.rop.RObjStub):
  
 copyreg.pickle(LinearRegressionModelRemoteStub, LinearRegressionModelRemoteStub.serializeObj);
 
+class DecisionTreeModelRemoteStub(aidacommon.rop.RObjStub):
+    
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def apply(self,X,check_input=None):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def cost_complexity_pruning_path(self,X,y,sample_weight=None):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def decision_path(self,X,check_input=True):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def fit(self,X,y,sample_weight=None,check_input=True,X_idx_sorted=None):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict(self,X,check_input=True):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict_log_proba(self,X):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict_proba(self,X,check_input=True):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def score(self,X,y,sample_weight=None):
+        pass;
+
+copyreg.pickle(DecisionTreeModelRemoteStub,DecisionTreeModelRemoteStub.serializeObj);
+
 class HelloWorldRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _helloWorld(self):
