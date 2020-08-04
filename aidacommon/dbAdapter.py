@@ -436,6 +436,10 @@ class DBC(metaclass=ABCMeta):
         model=LogisticRegressionModel(*args,**kwargs)
         return model
 
+    def _decisionTree(self,*args,**kwargs):
+        model=DecisionTreeModel(*args,**kwargs)
+        return model
+
     def _save(self,model_name,model,update=False):
         
         # Code using MERGE 

@@ -302,6 +302,10 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def _decisionTree(self,*args,**kwargs):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def _save(self,model_name,model,update=False):
         pass
 
