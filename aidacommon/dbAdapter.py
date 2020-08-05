@@ -508,6 +508,8 @@ class DBC(metaclass=ABCMeta):
         if (isinstance(model,sklearn.linear_model._logistic.LogisticRegression)):
             logging.info("I am here, model is type logistic")
             model_wrapper = LogisticRegressionModel()
+        elif (isinstance(model,sklearn.tree.DecisionTreeClassifier)):
+            model_wrapper = DecisionTreeModel()
 
         model_wrapper.model=model
         return model_wrapper
