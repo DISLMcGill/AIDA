@@ -40,6 +40,7 @@ def loadConfig(topic='AIDASERVER'):
         AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else UDFTYPE.VIRTUALTABLE;
         AConfig.MAPBOXTOKEN = config_.get('MAPBOXTOKEN', defaultConfig['MAPBOXTOKEN']);
         AConfig.PAGETUNNEL = config_.get('PAGETUNNEL', None);
+        AConfig.CONVERSIONOPTION = config_.getint('CONVERSIONOPTION', 1);
         if(not AConfig.PAGETUNNEL is None and AConfig.PAGETUNNEL == 'None'):
             AConfig.PAGETUNNEL = None;
     else:

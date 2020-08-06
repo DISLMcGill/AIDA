@@ -153,45 +153,51 @@ class DBCPostgreSQL(DBC):
         #logging.debug("_execution called for {} with {}".format(self._jobName, sql));
         with self.__qryLock__:
             try:
-                """
-                rv = self.__connection.execute(sql);
-                if(rv.nrows() == 0 ):
-                    try:
-                        result  =  ({k: [] for k in rv.colnames()},0)
-                        return result
-                    except:
-                        return ([],0)
-                """
+                #logging.info("_execution: {} ".format(sql))
+                
+                # Naive conversion approach
+                if(AConfig.CONVERSIONOPTION == 1):
+                    rv = self.__connection.execute(sql);
+                    if(rv.nrows() == 0 ):
+                        try:
+                            result  =  ({k: [] for k in rv.colnames()},0)
+                            return result
+                        except:
+                            return ([],0)
 
-                # Naive conversion approach:
-                """
-                result = dict()               
-                for k in rv.colnames():
-                    col = [row[k] for row in rv]                    
-                    if type(col[0]).__name__ == 'NoneType':
-                        result[k] = np.array( [] )
-                    elif (type(col[0]).__name__) == 'int':
-                        result[k] = np.array(col, dtype = np.int64)
-                    elif (type(col[0]).__name__) == 'float':
-                        result[k] = np.array(col, dtype = np.float64)
-                    else:
-                        result[k] = np.array(col, dtype = np.object_)
-                """
-
-                # Conversion extension module:
-                """
-                row_list = list(rv)
-                columns = rv.colnames()
-                rowNums = len(row_list)
-                colNums = len(columns)
-                result = convert(row_list,columns,rowNums,colNums)
-                """
+                    result = dict()               
+                    for k in rv.colnames():
+                        col = [row[k] for row in rv]                    
+                        if type(col[0]).__name__ == 'NoneType':
+                            result[k] = np.array( [] )
+                        elif (type(col[0]).__name__) == 'int':
+                            result[k] = np.array(col, dtype = np.int64)
+                        elif (type(col[0]).__name__) == 'float':
+                            result[k] = np.array(col, dtype = np.float64)
+                        else:
+                            result[k] = np.array(col, dtype = np.object_)
+                
+                # C Python extension conversion module:
+                elif(AConfig.CONVERSIONOPTION == 2):
+                    rv = self.__connection.execute(sql);
+                    if(rv.nrows() == 0 ):
+                        try:
+                            result  =  ({k: [] for k in rv.colnames()},0)
+                            return result
+                        except:
+                            return ([],0)
+                            
+                    row_list = list(rv)
+                    columns = rv.colnames()
+                    rowNums = len(row_list)
+                    colNums = len(columns)
+                    result = convert(row_list,columns,rowNums,colNums)
 
                 # Conversion function added to the source code of PostgreSQL:
-                logging.info("_execution: {} ".format(sql))
-                result = self.__connection.execute_and_convert_to_columns(sql);
-                if not result:
-                    return ([],0)
+                elif(AConfig.CONVERSIONOPTION == 3):
+                    result = self.__connection.execute_and_convert_to_columns(sql);
+                    if not result:
+                        return ([],0)
 
                 if(sqlType==DBC.SQLTYPE.SELECT):
                     if(resultFormat == 'column'):
