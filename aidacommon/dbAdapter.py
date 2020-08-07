@@ -177,8 +177,10 @@ class LinearRegressionModel:
         return self.model
 
     def fit(self,X,y,sample_weight=None):
-        X=DataConversion.extract_X(X)
-        y=DataConversion.extract_y(y)
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        if (isinstance(y,TabularData)):
+            y=DataConversion.extract_y(y)
         self.model.fit(X,y,sample_weight)
         return self
     
@@ -192,8 +194,10 @@ class LinearRegressionModel:
         return self.model.predict(X)
 
     def score(self,X,y,sample_weight=None):
-        X=DataConversion.extract_X(X)
-        y=DataConversion.extract_y(y)
+        if (isinstance(X,TabularData)):
+            X=DataConversion.extract_X(X)
+        if (isinstance(y,TabularData)):
+            y=DataConversion.extract_y(y)        
         return self.model.score(X,y,sample_weight)
 
     def set_params(self,**params):
