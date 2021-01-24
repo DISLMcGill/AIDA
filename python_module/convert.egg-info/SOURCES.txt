@@ -1,0 +1,6 @@
+convert.c
+setup.py
+convert.egg-info/PKG-INFO
+convert.egg-info/SOURCES.txt
+convert.egg-info/dependency_links.txt
+convert.egg-info/top_level.txt
