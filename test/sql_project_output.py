@@ -1,0 +1,3 @@
+rename_result = '   supp_nation  ns_nationkey\n0      ALGERIA             0\n1    ARGENTINA             1\n2       BRAZIL             2\n3       CANADA             3\n4        EGYPT             4\n5     ETHIOPIA             5\n6       FRANCE             6\n7      GERMANY             7\n8        INDIA             8\n9    INDONESIA             9\n10        IRAN            10\n11        IRAQ            11\n12       JAPAN            12\n13      JORDAN            13\n14       KENYA            14\n15     MOROCCO            15\n16  MOZAMBIQUE            16\n17        PERU            17\n18       CHINA            18\n19     ROMANIA            19'
+rename_shape = (25, 2)
+

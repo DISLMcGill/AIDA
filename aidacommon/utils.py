@@ -73,3 +73,5 @@ class VirtualOrderedColumnsDict(OrderedDict):
     def keys(self):
         return VirtualOrderedColumnsDict.VirtualOrderedColumns(self.__numkeys__, self.__numformatter__, self.__start__, self.__colprefix__, self.__colsuffix__);
 
+def matchExp(str1, str2):
+    pass
