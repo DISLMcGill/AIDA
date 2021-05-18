@@ -442,14 +442,25 @@ class GPUWrap:
         if (item in ('__dbcObj__', '__tDataColumns__')):
             return super().__getattribute__(item);
 
-
+        get_dbc_tstart = time.time();
         val = getattr(super().__getattribute__('__dbcObj__'), item);
+        get_dbc_tend = time.time();
+        logging.info("GPUWrap getattr: get_dbc_object: {}".format(get_dbc_tend - get_dbc_tstart));
         if(isinstance(val, TabularData)): 
+            get_tab_tstart = time.time();
             tDataCols = super().__getattribute__('__tDataColumns__');
+            get_tab_tend = time.time();
+            logging.info("GPUWrap getattr: get_tab_object: {}".format(get_tab_tend - get_tab_tstart));
+            get_np_tstart = time.time();
             tDataCols[item] = val.columns; 
             val = val.matrix.T;
+            get_np_tend = time.time();
+            logging.info("GPUWrap getattr: get_numpy_object: {}".format(get_np_tend - get_np_tstart));
             # val now is of type numpy.ndarray
+            get_cp_tstart = time.time();
             val = cp.asarray(val, order='C'); #convert to CuPy ndarray
+            get_cp_tend = time.time();
+            logging.info("GPUWrap getattr: convert to cupy object: {}".format(get_cp_tend - get_cp_tstart));
             #logging.info("getattr val device is {}".format(val.device));
             #logging.info("after cp, val is of type {}".format(type(val)));
             # val now is of type cupy.core.core.ndarray
