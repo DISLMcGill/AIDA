@@ -1,31 +1,17 @@
+import random
+
 from aida.aida import *;
+from query_sampling import RandomLoad
 
+seed = 1001
 config = __import__('TPCHconfig-AIDA')
+random.seed(seed)
 
-TABLE_INVOLVED = {
-    'q01': ['lineitem'],
-    'q02': ['part', 'partsupp', 'supplier', 'nation', 'region'],
-    'q03': ['customer', 'orders', 'lineitem'],
-    'q04': ['lineitem', 'orders'],
-    'q05': ['customer', 'orders', 'lineitem', 'supplier', 'nation', 'region'],
-    'q06': ['lineitem'],
-    'q07': ['supplier', 'lineitem', 'orders', 'customer', 'nation'],
-    'q08': ['part', 'supplier', 'lineitem', 'orders', 'customer', 'nation', 'region'],
-    'q09': ['part', 'supplier', 'lineitem', 'partsupp', 'orders', 'nation'],
-    'q10': ['customer', 'orders', 'lineitem', 'nation'],
-    'q11': ['partsupp', 'supplier', 'nation'],
-    'q12': ['orders', 'lineitem'],
-    'q13': ['customer', 'orders'],
-    'q14': ['lineitem', 'part'],
-    'q15': ['supplier', 'lineitem'],
-    'q16': ['supplier', 'part', 'partsupp'],
-    'q17': ['lineitem', 'part'],
-    'q18': ['customer', 'orders', 'lineitem'],
-    'q19': ['lineitem', 'part'],
-    'q20': ['supplier', 'nation', 'part', 'lineitem', 'partsupp'],
-    'q21': [],
-    'q22': ['orders', 'customer']
-}
+# rewritten queries: 3, 4, 5, 7, 8, 10, 12, 13, 14, 16, 19
+def update_seed(sd):
+    global seed
+    seed = sd
+    random.seed(seed)
 
 def q01(db):
     """
@@ -54,8 +40,10 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad()
     lineitem = db.lineitem;
     l = lineitem.filter(Q('l_shipdate', DATE('1998-09-02'), CMP.LTE));
+    rl.load_data_randomly(l)
     l = l.project(('l_returnflag', 'l_linestatus', 'l_quantity', 'l_extendedprice'
                    , {F('l_extendedprice') * (1 - F('l_discount')): 'disc_price'}
                    , {F('l_extendedprice') * (1 - F('l_discount')) * (1 + F('l_tax')): 'charge'}
@@ -63,6 +51,7 @@ order by
                    , 'l_extendedprice'
                    , 'l_discount'
                    ));
+    rl.load_data_randomly(l)
     l = l.aggregate(
         ('l_returnflag', 'l_linestatus', {SUM('l_quantity'): 'sum_qty'}, {SUM('l_extendedprice'): 'sum_base_price'}
          , {SUM('disc_price'): 'sum_disc_price'}
@@ -82,7 +71,7 @@ def q02(db):
     """
 select
 	s_acctbal,
-        s_name,
+	s_name,
 	n_name,
 	p_partkey,
 	p_mfgr,
@@ -178,23 +167,35 @@ limit 100;
     :param db:
     :return:
     """
+
+    rl = RandomLoad(9)
     p  = db.part.filter(Q('p_size', C(15)), Q('p_type', C('%BRASS'), CMP.LIKE));
     ps = db.partsupp;
     s  = db.supplier;
     n  = db.nation;
     r  = db.region.filter(Q('r_name', C('EUROPE')));
 
-    j  = ps.join(s, ('ps_suppkey',), ('s_suppkey',), COL.ALL, COL.ALL);
-    j  = j.join(n, ('s_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
-    j  = j.join(r, ('n_regionkey',), ('r_regionkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(r)
+    rl.load_data_randomly(s)
+
+    j = ps.join(s, ('ps_suppkey',), ('s_suppkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(j)
+    j = j.join(n, ('s_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(j)
+    j = j.join(r, ('n_regionkey',), ('r_regionkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(j)
 
     ti = j.aggregate(({'ps_partkey':'i_partkey'},{MIN('ps_supplycost'):'min_supply_cost'}), ('ps_partkey',));
+    rl.load_data_randomly(ti)
 
-    t  = j.join(p, ('ps_partkey',), ('p_partkey',), COL.ALL, COL.ALL );
-    t  = t.join(ti, ('ps_partkey', 'ps_supplycost'), ('i_partkey', 'min_supply_cost'), COL.ALL, COL.ALL );
-    t  = t.project(('s_acctbal', 's_name', 'n_name', 'p_partkey', 'p_mfgr', 's_address', 's_phone', 's_comment'));
-    t  = t.order(('s_acctbal#desc', 'n_name', 's_name', 'p_partkey'));
-    t  = t.head(100);
+    t = j.join(p, ('ps_partkey',), ('p_partkey',), COL.ALL, COL.ALL );
+    rl.load_data_randomly(t)
+    t = t.join(ti, ('ps_partkey', 'ps_supplycost'), ('i_partkey', 'min_supply_cost'), COL.ALL, COL.ALL );
+    rl.load_data_randomly(t)
+    t = t.project(('s_acctbal', 's_name', 'n_name', 'p_partkey', 'p_mfgr', 's_address', 's_phone', 's_comment'));
+    rl.load_data_randomly(t)
+    t = t.order(('s_acctbal#desc', 'n_name', 's_name', 'p_partkey'));
+    t = t.head(100);
 
     return t;
 
@@ -230,13 +231,27 @@ limit 10;
     :param db:
     :return:
     """
-    c = db.customer.filter(Q('c_mktsegment', C('BUILDING')));
-    o = db.orders.filter(Q('o_orderdate', DATE('1995-03-15'), CMP.LT));
-    l = db.lineitem.filter(Q('l_shipdate', DATE('1995-03-15'), CMP.GT)).project(('l_orderkey', {F('l_extendedprice')*(1-F('l_discount')):'rev'}));
-
+    rl = RandomLoad(6)
+    c = db.customer;
+    rl.load_data_randomly(c)
+    l = db.lineitem;
+    o = db.orders;
+    rl.load_data_randomly(c, l, o)
     t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.join(l, ('o_orderkey',), ('l_orderkey',), COL.ALL, COL.ALL);
-    t = t.aggregate(('l_orderkey',{SUM('rev'):'revenue'}, 'o_orderdate', 'o_shippriority'),('l_orderkey', 'o_orderdate', 'o_shippriority'));
+    rl.load_data_randomly(t)
+
+    t = t.filter(Q('c_mktsegment', C('BUILDING'))
+                 & Q('o_orderdate', DATE('1995-03-15'), CMP.LT)
+                 & Q('l_shipdate', DATE('1995-03-15'), CMP.GT));
+    rl.load_data_randomly(t)
+
+    t = t.project(('l_orderkey', {F('l_extendedprice')*(1-F('l_discount')):'rev'}, 'o_orderdate', 'o_shippriority'));
+    rl.load_data_randomly(t)
+
+    t = t.aggregate(('l_orderkey',{SUM('rev'):'revenue'}, 'o_orderdate', 'o_shippriority'),
+                    ('l_orderkey', 'o_orderdate', 'o_shippriority'));
     t = t.order(('revenue#desc', 'o_orderdate'));
     t = t.head(10);
 
@@ -293,11 +308,17 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad(3)
+    l = db.lineitem.filter(Q('l_commitdate', 'l_receiptdate', CMP.LT))
+    rl.load_data_randomly(l)
 
-    l = db.lineitem.filter(Q('l_commitdate', 'l_receiptdate', CMP.LT)).project('l_orderkey');
-    o = db.orders.filter(Q('o_orderdate', DATE('1993-07-01'), CMP.GTE), Q('o_orderdate', DATE('1993-10-01'), CMP.LT), Q('o_orderkey', l, CMP.IN));
+    e = db.orders.join(l, ('o_orderkey'), ('l_orderkey'), COL.ALL, COL.NONE)
+    rl.load_data_randomly(e)
 
-    t = o.aggregate(('o_orderpriority', {COUNT('*'):'order_count'}), ('o_orderpriority',));
+    e = e.filter(Q('o_orderdate', DATE('1993-07-01'), CMP.GTE), Q('o_orderdate', DATE('1993-10-01'), CMP.LT))
+    rl.load_data_randomly(e)
+
+    t = e.aggregate(('o_orderpriority', {COUNT('*'):'order_count'}), ('o_orderpriority',));
     t = t.order('o_orderpriority');
 
     return t;
@@ -333,19 +354,32 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad(7)
+
     c = db.customer;
-    o = db.orders.filter(Q('o_orderdate', DATE('1994-01-01'), CMP.GTE), Q('o_orderdate', DATE('1995-01-01'), CMP.LT));
+    o = db.orders;
     l = db.lineitem;
     s = db.supplier;
     n = db.nation;
-    r = db.region.filter(Q('r_name', C('ASIA')));
+    r = db.region;
 
     t = c.join(o, ('c_custkey',),('o_custkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.join(l, ('o_orderkey',), ('l_orderkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.join(s, ('l_suppkey', 'c_nationkey'), ('s_suppkey', 's_nationkey'), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.join(n, ('s_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.join(r, ('n_regionkey',), ('r_regionkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+
+    t = t.filter(Q('o_orderdate', DATE('1994-01-01'), CMP.GTE), Q('o_orderdate', DATE('1995-01-01'), CMP.LT));
+    t = t.filter(Q('r_name', C('ASIA')));
+    rl.load_data_randomly(t)
+
     t = t.project(('n_name', {F('l_extendedprice')*(1-F('l_discount')):'rev'}))
+    rl.load_data_randomly(t)
     t = t.aggregate(('n_name', {SUM('rev'):'revenue'}), ('n_name',));
     t = t.order('revenue#desc');
 
@@ -422,27 +456,50 @@ order by
   cust_nation,
   l_year;
 
+--------------------------------------------------------
+
+    create view sn as
+        Select n_name as supp_nation, s_suppkey from supplier, nation Where s_nationkey = n_nationkey
+    create view cn as
+        Select n_name as cust_name, c_custkey  from customer, nation where c_nationkey = n_nationkey
+    select supp_nation, cust_nation, extract(year from l_shipdate) as l_year, volume from
+    sn, cn, orders, lineitem where s_suppkey = l_suppkey and o_orderkey=l_orderkey
+    and c_custkey = o_custkey and (supp_nation = 'France' amd cust_nation = 'Germany' or supp_nation )
+
     :param db:
     :return:
     """
+    rl = RandomLoad(8)
+
     s  = db.supplier;
-    l  = db.lineitem.filter(Q('l_shipdate',DATE('1995-01-01'),CMP.GTE), Q('l_shipdate',DATE('1996-12-31'),CMP.LTE)) \
-                    .project(('l_suppkey', 'l_orderkey', {EXTRACT('l_shipdate',EXTRACT.OP.YEAR):'l_year'}, {F('l_extendedprice')*(1-F('l_discount')):'volume'}));
+    l  = db.lineitem.filter(Q('l_shipdate',DATE('1995-01-01'),CMP.GTE), Q('l_shipdate',DATE('1996-12-31'),CMP.LTE))
+    rl.load_data_randomly(l)
+
     o  = db.orders;
     c  = db.customer;
     n  = db.nation;
 
-    ns = n.project(({'n_name':'supp_nation'}, {'n_nationkey':'ns_nationkey'}));
-    nc = n.project(({'n_name':'cust_nation'}, {'n_nationkey':'nc_nationkey'}));
+    ns = n.join(s, ('n_nationkey'), ('s_nationkey'), ('n_name', ), ('s_suppkey', ))\
+        .project(({'n_name':'supp_nation'}, 's_suppkey'));
+    nc = n.join(c, ('n_nationkey'), ('c_nationkey'), ('n_name', ), ('c_custkey', ))\
+        .project(({'n_name':'cust_nation'}, 'c_custkey'));
+    rl.load_data_randomly(ns, nc)
 
-    t  = s.join(l, ('s_suppkey',), ('l_suppkey',), COL.ALL, COL.ALL );
-    t  = t.join(o, ('l_orderkey',), ('o_orderkey',), COL.ALL, COL.ALL);
-    t  = t.join(c, ('o_custkey',), ('c_custkey',), COL.ALL, COL.ALL);
-    t  = t.join(ns, ('s_nationkey',), ('ns_nationkey',), COL.ALL, COL.ALL);
-    t  = t.join(nc, ('c_nationkey',), ('nc_nationkey',), COL.ALL, COL.ALL);
-    t  = t.filter( (Q('supp_nation',C('FRANCE')) & Q('cust_nation',C('GERMANY'))) | (Q('supp_nation',C('GERMANY')) & Q('cust_nation',C('FRANCE'))) );
-    t  = t.aggregate(('supp_nation','cust_nation','l_year', {SUM('volume'):'revenue'}), ('supp_nation','cust_nation','l_year'));
-    t  = t.order(('supp_nation', 'cust_nation', 'l_year'));
+    t = ns.join(l, ('s_suppkey',), ('l_suppkey',), COL.ALL, COL.ALL );
+    rl.load_data_randomly(t)
+    t = t.join(o, ('l_orderkey',), ('o_orderkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+    t = t.join(nc, ('o_custkey',), ('c_custkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+
+    t = t.filter( (Q('supp_nation',C('FRANCE')) & Q('cust_nation',C('GERMANY'))) | (Q('supp_nation',C('GERMANY')) & Q('cust_nation',C('FRANCE'))) );
+    rl.load_data_randomly(t)
+    t = t.project(('supp_nation', 'cust_nation', {EXTRACT('l_shipdate', EXTRACT.OP.YEAR): 'l_year'},
+              {F('l_extendedprice') * (1 - F('l_discount')): 'volume'}));
+    rl.load_data_randomly(t)
+    t = t.aggregate(('supp_nation','cust_nation','l_year', {SUM('volume'):'revenue'}), ('supp_nation','cust_nation','l_year'));
+    rl.load_data_randomly(t)
+    t = t.order(('supp_nation', 'cust_nation', 'l_year'));
 
     return t;
 
@@ -491,28 +548,37 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad(8)
+
     p  = db.part.filter(Q('p_type', C('ECONOMY ANODIZED STEEL')));
+    rl.load_data_randomly(p)
     s  = db.supplier;
     l  = db.lineitem;
     o  = db.orders.filter(Q('o_orderdate',DATE('1995-01-01'),CMP.GTE), Q('o_orderdate',DATE('1996-12-31'),CMP.LTE));
+    rl.load_data_randomly(o, s, l)
     c  = db.customer;
     n  = db.nation;
     r  = db.region.filter(Q('r_name', C('AMERICA')));
+    rl.load_data_randomly(c, n, r)
 
-    n1 = n.project(({'n_name':'n1_name'}, {'n_nationkey':'n1_nationkey'}, {'n_regionkey':'n1_regionkey'}));
-    n2 = n.project(({'n_name':'n2_name'}, {'n_nationkey':'n2_nationkey'}, {'n_regionkey':'n2_regionkey'}));
+    ns = n.join(s, ('n_nationkey'), ('s_nationkey'),COL.ALL, COL.ALL)\
+        .project(({'n_name': 'n2_name'}, 's_suppkey'))
+    nc = n.join(c, ('n_nationkey'), ('c_nationkey'), COL.ALL, COL.ALL)\
+        .join(r, ('n_regionkey'), ('r_regionkey'), COL.ALL, COL.ALL)
 
     t  = l.join(p, ('l_partkey',), ('p_partkey',), COL.ALL, COL.ALL);
-    t  = t.join(s, ('l_suppkey',), ('s_suppkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+    t  = t.join(ns, ('l_suppkey',), ('s_suppkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.join(o, ('l_orderkey',), ('o_orderkey',), COL.ALL, COL.ALL);
-    t  = t.join(c, ('o_custkey',), ('c_custkey',), COL.ALL, COL.ALL);
-    t  = t.join(n1,('c_nationkey',), ('n1_nationkey',), COL.ALL, COL.ALL);
-    t  = t.join(r, ('n1_regionkey',), ('r_regionkey',), COL.ALL, COL.ALL);
-    t  = t.join(n2,('s_nationkey',), ('n2_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+    t  = t.join(nc, ('o_custkey',), ('c_custkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
 
     t  = t.project(({EXTRACT('o_orderdate', EXTRACT.OP.YEAR):'o_year'}
                     ,{CASE( ((Q('n2_name', C('BRAZIL')),F('l_extendedprice')*(1 - F('l_discount'))), ), C(0)):'volume1'}
                     ,{F('l_extendedprice')*(1 - F('l_discount')):'volume'}, {'n2_name':'nation'}));
+    rl.load_data_randomly(t)
     t  = t.aggregate(('o_year', {SUM('volume1'):'sum_v1'}, {SUM('volume'):'sum_v'}), ('o_year',));
     t  = t.project(('o_year', {F('sum_v1')/F('sum_v'):'mkt_share'} ));
     t  = t.order(('o_year',));
@@ -559,20 +625,31 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad(10)
     p  = db.part.filter(Q('p_name',C('%green%'), CMP.LIKE));
+    rl.load_data_randomly(p)
     s  = db.supplier;
+    rl.load_data_randomly(s)
     l  = db.lineitem;
+    rl.load_data_randomly(l)
     ps = db.partsupp;
+    rl.load_data_randomly(l, ps)
     o  = db.orders;
     n  = db.nation;
 
     t  = s.join(l, ('s_suppkey',), ('l_suppkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.join(ps, ('l_suppkey', 'l_partkey'), ('ps_suppkey', 'ps_partkey'), COL.ALL, COL.ALL );
+    rl.load_data_randomly(t)
     t  = t.join(p, ('l_partkey',), ('p_partkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.join(o, ('l_orderkey',), ('o_orderkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.join(n, ('s_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.project(({'n_name':'nation'}, {EXTRACT('o_orderdate',EXTRACT.OP.YEAR):'o_year'}, {F('l_extendedprice')*(1-F('l_discount')) - F('ps_supplycost')*F('l_quantity'):'amount'} ));
     t  = t.aggregate(('nation', 'o_year', {SUM('amount'):'sum_profit'}), ('nation', 'o_year'));
+    rl.load_data_randomly(t)
     t  = t.order(('nation', 'o_year#desc'));
 
     return t;
@@ -616,17 +693,30 @@ limit 20;
     :param db:
     :return:
     """
+    rl = RandomLoad(8)
 
     c = db.customer;
-    o = db.orders.filter(Q('o_orderdate', DATE('1993-10-01'), CMP.GTE), Q('o_orderdate', DATE('1994-01-01'), CMP.LT));
-    l = db.lineitem.filter(Q('l_returnflag', C('R'))).project(('l_orderkey', {F('l_extendedprice')*(1-F('l_discount')):'rev'}));
+    rl.load_data_randomly(c)
+    o = db.orders;
+    rl.load_data_randomly(o)
+    l = db.lineitem.project(('l_orderkey', 'l_returnflag', {F('l_extendedprice')*(1-F('l_discount')):'rev'}));
     n = db.nation;
 
-    t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, COL.ALL);
-    t = t.join(l, ('o_orderkey',), ('l_orderkey',), COL.ALL, COL.ALL);
+    t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, ('o_orderdate', 'o_orderkey'));
+    rl.load_data_randomly(t)
+    t = t.join(l, ('o_orderkey',), ('l_orderkey',), COL.ALL, ('l_returnflag', 'rev'));
+    rl.load_data_randomly(t)
     t = t.join(n, ('c_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+
+    t = t.filter(Q('o_orderdate', DATE('1993-10-01'), CMP.GTE), Q('o_orderdate', DATE('1994-01-01'), CMP.LT));
+    rl.load_data_randomly(t)
+    t = t.filter(Q('l_returnflag', C('R')));
+    rl.load_data_randomly(t)
+
     t = t.aggregate(('c_custkey', 'c_name', {SUM('rev'):'revenue'}, 'c_acctbal', 'n_name', 'c_address', 'c_phone', 'c_comment'),
                     ('c_custkey', 'c_name', 'c_acctbal', 'c_phone', 'n_name', 'c_address', 'c_comment'));
+    rl.load_data_randomly(t)
     t = t.order(('revenue#desc',));
     t = t.head(20);
 
@@ -670,19 +760,28 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad(7)
+
     ps = db.partsupp;
     s  = db.supplier;
     n  = db.nation.filter(Q('n_name', C('GERMANY')));
+    rl.load_data_randomly(s)
 
     j  = ps.join(s, ('ps_suppkey',), ('s_suppkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(j)
     j  = j.join(n, ('s_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(j)
 
     ti = j.project(({F('ps_supplycost')*F('ps_availqty'):'totsupcost'},));
+    rl.load_data_randomly(ti)
     ti = ti.aggregate(({SUM('totsupcost'):'sum_totsupcost'},));
+    rl.load_data_randomly(ti)
     ti = ti.project(({F('sum_totsupcost')*0.0001/config.SF :'sumtotsupcost'},));
 
     t  = j.project(('ps_partkey', {F('ps_supplycost')*F('ps_availqty'):'val'}))
+    rl.load_data_randomly(t)
     t  = t.aggregate(('ps_partkey', {SUM('val'):'value'}), ('ps_partkey',));
+    rl.load_data_randomly(t)
     t  = t.filter(Q('value', ti, CMP.GT));
     t  = t.order(('value#desc',));
 
@@ -724,16 +823,22 @@ order by
     :param db:
     :return:
     """
-
+    rl = RandomLoad(3)
     o  = db.orders;
-    l  = db.lineitem.filter(Q('l_shipmode', ('MAIL', 'SHIP'), CMP.IN), Q('l_commitdate', 'l_receiptdate', CMP.LT), Q('l_shipdate', 'l_commitdate', CMP.LT)
-                           ,Q('l_receiptdate', DATE('1994-01-01'), CMP.GTE), Q('l_receiptdate', DATE('1995-01-01'), CMP.LT));
+    l  = db.lineitem;
 
-    t  = l.join(o, ('l_orderkey',), ('o_orderkey',), COL.ALL, COL.ALL);
+    t  = l.join(o, ('l_orderkey',), ('o_orderkey',), COL.ALL, COL.ALL)\
+        .filter(Q('l_shipmode', ('MAIL', 'SHIP'), CMP.IN), Q('l_commitdate', 'l_receiptdate', CMP.LT),
+            Q('l_shipdate', 'l_commitdate', CMP.LT)
+            , Q('l_receiptdate', DATE('1994-01-01'), CMP.GTE), Q('l_receiptdate', DATE('1995-01-01'), CMP.LT));
+    rl.load_data_randomly(t)
+
     t  = t.project(('l_shipmode', {CASE(  ( (Q('o_orderpriority',('1-URGENT', '2-HIGH'),CMP.IN), 1) ,),  C(0)):'hl_count'}
                                 , {CASE(  ( (Q('o_orderpriority',('1-URGENT', '2-HIGH'),CMP.NOTIN), 1) ,),  C(0)):'ll_count'}));
+    rl.load_data_randomly(t)
 
     t  = t.aggregate(('l_shipmode', {SUM('hl_count'):'high_line_count'}, {SUM('ll_count'):'low_line_count'}), ('l_shipmode',))
+    rl.load_data_randomly(t)
     t  = t.order(('l_shipmode',));
     return t;
 
@@ -765,11 +870,15 @@ order by
     :param db:
     :return:
     """
-
+    rl = RandomLoad(3)
     c = db.customer;
-    o = db.orders.filter(Q('o_comment', C('%special%requests%'), CMP.NOTLIKE));
-    t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, COL.ALL, JOIN.LEFT);
+    o = db.orders
+    rl.load_data_randomly(c, o)
+    t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, COL.ALL, JOIN.LEFT)\
+        .filter(Q('o_comment', C('%special%requests%'), CMP.NOTLIKE));
+    rl.load_data_randomly(t)
     t = t.aggregate(('c_custkey', {COUNT('o_orderkey'):'c_count'}), ('c_custkey',));
+    rl.load_data_randomly(t)
     t = t.aggregate(('c_count', {COUNT('*'):'custdist'}), ('c_count',));
     t = t.order(('custdist#desc', 'c_count#desc'));
 
@@ -796,12 +905,16 @@ where
     :param dbc:
     :return:
     """
-
-    l  = db.lineitem.filter(Q('l_shipdate', DATE('1995-09-01'), CMP.GTE), Q('l_shipdate', DATE('1995-10-01'), CMP.LT));
+    rl = RandomLoad(3)
+    l  = db.lineitem;
     p  = db.part;
+    rl.load_data_randomly(p)
 
-    t  = l.join(p, ('l_partkey',), ('p_partkey',), COL.ALL, COL.ALL);
+    t  = l.join(p, ('l_partkey',), ('p_partkey',), COL.ALL, COL.ALL)\
+        .filter(Q('l_shipdate', DATE('1995-09-01'), CMP.GTE), Q('l_shipdate', DATE('1995-10-01'), CMP.LT))
+    rl.load_data_randomly(t)
     t  = t.project((  {CASE(( (Q('p_type', C('PROMO%'), CMP.LIKE) ,F('l_extendedprice')*(1 - F('l_discount')))  ,),0):'revenue1'},  { F('l_extendedprice')*(1 - F('l_discount')):'revenue2'} ));
+    rl.load_data_randomly(t)
     t  = t.aggregate(({SUM('revenue1'):'sum_revenue1'}, {SUM('revenue2'):'sum_revenue2'}));
     t  = t.project(({100.00*F('sum_revenue1')/F('sum_revenue2'):'promo_revenue'},))
 
@@ -851,17 +964,23 @@ drop view revenue0;
     :param db:
     :return:
     """
+    rl = RandomLoad(5)
 
     s  = db.supplier;
     l  = db.lineitem.filter(Q('l_shipdate', DATE('1996-01-01'), CMP.GTE), Q('l_shipdate', DATE('1996-04-01'), CMP.LT)) \
                     .project(({'l_suppkey':'supplier_no'}, {F('l_extendedprice')*(1 - F('l_discount')):'rev'})) \
                     .aggregate(('supplier_no',{SUM('rev'):'total_revenue'}), ('supplier_no',));
+    rl.load_data_randomly(s, l)
 
     ti = l.aggregate((MAX('total_revenue'),));
+    rl.load_data_randomly(ti)
 
     t  = s.join(l, ('s_suppkey',), ('supplier_no',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.filter(Q('total_revenue', ti));
+    rl.load_data_randomly(t)
     t  = t.project(('s_suppkey', 's_name', 's_address', 's_phone', 'total_revenue'));
+    rl.load_data_randomly(t)
     t  = t.order(('s_suppkey',));
 
     return t;
@@ -904,13 +1023,20 @@ order by
     :param db:
     :return:
     """
-
+    rl = RandomLoad(4)
     s  = db.supplier.filter(Q('s_comment', C('%Customer%Complaints%'), CMP.LIKE)).project(('s_suppkey'));
-    p  = db.part.filter(Q('p_brand', C('Brand#45'), CMP.NE), Q('p_type', C('MEDIUM POLISHED%'), CMP.NOTLIKE), Q('p_size', (49, 14, 23, 45, 19, 3, 36, 9), CMP.IN));
-    ps = db.partsupp.filter(Q('ps_suppkey', s, CMP.NOTIN));
+    rl.load_data_randomly(s)
+    p  = db.part;
+    ps = db.partsupp;
+    rl.load_data_randomly(p, ps)
 
-    t  = p.join(ps, ('p_partkey',), ('ps_partkey',), COL.ALL, COL.ALL);
+    t  = p.join(ps, ('p_partkey',), ('ps_partkey',), COL.ALL, COL.ALL) \
+        .filter(Q('p_brand', C('Brand#45'), CMP.NE), Q('p_type', C('MEDIUM POLISHED%'), CMP.NOTLIKE),
+                Q('p_size', (49, 14, 23, 45, 19, 3, 36, 9), CMP.IN),
+                Q('ps_suppkey', s, CMP.NOTIN));
+    rl.load_data_randomly(t)
     t  = t.aggregate(('p_brand', 'p_type', 'p_size', {COUNT('ps_suppkey', distinct=True):'supplier_cnt'}), ('p_brand', 'p_type', 'p_size'));
+    rl.load_data_randomly(t)
     t  = t.order(('supplier_cnt#desc', 'p_brand', 'p_type', 'p_size'));
 
     return t;
@@ -963,17 +1089,26 @@ where
     :param db:
     :return:
     """
+    rl = RandomLoad(8)
     l  = db.lineitem;
+    rl.load_data_randomly(l)
     p  = db.part;
+    rl.load_data_randomly(l, p)
 
     ti = l.join(p, ('l_partkey',), ('p_partkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(ti)
     t  = ti;
     ti = ti.aggregate(({'p_partkey':'i_partkey'}, {AVG('l_quantity'):'avg_q'}), ('p_partkey',));
+    rl.load_data_randomly(ti)
     ti = ti.project(('i_partkey', {0.2*F('avg_q'):'avg_qty'}));
+    rl.load_data_randomly(ti)
 
     t  = t.filter(Q('p_brand', C('Brand#23')), Q('p_container', C('MED BOX')));
+    rl.load_data_randomly(t)
     t  = t.join(ti, ('p_partkey',), ('i_partkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.filter(Q('l_quantity', 'avg_qty', CMP.LT));
+    rl.load_data_randomly(t)
     t  = t.aggregate(({SUM('l_extendedprice'):'tot_price'},)).project(({F('tot_price')/7.0:'avg_yearly'}));
 
     return t;
@@ -1019,16 +1154,24 @@ limit 100;
     :param db:
     :return:
     """
+    rl = RandomLoad(7)
     c  = db.customer;
+    rl.load_data_randomly(c)
     o  = db.orders;
     l  = db.lineitem;
+    rl.load_data_randomly(c, o, l)
 
     ti = l.aggregate(('l_orderkey', {SUM('l_quantity'):'qty'}), ('l_orderkey',)).filter(Q('qty', C(300), CMP.GT)).project(('l_orderkey',));
+    rl.load_data_randomly(ti)
 
     t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.join(l, ('o_orderkey',), ('l_orderkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t = t.filter(Q('o_orderkey', ti, CMP.IN));
+    rl.load_data_randomly(t)
     t = t.aggregate(('c_name', 'c_custkey', 'o_orderkey', 'o_orderdate', 'o_totalprice', SUM('l_quantity')), ('c_name', 'c_custkey', 'o_orderkey', 'o_orderdate', 'o_totalprice'));
+    rl.load_data_randomly(t)
     t = t.order(('o_totalprice#desc', 'o_orderdate'));
     t = t.head(100);
 
@@ -1077,14 +1220,16 @@ where
     :param db:
     :return:
     """
+    rl = RandomLoad(3)
     l = db.lineitem;
     p = db.part;
-    l = l.filter(Q('l_shipmode', ('AIR', 'AIR REG'), CMP.IN )
-                        & Q('l_shipinstruct', C('DELIVER IN PERSON')))
-    p = p.filter(Q('p_size', C(1), CMP.GTE))
     t = l.join(p, 'l_partkey', 'p_partkey', COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
+
     t = t.filter(
-                    (
+        (Q('l_shipmode', ('AIR', 'AIR REG'), CMP.IN)
+        & Q('l_shipinstruct', C('DELIVER IN PERSON')) & Q('p_size', C(1), CMP.GTE))
+                 &  ( (
                         Q('p_partkey', 'l_partkey')
                         & Q('p_brand', C('Brand#12'))
                         & Q('p_container', ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG'), CMP.IN)
@@ -1104,9 +1249,11 @@ where
                         & Q('p_container', ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG'), CMP.IN)
                         & Q('l_quantity', C(20), CMP.GTE) & Q('l_quantity', C(30), CMP.LTE)
                         & Q('p_size', C(15), CMP.LTE)
-                    )
+                    ))
                 );
+    rl.load_data_randomly(t)
     t = t.project(({F('l_extendedprice')*(1 - F('l_discount')):'rev'},));
+    rl.load_data_randomly(t)
     t = t.aggregate(({SUM('rev'):'revenue'},));
 
     return t;
@@ -1204,21 +1351,29 @@ order by
     :param db:
     :return:
     """
+    rl = RandomLoad(7)
 
     s  = db.supplier;
+    rl.load_data_randomly(s)
     n  = db.nation.filter(Q('n_name', C('CANADA')));
     p  = db.part.filter(Q('p_name', C('forest%'), CMP.LIKE)).project(('p_partkey',));
     l  = db.lineitem.filter(Q('l_shipdate',DATE('1994-01-01'),CMP.GTE), Q('l_shipdate',DATE('1995-01-01'),CMP.LT)) \
                     .aggregate(('l_partkey', 'l_suppkey', {SUM('l_quantity'):'sumqty'}), ('l_partkey', 'l_suppkey')) \
                     .project(('l_partkey', 'l_suppkey', {0.5*F('sumqty'):'totqty'} ));
+    rl.load_data_randomly(l)
     ps = db.partsupp;
 
     ti = ps.join(l, ('ps_partkey', 'ps_suppkey'), ('l_partkey', 'l_suppkey'), COL.ALL, COL.ALL);
+    rl.load_data_randomly(ti)
     ti = ti.filter(Q('ps_availqty', 'totqty', CMP.GT), Q('ps_partkey', p, CMP.IN));
+    rl.load_data_randomly(ti)
     ti = ti.project(('ps_suppkey',));
+    rl.load_data_randomly(ti)
 
     t  = s.join(n, ('s_nationkey',), ('n_nationkey',), COL.ALL, COL.ALL);
+    rl.load_data_randomly(t)
     t  = t.filter(Q('s_suppkey', ti, CMP.IN));
+    rl.load_data_randomly(t)
     t  = t.project(('s_name', 's_address'));
     t  = t.order(('s_name',));
 

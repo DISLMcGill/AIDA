@@ -17,7 +17,7 @@ from aidas.dborm import DBTable, DataFrame;
 
 from time import time;
 import decimal;
-#from convert import convert;
+from convert import convert;
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -58,6 +58,11 @@ class DBCPostgreSQL(DBC):
         "WHERE table_schema = '{}' AND table_name = '{}' " \
         "ORDER BY columnPos " \
         ";"
+
+    COUNT_EXP = "SELECT COUNT(*) FROM {};"
+    COL_EXP = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name =\'{}\';"
+    STRING_TYPE_EXP = "SELECT COUNT(*) FROM information_schema.columns WHERE data_type = \'character varying\' " \
+                      "AND table_name =\'{}\';"
 
     __NUMERIC_COL_DESCRIBE__ = \
         "  RIGHT ('                    ' || CAST(CAST(COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
@@ -106,6 +111,18 @@ class DBCPostgreSQL(DBC):
         import aidasys;
         self.__requestQueue = aidasys.requestQueue;
         self.__resultQueue = aidasys.resultQueue;
+
+    def _getTableRowCount(self, tableName):
+        count = list(self._executeQry(DBCPostgreSQL.COUNT_EXP.format(tableName))[0].values())[0][0]
+        return count
+
+    def _getTableColumnCount(self, tableName):
+        count = list(self._executeQry(DBCPostgreSQL.COL_EXP.format(tableName))[0].values())[0][0]
+        return count
+
+    def _getTableStrCount(self, tableName):
+        count = list(self._executeQry(DBCPostgreSQL.STRING_TYPE_EXP.format(tableName))[0].values())[0][0]
+        return count
 
     def _tables(self):
         sql = DBCPostgreSQL.__TABLE_LIST_QRY__.format(self.dbName);

@@ -11,6 +11,8 @@ class UDFTYPE(Enum):
 
 class AConfig:
     UDFTYPE=UDFTYPE.TABLEUDF;
+    FORCEPANDAS = False
+    FORCEDB = False
     #UDFTYPE=UDFTYPE.VIRTUALTABLE;
 
 
@@ -41,6 +43,8 @@ def loadConfig(topic='AIDASERVER'):
         AConfig.MAPBOXTOKEN = config_.get('MAPBOXTOKEN', defaultConfig['MAPBOXTOKEN']);
         AConfig.PAGETUNNEL = config_.get('PAGETUNNEL', None);
         AConfig.CONVERSIONOPTION = config_.getint('CONVERSIONOPTION', 1);
+        AConfig.FORCEPANDAS = True if config_.get('FORCEPANDAS', 'false') == 'true' else False
+        AConfig.FORCEDB = True if config_.get('FORCEDB', 'false') == 'true' else False
         if(not AConfig.PAGETUNNEL is None and AConfig.PAGETUNNEL == 'None'):
             AConfig.PAGETUNNEL = None;
     else:

@@ -62,6 +62,15 @@ class DBC(metaclass=ABCMeta):
         return cls._tableRepo_[relName];
 
     @abstractmethod
+    def _getTableRowCount(self, tableName): pass;
+
+    @abstractmethod
+    def _getTableColumnCount(self, tableName): pass;
+
+    @abstractmethod
+    def _getTableStrCount(self, tableName): pass;
+
+    @abstractmethod
     def _executeQry(self, sql, resultFormat='column'): pass;
 
     def _Page(self, func, *args, **kwargs):
