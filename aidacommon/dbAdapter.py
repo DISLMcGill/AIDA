@@ -19,7 +19,6 @@ from PIL import Image;
 from aidacommon.aidaConfig import AConfig;
 from aidacommon.rop import ROMgr;
 from aidacommon.rdborm import *;
-from aidacommon.memory import *;
 from aidacommon.gbackend import GBackendApp;
 
 import time;
@@ -143,7 +142,6 @@ class DBC(metaclass=ABCMeta):
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
         #Wrap the DBC object to make sure that the DBC object returns only CuPy matrix representations of the TabularData objects.
-        #TODO: Go over the args and kwargs and replace TabularData objects with NumPy matrix representations.
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
         return func(GPUWrap(self), *args, **kwargs);
@@ -431,86 +429,51 @@ class DBCWrap:
 # To simplify, only the parts that are different from above have comments beside.
 class GPUWrap:
     def __init__(self, dbcObj):
-        init_start = time.time();
+        logging.info("GPUWrap init: {}".format(time.time()));
         self.__dbcObj__ = dbcObj; 
         self.__tDataColumns__ = {};
-        init_end = time.time();
-        #logging.info("GPUWrap initialization time is {}".format(init_end - init_start)); 
 
     def __getattribute__(self, item):
-        getattr_start = time.time();
+        logging.info("GPUWrap getattr: {}".format(time.time()));
         if (item in ('__dbcObj__', '__tDataColumns__')):
             return super().__getattribute__(item);
 
-        get_dbc_tstart = time.time();
         val = getattr(super().__getattribute__('__dbcObj__'), item);
-        get_dbc_tend = time.time();
-        logging.info("GPUWrap getattr: get_dbc_object: {}".format(get_dbc_tend - get_dbc_tstart));
-        logging.info(printm());
+        
         if(isinstance(val, TabularData)): 
-            get_tab_tstart = time.time();
             tDataCols = super().__getattribute__('__tDataColumns__');
-            get_tab_tend = time.time();
-            logging.info("GPUWrap getattr: get_tab_object: {}".format(get_tab_tend - get_tab_tstart));
-            logging.info(printm());
-            get_np_tstart = time.time();
-            tDataCols[item] = val.columns; 
+            logging.info("tabularData to Numpy object: {}".format(time.time()));
+            tDataCols[item] = val.columns;
             val = val.matrix.T;
-            get_np_tend = time.time();
-            logging.info("GPUWrap getattr: get_numpy_object: {}".format(get_np_tend - get_np_tstart));
-            logging.info(printm());
+            logging.info("Numpy to cupy object: {}".format(time.time()));
             # val now is of type numpy.ndarray
-            get_cp_tstart = time.time();
             val = cp.asarray(val, order='C'); #convert to CuPy ndarray
-            get_cp_tend = time.time();
-            logging.info("GPUWrap getattr: convert to cupy object: {}".format(get_cp_tend - get_cp_tstart));
-            logging.info(printm());
-            #logging.info("getattr val device is {}".format(val.device));
-            #logging.info("after cp, val is of type {}".format(type(val)));
+            logging.info("GPUWrap finished conversion to cupy object: {}".format(time.time()));
             # val now is of type cupy.core.core.ndarray
             if(len(val.shape) == 1):
                 val = val.reshape(len(val), 1, order='C');
-            #logging.info("GPUWrap, getting : item {}, shape {}".format(item, val.shape));
-        getattr_end = time.time();
-        logging.info("GPUWrap getattr time is {}".format(getattr_end - getattr_start));
+            logging.info("reshaped and finished getattr:{}".format(time.time()));
         return val;
 
     
     def __setattr__(self, key, value):
-        #setattr_start = time.time();
+        logging.info("GPUWrap setattr: {}".format(time.time()));
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
 
-        #logging.debug("DBCWrap, setting called : item {}, value type {}".format(key, type(value)));
         try:
-            #logging.debug("DBCWrap: setattr : current known tabular data objects : {}".format(self.__tDataColumns__.keys()));
-            #sec1_start = time.time();
+            logging.info("get cupy object: {}".format(time.time()));
             tDataCols = self.__tDataColumns__[key];
             value = value.T;
-            #sec1_end = time.time();
-            #logging.info("the first two lines in try: {}".format(sec1_end - sec1_start));
-            #logging.info("value is of type {}".format(type(value)));
             # value now is of type cuoy.core.core.ndarray
-            #sec2_start = time.time();
+            logging.info("Cupy to Numpy object: {}".format(time.time()));
             value = cp.asnumpy(value, order='C');
-            #sec2_end = time.time();
-            #logging.info("cp.asnumpy: {}".format(sec2_end - sec2_start));
-            #C_start = time.time();
-            #logging.info("setattr val device is {}".format(value.device));
-            #logging.info("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
-            #C_end = time.time();
-            #sec3_start = time.time();
+            logging.info("Numpy to virtualDF: {}".format(time.time()));
             valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
-            #sec3_end = time.time();
-            #logging.info("virtualData: {}".format(sec3_end - sec3_start));
-            #sec4_start = time.time();
             setattr(self.__dbcObj__, key, valueDF);
-            #sec4_end = time.time();
-            #logging.info("setattr: {}".format(sec4_end - sec4_start));
-            #setattr_end = time.time();
-            #logging.info("GPUWrap total setattr time is {}".format(setattr_end - setattr_start)); 
+            logging.info("finished setattr: {}".format(time.time()));
             return;
         except :
-            logging.exception("DBCWrap : Exception ");
+            logging.exception("GPUWrap : Exception ");
             pass;
         setattr(self.__dbcObj__, key, value);
