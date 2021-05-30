@@ -459,6 +459,7 @@ class GPUWrap:
     def __setattr__(self, key, value):
         logging.info("GPUWrap setattr: {}".format(time.time()));
         if (key in ('__dbcObj__', '__tDataColumns__')):
+            logging.info("finished setattr: {}".format(time.time()));
             return super().__setattr__(key, value);
 
         try:
@@ -476,4 +477,5 @@ class GPUWrap:
         except :
             logging.exception("GPUWrap : Exception ");
             pass;
+        logging.info("finished setattr: {}".format(time.time()));
         setattr(self.__dbcObj__, key, value);
