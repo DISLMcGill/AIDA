@@ -396,24 +396,32 @@ class DBCWrap:
     def __setattr__(self, key, value):
         #setattr_start = time.time();
         #Trap the calls to ALL my object variables here itself.
+        logging.info("set_attr: key type:{}".format(type(key)));
+        logging.info("set_attr: value type:{}".format(type(value)));
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
 
         #logging.debug("DBCWrap, setting called : item {}, value type {}".format(key, type(value)));
         #Every other variable is set inside the DBC object that we are wrapping.
         try:
-            #Check if this was a TabularData object in the DBC object which we had reduced to just matrix representation.
             #logging.debug("DBCWrap: setattr : current known tabular data objects : {}".format(self.__tDataColumns__.keys()));
-            tDataCols = self.__tDataColumns__[key];
-            #If we got to this line, then it means it was a TabularData object.
-            # So we need to build a new TabularData object using the original column metadata.
-            #First step, transpose the matrix to fit the internal form of TabularData objects.
+
+            #Convert numpy matrix back to TabularData object
+            #Transpose the matrix to fit the internal form of TabularData objects.
             value = value.T;
             if(not value.flags['C_CONTIGUOUS']): #If the matrix is not C_CONTIGUOUS, make a copy in C_CONTGUOUS form.
                 value = np.copy(value, order='C');
             #Build a new TabularData object using virtual transformation.
             #logging.debug("DBCWrap, setting : item {}, shape {}".format(key, value.shape));
-            valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+            if key in self.__tDataColumns__:
+                tDataCols = self.__tDataColumns__[key];
+            #If we got to this line, then it means "key" was a TabularData object.
+            # So we need to build a new TabularData object using the original column metadata.
+                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+            else:
+            #If we go to this line, then it means "key" is a new variable.
+            # So we need to build a new TabularData from scratch
+                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
             #setattr_end = time.time();
             #logging.info("DBCWrap setattr time is {}".format(setattr_end - setattr_start));
@@ -464,13 +472,20 @@ class GPUWrap:
 
         try:
             logging.info("get cupy object: {}".format(time.time()));
-            tDataCols = self.__tDataColumns__[key];
             value = value.T;
             # value now is of type cuoy.core.core.ndarray
             logging.info("Cupy to Numpy object: {}".format(time.time()));
             value = cp.asnumpy(value, order='C');
             logging.info("Numpy to virtualDF: {}".format(time.time()));
-            valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+            if key in self.__tDataColumns__:
+                tDataCols = self.__tDataColumns__[key];
+            #If we got to this line, then it means "key" was a TabularData object.
+            # So we need to build a new TabularData object using the original column metadata.
+                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+            else:
+            #If we go to this line, then it means "key" is a new variable.
+            # So we need to build a new TabularData from scratch
+                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
             logging.info("finished setattr: {}".format(time.time()));
             return;
