@@ -396,8 +396,6 @@ class DBCWrap:
     def __setattr__(self, key, value):
         #setattr_start = time.time();
         #Trap the calls to ALL my object variables here itself.
-        logging.info("set_attr: key type:{}".format(type(key)));
-        logging.info("set_attr: value type:{}".format(type(value)));
         if (key in ('__dbcObj__', '__tDataColumns__')):
             return super().__setattr__(key, value);
 
@@ -437,12 +435,12 @@ class DBCWrap:
 # To simplify, only the parts that are different from above have comments beside.
 class GPUWrap:
     def __init__(self, dbcObj):
-        logging.info("GPUWrap init: {}".format(time.time()));
+        #logging.info("GPUWrap init: {}".format(time.time()));
         self.__dbcObj__ = dbcObj; 
         self.__tDataColumns__ = {};
 
     def __getattribute__(self, item):
-        logging.info("GPUWrap getattr: {}".format(time.time()));
+        #logging.info("GPUWrap getattr: {}".format(time.time()));
         if (item in ('__dbcObj__', '__tDataColumns__')):
             return super().__getattribute__(item);
 
@@ -450,47 +448,60 @@ class GPUWrap:
         
         if(isinstance(val, TabularData)): 
             tDataCols = super().__getattribute__('__tDataColumns__');
-            logging.info("tabularData to Numpy object: {}".format(time.time()));
+            #logging.info("tabularData to Numpy object: {}".format(time.time()));
             tDataCols[item] = val.columns;
             val = val.matrix.T;
-            logging.info("Numpy to cupy object: {}".format(time.time()));
+            #logging.info("Numpy to cupy object: {}".format(time.time()));
             # val now is of type numpy.ndarray
-            val = cp.asarray(val, order='C'); #convert to CuPy ndarray
-            logging.info("GPUWrap finished conversion to cupy object: {}".format(time.time()));
+            value_gpu = cp.asarray(val, order='C'); #convert to CuPy ndarray
+            #logging.info("GPUWrap finished conversion to cupy object: {}".format(time.time()));
             # val now is of type cupy.core.core.ndarray
-            if(len(val.shape) == 1):
-                val = val.reshape(len(val), 1, order='C');
-            logging.info("reshaped and finished getattr:{}".format(time.time()));
+            if(len(value_gpu.shape) == 1):
+                value_gpu = value_gpu.reshape(len(value_gpu), 1, order='C');
+            #logging.info("reshaped and finished getattr:{}".format(time.time()));
+            val = None;
+            return value_gpu;
+
         return val;
 
     
     def __setattr__(self, key, value):
-        logging.info("GPUWrap setattr: {}".format(time.time()));
+        #logging.info("GPUWrap setattr: {}".format(time.time()));
         if (key in ('__dbcObj__', '__tDataColumns__')):
-            logging.info("finished setattr: {}".format(time.time()));
+            #logging.info("finished setattr: {}".format(time.time()));
             return super().__setattr__(key, value);
 
         try:
-            logging.info("get cupy object: {}".format(time.time()));
+            #logging.info("get cupy object: {}".format(time.time()));
             value = value.T;
             # value now is of type cuoy.core.core.ndarray
-            logging.info("Cupy to Numpy object: {}".format(time.time()));
-            value = cp.asnumpy(value, order='C');
-            logging.info("Numpy to virtualDF: {}".format(time.time()));
+            #logging.info("Cupy to Numpy object: {}".format(time.time()));
+            value_cpu = cp.asnumpy(value, order='C');
+            #logging.info("Numpy to virtualDF: {}".format(time.time()));
+            
             if key in self.__tDataColumns__:
                 tDataCols = self.__tDataColumns__[key];
             #If we got to this line, then it means "key" was a TabularData object.
             # So we need to build a new TabularData object using the original column metadata.
-                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
+                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value_cpu, cols=tuple(tDataCols.keys()), colmeta=tDataCols, dbc=self.__dbcObj__);
             else:
             #If we go to this line, then it means "key" is a new variable.
             # So we need to build a new TabularData from scratch
-                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value, dbc=self.__dbcObj__);
+                valueDF = DBC._dataFrameClass_._virtualData_(lambda:value_cpu, dbc=self.__dbcObj__);
             setattr(self.__dbcObj__, key, valueDF);
-            logging.info("finished setattr: {}".format(time.time()));
+            
+            #remove cupy object and release gpu memory
+            value = None;
+            mempool = cp.get_default_memory_pool();
+            pinned_mempool = cp.get_default_pinned_memory_pool();
+            
+            mempool.free_all_blocks();
+            pinned_mempool.free_all_blocks();
+            
+            #logging.info("finished setattr: {}".format(time.time()));
             return;
         except :
             logging.exception("GPUWrap : Exception ");
             pass;
-        logging.info("finished setattr: {}".format(time.time()));
+        #logging.info("finished setattr: {}".format(time.time()));
         setattr(self.__dbcObj__, key, value);
