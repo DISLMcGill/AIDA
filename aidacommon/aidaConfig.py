@@ -6,14 +6,13 @@ import configparser;
 import importlib;
 
 class UDFTYPE(Enum):
-    TABLEUDF=1; VIRTUALTABLE=2;
+    TABLEUDF=1; VIRTUALTABLE=2; FOREIGNTABLE=3; TEMPTABLE=4;
 
 
 class AConfig:
     UDFTYPE=UDFTYPE.TABLEUDF;
-    #UDFTYPE=UDFTYPE.VIRTUALTABLE;
-
-
+    FORCEPANDAS = False;
+    FORCEDB = False;
 
 def loadConfig(topic='AIDASERVER'):
 
@@ -37,10 +36,13 @@ def loadConfig(topic='AIDASERVER'):
         AConfig.DASHPORT = config_.getint('DASHPORT', defaultConfig['DASHPORT']);
         AConfig.DATABASEADAPTER = config_.get('DATABASEADAPTER', defaultConfig['DATABASEADAPTER']);
         udfType = config_.get('UDFTYPE', defaultConfig['UDFTYPE']);
-        AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else UDFTYPE.VIRTUALTABLE;
+        AConfig.UDFTYPE = UDFTYPE.TABLEUDF if (udfType == 'TABLEUDF') else ( UDFTYPE.FOREIGNTABLE if (udfType == 'FOREIGNTABLE') else ( UDFTYPE.TEMPTABLE if (udfType == 'TEMPTABLE') else UDFTYPE.VIRTUALTABLE ) );
+        AConfig.FDWVERSION = config_.getint('FDWVERSION', 1);
         AConfig.MAPBOXTOKEN = config_.get('MAPBOXTOKEN', defaultConfig['MAPBOXTOKEN']);
         AConfig.PAGETUNNEL = config_.get('PAGETUNNEL', None);
         AConfig.CONVERSIONOPTION = config_.getint('CONVERSIONOPTION', 1);
+        AConfig.FORCEPANDAS = True if config_.get('FORCEPANDAS', 'false') == 'true' else False;
+        AConfig.FORCEDB = True if config_.get('FORCEDB', 'false') == 'true' else False;
         if(not AConfig.PAGETUNNEL is None and AConfig.PAGETUNNEL == 'None'):
             AConfig.PAGETUNNEL = None;
     else:

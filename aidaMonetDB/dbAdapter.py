@@ -91,6 +91,11 @@ class DBCMonetDB(DBC):
         ", '                    ' AS q75_{}" \
         ", '                    ' AS std_{}";
 
+    __COL_EXP__ = "SELECT COUNT(*) FROM sys.columns c WHERE c.table_id IN (SELECT id FROM sys.tables t WHERE t.name=\'{" \
+              "}\');"
+    __STRING_TYPE_EXP__ = "SELECT COUNT(*) FROM sys.columns c WHERE c.type=\'varchar\' " \
+                      "AND c.table_id IN (SELECT id FROM sys.tables t WHERE t.name=\'{}\');"
+
     #TODO: Throw an error and abort object creation in case of failures.
     def __new__(cls, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""

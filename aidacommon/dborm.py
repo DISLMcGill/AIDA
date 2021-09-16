@@ -221,6 +221,8 @@ class F:
             #return '{}'.format(val);
         return val;
 
+    def __str__(self):
+        return 'F: {0}, {1}, {2}'.format(self._col1_, self._col2_, self._operator_)
 
     def __init__(self, col1, col2=None, operator=None):
         self._col1_ = col1;
@@ -500,6 +502,9 @@ class AggregateSQLFunction(metaclass=ABCMeta):
     @property
     def genSQL(self):
         return self.__funcName__ + '(' +  ('DISTINCT ' if(self.__distinct__) else '') + self.__srcColName__ + ')';
+
+    def __str__(self):
+        return self.genSQL
 
 #Specific types of aggregation functions.
 class COUNT(AggregateSQLFunction):
