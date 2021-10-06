@@ -29,6 +29,12 @@ class DBCMonetDB(DBC):
 
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
 
+    COUNT_EXP = "SELECT COUNT(*) FROM {};"
+    COL_EXP = "SELECT COUNT(*) FROM sys.columns c WHERE c.table_id IN (SELECT id FROM sys.tables t WHERE t.name=\'{" \
+              "}\');"
+    STRING_TYPE_EXP = "SELECT COUNT(*) FROM sys.columns c WHERE c.type=\'varchar\' " \
+                      "AND c.table_id IN (SELECT id FROM sys.tables t WHERE t.name=\'{}\');"
+
     #Query to get the names of all tables in the database.
     __TABLE_LIST_QRY__ = \
         "SELECT t.name as tableName " \
@@ -133,6 +139,18 @@ class DBCMonetDB(DBC):
         (tables, count) = self._executeQry(DBCMonetDB.__TABLE_LIST_QRY__.format(self.dbName));
         return pd.DataFrame(tables);
 
+    def _getTableRowCount(self, tableName):
+        count = list(self._executeQry(DBCMonetDB.COUNT_EXP.format(tableName))[0].values())[0][0]
+        return count
+
+    def _getTableColumnCount(self, tableName):
+        count = list(self._executeQry(DBCMonetDB.COL_EXP.format(tableName))[0].values())[0][0]
+        return count
+
+    def _getTableStrCount(self, tableName):
+        count = list(self._executeQry(DBCMonetDB.STRING_TYPE_EXP.format(tableName))[0].values())[0][0]
+        return count
+
         #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
@@ -153,7 +171,7 @@ class DBCMonetDB(DBC):
 
     def _setConnection(self, con):
         """Called by the database function to set the internal database connection for executing queries"""
-        #logging.debug("__setConnection_ called for {} with {}".format(self._jobName, con));
+        logging.debug("__setConnection_ called for {} with {}".format(self._jobName, con));
         self.__connection= con;
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
@@ -267,6 +285,7 @@ class DBCMonetDB(DBC):
             #logging.debug("__connection.registerTable : data={} tableName={} dbname={} cols={} options={}".format(data, tableName, self.dbName, list(data.keys()), options));
             ## -- QLOG -- ##
             ##st = timer();
+            logging.info("connection is {}, attr= {}".format(self.__connection, dir(self.__connection)))
             self.__connection.registerTable(data, tableName, self.dbName, cols=list(data.keys()), options=options);
             ## -- QLOG -- 2##
             ##et = timer();

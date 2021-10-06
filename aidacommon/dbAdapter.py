@@ -66,8 +66,8 @@ class DataConversion:
     #            i+=1
     #   y=data_y[i]
     #    return y
-    
-    # a static function to convert the TabularData containing X values into numpy matrix 
+
+    # a static function to convert the TabularData containing X values into numpy matrix
     def extract_X(TabularDataX):
         data_X=TabularDataX.cdata
         key_list=list()
@@ -86,7 +86,7 @@ class DataConversion:
         if (len(numerical_indices)==0):
             raise ValueError("Error: No X values are numerical")
 
-        # TabularDataX has numerical columns, then extract the numpy arrays as features 
+        # TabularDataX has numerical columns, then extract the numpy arrays as features
         X=data_X.get(key_list[numerical_indices[0]]).reshape(-1,1)
         for index in range(1,len(numerical_indices)):
             # a matrix of shape (n_sample,n_feature)
@@ -114,8 +114,8 @@ class DataConversion:
         return y
 
 class LogisticRegressionModel:
-    
-    # initialize a LogisticRegressionModel object with "model" attribute containing an actual LogisticRegression object from the sklearn module    
+
+    # initialize a LogisticRegressionModel object with "model" attribute containing an actual LogisticRegression object from the sklearn module
     def __init__(self,*args,**kwargs):
         self.model=LogisticRegression(*args,**kwargs)
 
@@ -188,7 +188,7 @@ class LinearRegressionModel:
             y=DataConversion.extract_y(y)
         self.model.fit(X,y,sample_weight)
         return self
-    
+
     def get_params(self,deep=True):
         return self.model.get_params(deep)
 
@@ -202,12 +202,12 @@ class LinearRegressionModel:
         if (isinstance(X,TabularData)):
             X=DataConversion.extract_X(X)
         if (isinstance(y,TabularData)):
-            y=DataConversion.extract_y(y)        
+            y=DataConversion.extract_y(y)
         return self.model.score(X,y,sample_weight)
 
     def set_params(self,**params):
         return self.model.set_params(**params)
-    
+
     '''
     # for testing purposes
     def __getattribute__(self,item):
@@ -215,17 +215,17 @@ class LinearRegressionModel:
             if (item in ('fit','predict','model','get_model','score')):
                 return super().__getattribute__(item)
     '''
-    
+
     def __getattribute__(self,item):
         # if the called function/attribute does not require X,y tabularData conversion, get the attribute value by calling the function on the actual LinearRegression model in skLearn module
-        
+
         # check if this object has the requested attribute
         try:
             return super().__getattribute__(item)
         except:
             pass;
         # otherwise fetch it from the actual linear regression object
-        return getattr(self.model,item)        
+        return getattr(self.model,item)
 
         '''
         if (item not in ('model','get_model','extract_X','extract_y','fit','predict','score')):
@@ -235,7 +235,7 @@ class LinearRegressionModel:
             return object.__getattribute__(self,item)
         '''
 
-copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);	
+copyreg.pickle(LinearRegressionModel,LinearRegressionModelRemoteStub.serializeObj);
 
 class DecisionTreeModel:
     # initialize a DecisionTreeModel object with "model" attribute containing an actual DecisionTreeClassifier object from the skLearn module
@@ -255,12 +255,12 @@ class DecisionTreeModel:
             X=DataConversion.extract_X(X)
         if (isinstance(y,TabularData)):
             y=DataConversion.extract_y(y)
-        return self.model.cost_complexity_pruning_path(X,y,sample_weight)        
+        return self.model.cost_complexity_pruning_path(X,y,sample_weight)
     def decision_path(self,X,check_input=True):
         if (isinstance(X,TabularData)):
             X=DataConversion.extract_X(X)
         return self.model.decision_path(X,check_input)
-    
+
     def fit(self,X,y,sample_weight=None,check_input=True,X_idx_sorted=None):
         if (isinstance(X,TabularData)):
             X=DataConversion.extract_X(X)
@@ -362,6 +362,15 @@ class DBC(metaclass=ABCMeta):
         return cls._tableRepo_[relName];
 
     @abstractmethod
+    def _getTableRowCount(self, tableName): pass;
+
+    @abstractmethod
+    def _getTableColumnCount(self, tableName): pass;
+
+    @abstractmethod
+    def _getTableStrCount(self, tableName): pass;
+
+    @abstractmethod
     def _executeQry(self, sql, resultFormat, sqlType): pass;
 
     def _Page(self, func, *args, **kwargs):
@@ -443,7 +452,7 @@ class DBC(metaclass=ABCMeta):
 
     def _helloWorld(self):
         hw=HelloWorld()
-        return hw        
+        return hw
 
     def _linearRegression(self,*args,**kwargs):
         model=LinearRegressionModel(*args,**kwargs)
@@ -458,8 +467,8 @@ class DBC(metaclass=ABCMeta):
         return model
 
     def _save(self,model_name,model,update=False):
-        
-        # Code using MERGE 
+
+        # Code using MERGE
         '''
         m = model.get_model()
         model_type=type(m)
@@ -476,10 +485,10 @@ class DBC(metaclass=ABCMeta):
             try:
                 self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
             except:
-                raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" )        
+                raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" )
 
-        '''   
-        
+        '''
+
         duplicate_exist = False
         logging.info("before exeucing query")
         # check if there is another model already saved with <model_name>
@@ -488,10 +497,10 @@ class DBC(metaclass=ABCMeta):
         if temp[0]['count'][0]!=0:
             duplicate_exist = True
         logging.info("after executing query once , and check duplicate")
-    
+
         # throw an error if update=False and there is another model already saved with <model_name>
         if (update==False and duplicate_exist==True):
-            raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" ) 
+            raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" )
         # delete the model saved with <model_name> if update=True
         elif (update==True and duplicate_exist==True):
             self._executeQry("DELETE FROM _sys_models_ WHERE model_name='{}';".format(model_name),sqlType=DBC.SQLTYPE.DELETE)
@@ -513,7 +522,7 @@ class DBC(metaclass=ABCMeta):
             pass
 
         self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
-    
+
     def _load(self,model_name):
 
         unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
@@ -819,7 +828,7 @@ class DBCWrap:
 # To simplify, only the parts that are different from above have comments beside.
 class GPUWrap:
     def __init__(self, dbcObj):
-        self.__dbcObj__ = dbcObj; 
+        self.__dbcObj__ = dbcObj;
         self.__tDataColumns__ = {};
 
     def __getattribute__(self, item):
@@ -828,7 +837,7 @@ class GPUWrap:
 
         val = getattr(super().__getattribute__('__dbcObj__'), item);
 
-        if(isinstance(val, TabularData)): 
+        if(isinstance(val, TabularData)):
             tDataCols = super().__getattribute__('__tDataColumns__');
             tDataCols[item] = val.columns;
             val = val.matrix.T;

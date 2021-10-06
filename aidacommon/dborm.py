@@ -384,6 +384,9 @@ class TabularData(metaclass=ABCMeta):
     def loadData(self, matrix=False): pass;
 
     @abstractmethod
+    def preview_lineage(self): pass;
+
+    @abstractmethod
     def __add__(self, other): pass;
 
     @abstractmethod

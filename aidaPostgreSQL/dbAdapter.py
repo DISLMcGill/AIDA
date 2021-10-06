@@ -60,6 +60,11 @@ class DBCPostgreSQL(DBC):
         "ORDER BY columnPos " \
         ";"
 
+    COUNT_EXP = "SELECT COUNT(*) FROM {};"
+    COL_EXP = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name =\'{}\';"
+    STRING_TYPE_EXP = "SELECT COUNT(*) FROM information_schema.columns WHERE data_type = \'character varying\' " \
+                      "AND table_name =\'{}\';"
+
     __NUMERIC_COL_DESCRIBE__ = \
         "  RIGHT ('                    ' || CAST(CAST(COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
         ", RIGHT ('                    ' || CAST(CAST(COUNT(DISTINCT {}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS countd_{}" \
@@ -86,9 +91,6 @@ class DBCPostgreSQL(DBC):
         ", '                    ' AS q75_{}" \
         ", '                    ' AS std_{}";
 
-    __COL_EXP__ = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name =\'{" "}\';"
-    __STRING_TYPE_EXP__ = "SELECT COUNT(*) FROM information_schema.columns WHERE data_type = 'character varying' AND table_name =\'{" "}\';"    
-
     #TODO: Throw an error and abort object creation in case of failures.
     def __new__(cls, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""
@@ -114,6 +116,18 @@ class DBCPostgreSQL(DBC):
         import aidasys;
         self.__requestQueue = aidasys.requestQueue;
         self.__resultQueue = aidasys.resultQueue;
+
+    def _getTableRowCount(self, tableName):
+        count = list(self._executeQry(DBCPostgreSQL.COUNT_EXP.format(tableName))[0].values())[0][0]
+        return count
+
+    def _getTableColumnCount(self, tableName):
+        count = list(self._executeQry(DBCPostgreSQL.COL_EXP.format(tableName))[0].values())[0][0]
+        return count
+
+    def _getTableStrCount(self, tableName):
+        count = list(self._executeQry(DBCPostgreSQL.STRING_TYPE_EXP.format(tableName))[0].values())[0][0]
+        return count
 
     def _tables(self):
         sql = DBCPostgreSQL.__TABLE_LIST_QRY__.format(self.dbName);
@@ -175,7 +189,7 @@ class DBCPostgreSQL(DBC):
 
                     for index, row in enumerate(rv):
                         for key, value in row.items():
-                            result[key][index] = value              
+                            result[key][index] = value
 
                     for key, col in result.items():
                         if type(col[0]).__name__ == 'NoneType':
@@ -242,7 +256,7 @@ class DBCPostgreSQL(DBC):
         if(tableName is None):
             logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
             raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed")
-       
+
         #Keep track of our UDFs/Virtual tables;
         #logging.debug("Created Table UDF/VT {}.{}".format(self.dbName, tableName));
         self._tableRepo_[tableName] = tblrData;
@@ -255,7 +269,7 @@ class DBCPostgreSQL(DBC):
         elif (AConfig.UDFTYPE == UDFTYPE.TEMPTABLE):
             self.__createTempTable(tblrData, tableName);
 
-        
+
 
     def __createTableUDF(self, tblrData, tableName):
         data = tblrData.rows;
@@ -295,16 +309,16 @@ class DBCPostgreSQL(DBC):
             collist += colname + ' ' + ('text' if(dataType not in DBCPostgreSQL.typeConverter) else DBCPostgreSQL.typeConverter[dataType]) ;
             colnames += '\'' + colname + '\'';
 
-        cudf = cudf.format(tableName, collist, colnames, tableName);            
+        cudf = cudf.format(tableName, collist, colnames, tableName);
 
         #logging.debug("Creating Table UDF {}".format(cudf));
         self._executeQry(cudf, sqlType=DBC.SQLTYPE.CREATE);
-    
+
     def __createForeignTable(self, tblrData, tableName):
         #logging.debug("Creating Foreign Table {}".format(tableName));
         self.__vtm.regForeignTable(tblrData, tableName, foreignServer=AConfig.FDWVERSION);
 
-    
+
     def __createTempTable(self, tblrData, tableName):
         # this function loads the data into this temporary table
         self.__vtm.regTempTable(tblrData, tableName, analyze=True);
@@ -368,7 +382,7 @@ class DBCPostgreSQL(DBC):
                 tableName = tblrData.tableName;
         if(tableName is None):
             #logging.warning("Error cannot deduce a tableName for the Tabular Data passed");
-            raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed");        
+            raise AttributeError("Error cannot deduce a tableName for the Tabular Data passed");
 
         #logging.info("Dropping Table UDF/VT {}".format(tableName));
         if (AConfig.UDFTYPE == UDFTYPE.TABLEUDF) :
@@ -496,7 +510,7 @@ class DBCPostgreSQL(DBC):
                 if((not isinstance(objval, DBTable)) and objval.tableUDFExists):
                     #logging.debug("Dropping {} {}".format(dropObjectType, obj));
                     if (AConfig.UDFTYPE == UDFTYPE.TABLEUDF) :
-                        dropObjectType = 'FUNCTION'; 
+                        dropObjectType = 'FUNCTION';
                         dobj = 'DROP {} {};'.format(dropObjectType, obj);
                         self._executeQry(dobj, sqlType=DBC.SQLTYPE.DROP);
                     elif (AConfig.UDFTYPE in (UDFTYPE.FOREIGNTABLE, UDFTYPE.TEMPTABLE) ):
@@ -506,7 +520,7 @@ class DBCPostgreSQL(DBC):
                     objval.__tableUDFExists__ = False;
             except:
                 pass;
-        
+
         #del self.__vtm;
 
 class DBCPostgreSQLStub(DBCRemoteStub):

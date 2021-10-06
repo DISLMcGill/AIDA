@@ -15,7 +15,7 @@ import pandas as pd;
 from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
-from aidas.pamp import *
+from aidas.pd_helper import *
 from aidacommon.utils import VirtualOrderedColumnsDict;
 from aidas.BlockManagerUnconsolidated import df_from_arrays
 
@@ -103,7 +103,7 @@ class SQLSelectTransform(SQLTransform):
 
         for sc in self.__selcols__:
             # logging.info(f'[{time.ctime()}] condition : {sc}, Expression: {sc.columnExpr}, collist: {sc.srcColList}')
-            # logging.info(f'[{time.ctime()}] operator: {sc._operator_}, col1: {sc._col1_}, col2: {sc._col2_}')
+            logging.info('operator: {}, col1: {}, col2: {}'.format(sc._operator_, sc._col1_, sc._col2_))
             if conditions is None:
                 conditions = select2pandas(data, sc)
             else:
@@ -305,6 +305,9 @@ class SQLAggregateTransform(SQLTransform):
         self.__projcols__  = projcols  if(isinstance(projcols, tuple))  else (projcols, );
         self.__groupcols__ = groupcols if(isinstance(groupcols, tuple)) else ( (groupcols, ) if(groupcols) else None );
 
+    def gen_lineage(self):
+        node = LineageNode(self._source_)
+
     @property
     def columns(self):
         if(not self.__columns__):
@@ -318,6 +321,7 @@ class SQLAggregateTransform(SQLTransform):
                 srccol = sc1.sourceColumn if(isinstance(sc1, AggregateSQLFunction)) else sc1; #Get the name of the source column
                 #projection column alias name if specifed use it, otherwise dervice one from the function/source column names.
                 projcol = (pc1.funcName.lower() + '_' + (pc1.sourceColumn if(pc1.sourceColumn != '*') else '') ) if(isinstance(pc1, AggregateSQLFunction)) else pc1;
+                #logging.info(f'[{time.ctime()}] Inside aggregate columns. \n sc1: {sc1}, <{type(sc1)}>, \nsc2: {pc1}, <{type(pc1)}>')
                 #The transformation function on the source column.
                 coltransform = sc1 if(isinstance(sc1, AggregateSQLFunction)) else None;
                 return (srccol, projcol, coltransform);
@@ -1211,6 +1215,8 @@ class AlgebraicVectorTransform(AlgebraicTransform):
 
         #et=time.time();
         #logging.debug("AlgebraicVectorTransform init exit time {:0.20f}".format(time.time()));
+    def execute_pandas(self):
+        pass
 
     @property
     def columns(self):
@@ -1359,7 +1365,7 @@ class DBTable(TabularData):
             data = df_from_arrays(self.__data__.values(), self.__data__.keys(), range(self.numRows))
             #logging.info(f"[{time.ctime()}] pandas type = {data.dtypes}")
             t1 = time.time()
-            #logging.info(f'{self.tableName} convert time = {t1 - t0}')
+            logging.info('{} convert time = {}'.format(self.tableName, t1-t0))
             self.__pdData__ = data
         return self.__pdData__
 
@@ -1400,7 +1406,6 @@ class DBTable(TabularData):
                 data = data_;
             self.__data__ = data;
         return self.__data__;
-    
 
     @property
     def cdata(self):
@@ -1434,6 +1439,9 @@ class DBTable(TabularData):
 
     def distinct(self):
         return DataFrame(self, SQLDistinctTransform(self));
+
+    def preview_lineage(self):
+        return str(self.gen_lineage())
 
     @property
     def matrix(self):
@@ -1677,6 +1685,9 @@ class DataFrame(TabularData):
     def distinct(self):
         return DataFrame(self, SQLDistinctTransform(self));
 
+    def preview_lineage(self):
+        return str(self.gen_lineage())
+
     @property
     def numRows(self):
         if(not self.__numRows__):
@@ -1771,26 +1782,32 @@ class DataFrame(TabularData):
         """if this table has already been materialized, then it is considered as a leaf (end of the lineage)"""
         if self.__data__ is not None:
             return cur
-
-        """If there is transform involved"""
-        if self.__transform__:
-            if isinstance(self.__transform__, SQLSelectTransform):
-                src_nodes = self.__transform__.gen_lineage()
-                for node in src_nodes:
-                    edge = LineageEdge(self, node, 'filter')
-                    cur.add_edge(edge)
         if self.__source__:
             if isinstance(self.__source__, tuple):
                 src_node1 = self.__source__[0].gen_lineage()
                 src_node2 = self.__source__[1].gen_lineage()
                 cur.add_edge(LineageEdge(self, src_node1, 'join'))
                 cur.add_edge(LineageEdge(self, src_node2, 'join'))
+            elif self.__transform__:
+                #If there is transform involved
+                src_node = self.__source__.gen_lineage()
+                if isinstance(self.__transform__, SQLSelectTransform):
+                    filter_nodes = self.__transform__.gen_lineage()
+                    cur.add_edge(LineageEdge(self, src_node, 'filter'))
+                    for node in filter_nodes:
+                        edge = LineageEdge(self, node, 'filter')
+                        cur.add_edge(edge)
+                if isinstance(self.__transform__, SQLAggregateTransform):
+                    cur.add_edge(LineageEdge(self, src_node, 'aggregate'))
+                if isinstance(self.__transform__, SQLProjectionTransform):
+                    cur.add_edge(LineageEdge(self, src_node, 'project'))
+                if isinstance(self.__transform__, SQLOrderTransform):
+                    cur.add_edge(LineageEdge(self, src_node, 'order'))
             else:
                 src_node = self.__source__.gen_lineage()
                 cur.add_edge(LineageEdge(self, src_node))
 
         return cur
-
 
     def upstream_data_exist(self):
         # logging.info(f'[{time.ctime()}] Inside upstream_data_exists. Checking for data for {type(self)} {self}, has data = {self.__data__}, '
@@ -1820,12 +1837,17 @@ class DataFrame(TabularData):
 
     def execute_pandas(self):
         if self.upstream_data_exist():
-            if self.__transform__ is not None:
+            if isinstance(self.__transform__, AlgebraicVectorTransform) or isinstance(self.__transform__, AlgebraicScalarTransform):
+                self.rows
+            elif self.__transform__ is not None:
                 #logging.info(f'[{time.ctime()}] executePandasSql: is transform')
                 # stmt = 'self.__transform__.execute_pandas()'
                 # profile = cProfile.runctx(stmt, globals(), locals(), 'cProfile')
                 # logging.info('[{}]\n {}'.format(time.ctime(), profile))
-                return self.__transform__.execute_pandas()
+                logging.info('[{}] transform type={}'.format(time.ctime(), self.__transform__))
+                rs = self.__transform__.execute_pandas()
+                logging.info('[{}]completed'.format(time.ctime()))
+                return rs
             if self.__data__ is not None and (self.__pdData__ is None):
                 self.__pdData__ = df_from_arrays(self.__data__.values(), self.__data__.keys(), range(self.numRows))
 
@@ -1838,18 +1860,22 @@ class DataFrame(TabularData):
         if(self.__data__ is None):
             #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
-                fv = FeatureVector(self)
-                np.set_printoptions(suppress=True)
-                logging.info("Feature vector = {}".format(fv.vector))
-                
+                #fv = FeatureVector(self)
+                #np.set_printoptions(suppress=True)
+                #logging.info("Feature vector = {}".format(fv.vector))
+                #logging.info("Lineage = {}".format(self.gen_lineage()))
+
                 data = None
                 if not AConfig.FORCEDB:
-                    logging.info("Using intergrated pandas to execute the query")
                     data = self.execute_pandas()
-
                 if data is None:
-                    logging.info("Using database engine to execute the query ")
+                    logging.info('[{}]Generating data by _genSQL'.format(time.ctime()))
+
+                    logging.info('--------execution plan--------\n{}\n'.format(self.dbc._executeQry('EXPLAIN ' + self._genSQL_(doOrder=True).sqlText + ';')));
+
                     (data, rows) = self.dbc._executeQry(self._genSQL_(doOrder=True).sqlText + ';');
+
+                # logging.info(f'[{time.ctime()}]Before convert, type of data {type(data)}, data = \n {data}')
                 #Convert the results to an ordered dictionary format.
                 if isinstance(data, pd.DataFrame):
                     #logging.info('[{}]final result dtypes = {}'.format(time.ctime(), data.dtypes))
@@ -1887,6 +1913,7 @@ class DataFrame(TabularData):
                 (srcrows, srctransformlist, rowNames) = self.__source__.rowsNtransform;
                 self.__data__ = self.__transform__.applyTransform(srcrows, srctransformlist);
                 self.__rowNames__ = rowNames;
+
             #Once we have computed the data, we can dispose of the lineage, but make sure we have all the other things we need.
             self.columns;
             self.dbc;
@@ -1903,7 +1930,7 @@ class DataFrame(TabularData):
 
     @property
     def cdata(self):
-        return self.rows;
+        return self.rows
 
     def loadData(self, matrix=False):
         """Forces materialization of this Data Frame"""
@@ -2176,25 +2203,29 @@ class LineageNode:
         self.edges.append(edge)
 
     def __str__(self):
-        s = str(self.node)
+        s = '(' + str(self.node)
         for edge in self.edges:
             s += str(edge)
-        return s
+        return s + ')'
 
 
 class LineageEdge:
     def __init__(self, start, end=None, linkage=None):
         self.start = start
         self.end = end
-        self.linage = linkage
+        self.linkage = linkage
 
     def __str__(self):
-        s = "--{}-->{}\n".format(self.linage, self.end)
+        s = "<--{}--{}".format(self.linkage, self.end)
         return s
 
 
 class FeatureVector:
     COUNT_EXP = "SELECT COUNT(*) FROM {};"
+    COL_EXP = "SELECT COUNT(*) FROM sys.columns c WHERE c.table_id IN (SELECT id FROM sys.tables t WHERE t.name=\'{" \
+              "}\');"
+    STRING_TYPE_EXP = "SELECT COUNT(*) FROM sys.columns c WHERE c.type=\'varchar\' " \
+                      "AND c.table_id IN (SELECT id FROM sys.tables t WHERE t.name=\'{}\');"
     DB_NAME = "sf01"
 
     @classmethod
@@ -2217,8 +2248,8 @@ class FeatureVector:
             if str(tb) not in dp:
                 dp.add(str(tb))
                 types = list(filter(lambda x: x == 'object', tb.__pdData__.dtypes))
-                #logging.info("Numpy type = {}, col={}, row={}".format(types, tb.columns, tb.numRows))
-                return np.array([0, 0, len(tb.columns), tb.numRows, 0, len(types)], dtype=float)
+                logging.info("Numpy type = {}, col={}, row={}".format(types, tb.columns, tb.numRows))
+                return np.array([0, 0, len(tb.columns), tb.numRows, 0, len(types)])
         else:
             """
             If no data is inside the memory, send query to db to retrieve the column and row numbers
@@ -2226,9 +2257,9 @@ class FeatureVector:
             if isinstance(tb, DBTable):
                 if str(tb) not in dp:
                     """retrieved value is a tuple with form ({'L1', array[]}, 1)"""
-                    rowNum = list(tb.dbc._executeQry(cls.COUNT_EXP.format(tb.__tableName__))[0].values())[0][0]
-                    colNum = list(tb.dbc._executeQry(tb.dbc.__COL_EXP__.format(tb.__tableName__))[0].values())[0][0]
-                    strNum = list(tb.dbc._executeQry(tb.dbc.__STRING_TYPE_EXP__.format(tb.__tableName__))[0].values())[0][0]
+                    rowNum = tb.dbc._getTableRowCount(tb.__tableName__)
+                    colNum = tb.dbc._getTableColumnCount(tb.__tableName__)
+                    strNum = tb.dbc._getTableStrCount(tb.__tableName__)
                     # logging.info(
                     #     "Retrieve info via db query, table={}, row={}, col={}".format(tb.tableName, rowNum, colNum))
                     dp.add(str(tb))
@@ -2252,6 +2283,10 @@ class FeatureVector:
     def __init__(self, df):
         self.df = df
         self.__vector__ = None
+
+    @property
+    def lineage(self):
+        return self.df.gen_linegae()
 
     @property
     def vector(self):
