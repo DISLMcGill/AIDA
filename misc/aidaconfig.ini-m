@@ -1,0 +1,42 @@
+[DEFAULT]
+DATABASEPORT = 50000
+DATABASEADAPTER = aidaMonetDB.dbAdapter.DBCMonetDB
+LOGLEVEL = INFO
+LOGFILE = aida.log
+RMIPORT = 55668
+CONNECTIONMANAGERPORT = 55660
+DASHPORT = 55670
+DMROREPONAME = aidasys
+UDFTYPE = TABLEUDF
+NTWKCHANNEL = aidacommon.ntwkchannel.lz4pchannel
+MAPBOXTOKEN = None
+
+
+[AIDASERVER]
+DATABASEPORT = 50000
+DATABASEADAPTER = aidaMonetDB.dbAdapter.DBCMonetDB
+#LOGLEVEL = INFO
+LOGFILE = aidas.log
+#RMIPORT = 55668
+#CONNECTIONMANAGERPORT = 55660
+#NTWKCHANNEL = aidacommon.ntwkchannel.picklechannel
+DMROREPONAME = aidasys
+#Whether database UDFs should be traditional table UDFs or
+# VIRTUALTABLE (experimental, only in modified MonetDB)
+UDFTYPE = TABLEUDF
+#UDFTYPE = FOREIGNTABLE
+#UDFTYPE = TEMPTABLE
+PAGETUNNEL = None
+CONVERSIONOPTION = 2
+FDWVERSION = 2
+FORCEPANDAS = false
+FORCEDB = true
+
+[AIDACLIENT]
+#LOGLEVEL = INFO
+#RMIPORT = 55668
+#CONNECTIONMANAGERPORT = 55660
+#NTWKCHANNEL = aidacommon.ntwkchannel.picklechannel
+# Used for tunnelling. Should contain the absolute path to this file
+PORTMAPFILE = /tmp/pmapfile.cfg
+LOGFILE = aidac.log
