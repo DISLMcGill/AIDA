@@ -24,5 +24,5 @@ def trainingLoop(dw, input_size, output_size):
     return(model.weight)
 
 
-weight = dw._X(trainingLoop,1,1)
+weight = dw._X_torch(trainingLoop,1,1)
 print(weight)
