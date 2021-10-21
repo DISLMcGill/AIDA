@@ -442,7 +442,7 @@ class DBC(metaclass=ABCMeta):
         #Execute the function with this workspace as the argument and return the results if any.
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
-        return func(self,torch,datasets, *args, **kwargs);
+        return func(self,datasets,torch, *args, **kwargs);
 
     def _XP(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
