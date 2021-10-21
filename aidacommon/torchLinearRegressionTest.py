@@ -2,6 +2,10 @@ from aida.aida import *;
 host = 'Server3'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw, input_size, output_size):
+    import sys
+    nn = sys.modules["torch.nn.modules"]
+    torch = sys.modules["torch"]
+    datasets = sys.modules["sklearn.datasets"]
     learningrate = 0.01
     epoch_size = 100
     model = nn.Linear(input_size,output_size)
