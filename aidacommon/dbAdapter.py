@@ -433,6 +433,8 @@ class DBC(metaclass=ABCMeta):
         import torch.nn as nn
         from sklearn import datasets
         import numpy as np
+        import sys
+        print(sys.modules.keys())
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
         if(isinstance(func, str)):
