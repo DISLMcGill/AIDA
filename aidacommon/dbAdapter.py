@@ -431,8 +431,6 @@ class DBC(metaclass=ABCMeta):
     def _X_torch(self,func,*args,**kwargs):
         global torch
         import torch
-        global torch.nn
-        import torch.nn
         global datasets
         from sklearn import datasets
         global numpy
