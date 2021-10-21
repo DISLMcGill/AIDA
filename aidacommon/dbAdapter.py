@@ -431,12 +431,12 @@ class DBC(metaclass=ABCMeta):
     def _X_torch(self,func,*args,**kwargs):
         global torch
         import torch
-        global nn
-        import torch.nn as nn
+        global torch.nn
+        import torch.nn
         global datasets
         from sklearn import datasets
-        global np
-        import numpy as np
+        global numpy
+        import numpy
         global sys
         import sys
         print(sys.modules.keys())

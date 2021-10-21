@@ -4,9 +4,9 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw, input_size, output_size):
     learningrate = 0.01
     epoch_size = 100
-    model = nn.Linear(input_size,output_size)
+    model = torch.nn.Linear(input_size,output_size)
     model = model.cuda()
-    criterion = nn.MSELoss()
+    criterion = torch.nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
     X, y = datasets.make_regression(n_samples=100,n_features=1,noise=20,random_state=1)
     X = torch.from_numpy(X.astype(np.float32))
