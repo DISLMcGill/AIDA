@@ -428,6 +428,24 @@ class DBC(metaclass=ABCMeta):
             func = super().__getattribute__(func);
         return func(self, *args, **kwargs);
 
+    def _X_torch(self,func,*args,**kwargs):
+        global torch
+        import torch
+        global nn
+        import torch.nn as nn
+        global datasets
+        from sklearn import datasets
+        global np
+        import numpy as np
+        global sys
+        import sys
+        print(sys.modules.keys())
+        """Function that is called from stub to execute a python function in this workspace"""
+        #Execute the function with this workspace as the argument and return the results if any.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+        return func(self, *args, **kwargs);
+
     def _XP(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
