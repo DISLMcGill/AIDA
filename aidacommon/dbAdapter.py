@@ -434,10 +434,6 @@ class DBC(metaclass=ABCMeta):
         #Execute the function with this workspace as the argument and return the results if any.
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
-        import torch
-        from sklearn import datasets
-        import sys
-        import torch.nn as nn
         return func(self, *args, **kwargs,nn = sys.modules["torch.nn.modules"],torch = sys.modules["torch"], datasets = sys.modules["sklearn.datasets"] );
 
     def _XP(self, func, *args, **kwargs):
