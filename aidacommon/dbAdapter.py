@@ -33,9 +33,20 @@ from sklearn.tree import DecisionTreeClassifier
 import numpy as np
 import ast
 
+global torch
 import torch
-import torch.nn as nn
+
+global datasets
 from sklearn import datasets
+
+global numpy
+import numpy
+
+global sys
+import sys
+
+global nn
+import torch.nn as nn
 
 # helper class and methods that convert TabularData Object to numpy arrays
 class DataConversion:
