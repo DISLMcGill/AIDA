@@ -437,9 +437,6 @@ class DBC(metaclass=ABCMeta):
         import numpy
         global sys
         import sys
-        kwargs['nn'] = sys.modules["torch.nn.modules"]
-        kwargs['torch'] = sys.modules["torch"]
-        kwargs['datasets'] = sys.modules["sklearn.datasets"]
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
         if(isinstance(func, str)):
