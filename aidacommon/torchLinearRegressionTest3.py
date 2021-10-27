@@ -7,7 +7,7 @@ host = 'tfServer2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = '
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     learningrate = 0.01
-    epoch_size = 10000
+    epoch_size = 1000
     model = nn.Linear(input_size,output_size)
     model = model.cuda()
     criterion = nn.MSELoss()
@@ -30,6 +30,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+        print(model.weight)
     dw.linearModel = model
     return(model.weight)
 
