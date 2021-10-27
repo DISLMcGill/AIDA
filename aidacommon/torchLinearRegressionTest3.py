@@ -22,8 +22,8 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     y = y+0.01
     X = torch.from_numpy(X.astype(np.float32))
     y = torch.from_numpy(y.astype(np.float32))
-    X = nn.functional.normalize(X)
-    y = nn.functional.normalize(y)
+    X = F.normalize(X)
+    y = F.normalize(y)
     y = y.view(y.shape[0],1)
     X = X.cuda()
     y = y.cuda()
