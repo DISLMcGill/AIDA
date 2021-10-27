@@ -22,7 +22,6 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     y = torch.from_numpy(y.astype(np.float32))
     y = y.view(y.shape[0],1)
     X = F.normalize(X, dim=0)
-    y = F.normalize(y, dim=0)
     X = X.cuda()
     y = y.cuda()
     for epoch in range(epoch_size):
