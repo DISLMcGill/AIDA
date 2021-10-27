@@ -33,19 +33,9 @@ from sklearn.tree import DecisionTreeClassifier
 import numpy as np
 import ast
 
-global torch
 import torch
-
-global datasets
 from sklearn import datasets
-
-global numpy
-import numpy
-
-global sys
 import sys
-
-global nn
 import torch.nn as nn
 
 # helper class and methods that convert TabularData Object to numpy arrays
@@ -440,19 +430,11 @@ class DBC(metaclass=ABCMeta):
         return func(self, *args, **kwargs);
 
     def _X_torch(self,func,*args,**kwargs):
-        global torch
-        import torch
-        global datasets
-        from sklearn import datasets
-        global numpy
-        import numpy
-        global sys
-        import sys
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
-        return func(self, *args, **kwargs);
+        return func(self, *args, **kwargs,nn = sys.modules["torch.nn.modules"],torch = sys.modules["torch"], datasets = sys.modules["sklearn.datasets"] );
 
     def _XP(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
