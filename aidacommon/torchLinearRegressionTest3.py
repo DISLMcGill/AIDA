@@ -14,17 +14,15 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
     distance = dw.gmdata2017[:,2]
     duration = dw.gmdata2017[:,3]
-    X = DataConversion.extract_y(distance)
+    X = DataConversion.extract_X(distance)
     y = DataConversion.extract_y(duration)
     X = np.copy(X)
     y = np.copy(y)
-    X = X+0.01
-    y = y+0.01
     X = torch.from_numpy(X.astype(np.float32))
     y = torch.from_numpy(y.astype(np.float32))
     y = y.view(y.shape[0],1)
-    X = F.normalize(X, dim=1)
-    y = F.normalize(y, dim=1)
+    X = F.normalize(X, dim=0)
+    y = F.normalize(y, dim=0)
     X = X.cuda()
     y = y.cuda()
     for epoch in range(epoch_size):
