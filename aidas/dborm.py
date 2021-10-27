@@ -640,6 +640,14 @@ class SQLDistinctTransform(SQLTransform):
     def __init__(self, source):
         super().__init__(source);
 
+    def execute_pandas(self):
+        data = self._source_.__pdData__ if self._source_.__pdData__ is not None else self._source_.execute_pandas()
+        # logging.info(f'[{time.ctime()}] execute order pandas, data type = {type(data)}')
+        if not isinstance(data, pd.DataFrame):
+            data = pd.DataFrame.from_dict(data)
+
+        return data.drop_duplicates()
+
     @property
     def genSQL(self):
         projcoltxt=None;
