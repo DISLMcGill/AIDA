@@ -5,7 +5,7 @@ host = 'Server2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'to
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     import logging
-    from aidacommon.dbAdapter import *
+    import aidacommon.dbAdapter
 
     learningrate = 0.01
     epoch_size = 1000
