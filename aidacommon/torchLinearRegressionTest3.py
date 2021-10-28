@@ -3,7 +3,7 @@ import copy
 from aida.aida import *;
 from aidacommon.dbAdapter import DataConversion
 
-host = 'tfServer2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'Server2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     learningrate = 0.01
@@ -35,5 +35,5 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F):
     return(model.weight)
 
 
-weight = dw._X_torch(trainingLoop,1,1)
+weight = dw._X(trainingLoop,1,1)
 print(weight)
