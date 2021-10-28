@@ -41,4 +41,4 @@ def trainingLoop(dw,nn,torch,datasets,F,np,tf):
         training_error = sess.run(error, feed_dict={X: train_X, Y: train_Y})
         print("Training error=", training_error, "W=", sess.run(W), "b=", sess.run(b), '\n')
 
-dw._X_tensorFlow(trainingLoop)
+dw._X(trainingLoop)
