@@ -38,6 +38,7 @@ from sklearn import datasets
 import sys
 import torch.nn as nn
 import torch.nn.functional as F
+import tensorflow as tf
 
 # helper class and methods that convert TabularData Object to numpy arrays
 class DataConversion:
@@ -436,6 +437,13 @@ class DBC(metaclass=ABCMeta):
         if(isinstance(func, str)):
             func = super().__getattribute__(func);
         return func(self, *args, **kwargs,nn = sys.modules["torch.nn.modules"],torch = sys.modules["torch"], datasets = sys.modules["sklearn.datasets"], F = sys.modules["torch.nn.functional"]);
+
+    def _X_tensorFlow(self,func,*args,**kwargs):
+        """Function that is called from stub to execute a python function in this workspace"""
+        #Execute the function with this workspace as the argument and return the results if any.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+        return func(self, *args, **kwargs,tf = sys.modules["tensorflow"],np = sys.modules["numpy"],F = sys.modules["torch.nn.functional"]);
 
     def _XP(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
