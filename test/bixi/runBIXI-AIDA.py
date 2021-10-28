@@ -8,7 +8,7 @@ import time as tm
 #from memory_profiler import profile
 
 config = __import__('bixi-config')
-queries = __import__('bixi_queries')
+bixi_queries = __import__('bixi_queries')
 
 assert len(sys.argv) > 1, 'Usage: python3 runTPCH-AIDA.py (<query_number>)...'
 
@@ -69,7 +69,7 @@ def run_test():
         print('ctime: {}'.format(tm.ctime()))
         print('----------[ Query {0} ]----------'.format(q))
         t0 = time()
-        r = getattr(queries, 'q' + q)(db2)
+        r = getattr(bixi_queries, 'q' + q)(db2)
         print(type(r))
         if(hasattr(r, '_genSQL_')):
             r.loadData()

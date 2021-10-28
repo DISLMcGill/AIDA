@@ -3,6 +3,13 @@ import random
 from aida.aida import *;
 
 config = __import__('bixi-config')
+seed = 101
+
+def update_seed(sd):
+    global seed
+    seed = sd
+    random.seed(seed)
+
 
 class RandomLoad:
     def __init__(self, n=1):
@@ -21,7 +28,8 @@ class RandomLoad:
             if r < cond_prob:
                 self.__loaded = True
                 for i, table in enumerate(args):
-                    args[i] = table * 1
+                    print('args= {}, arg[i]={}'.format(args, args[i]))
+                    table = table * 1
                     args[i].loadData()
             # update the probability of current event not happening
             self.__cum_prob = (1 - cond_prob) * self.__cum_prob
@@ -90,7 +98,7 @@ GROUP BY stsname, endsname
 HAVING avg(duration) > 1.5*max(gduration); 
 """
 def q03(dw):
-    rd = RandomLoad(2)
+    rd = RandomLoad(3)
     gm = dw.gmdata2017
     rd.load_data_randomly(gm)
 
@@ -105,7 +113,7 @@ def q03(dw):
 
     rd.load_data_randomly(j)
 
-    j = j.aggregate((AVG('duration'), 'stsname', 'endsname'), ('stsname', 'endsname'))
+    j = j.aggregate(({AVG('duration'): 'avg'}, 'stsname', 'endsname'), ('stsname', 'endsname'))
 
     return j
 

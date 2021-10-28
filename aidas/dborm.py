@@ -196,7 +196,7 @@ class SQLJoinTransform(SQLTransform):
             for c in project_list:
                 if (hasattr(c, 'get')):  # if projection is specified as dictionary, it is a source column name, projected
                     # column name combination.
-                    srccol = c.keys()[0]
+                    srccol = list(c.keys())[0]
                     projcol = c.get(srccol)
                     rename_params[srccol] = projcol
         return rename_params
@@ -1891,10 +1891,10 @@ class DataFrame(TabularData):
             # logging.info(f'[{time.ctime()}]No data available, transform = {self.__transform__}')
             #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
-                #fv = FeatureVector(self)
-                #np.set_printoptions(suppress=True)
-                #logging.info("Feature vector = {}".format(fv.vector))
-                #logging.info("Lineage = {}".format(self.gen_lineage()))
+                fv = FeatureVector(self)
+                np.set_printoptions(suppress=True)
+                logging.info("Feature vector = {}".format(fv.vector))
+                logging.info("Lineage = {}".format(self.gen_lineage()))
 
                 data = None
                 if not AConfig.FORCEDB:
@@ -1902,7 +1902,7 @@ class DataFrame(TabularData):
                 if data is None:
                     logging.info('[{}]Generating data by _genSQL'.format(time.ctime()))
 
-                    logging.info('--------execution plan--------\n{}\n'.format(self.dbc._executeQry('EXPLAIN ' + self._genSQL_(doOrder=True).sqlText + ';')));
+                    #logging.info('--------execution plan--------\n{}\n'.format(self.dbc._executeQry('EXPLAIN ' + self._genSQL_(doOrder=True).sqlText + ';')));
 
                     (data, rows) = self.dbc._executeQry(self._genSQL_(doOrder=True).sqlText + ';');
 

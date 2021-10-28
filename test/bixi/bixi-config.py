@@ -6,11 +6,11 @@ dbname = 'bixi'
 user = 'bixi'
 passwd = 'bixi'
 jobName = 'test'
-port = 55660
+port = 44660
 
 SF = 1 #used by query 11. indicate the scale factor of the tpch database.
 
-udfVSvtable = True
+udfVSvtable = False
 #udfVSvtable = False
 
 outputDir = 'output'
