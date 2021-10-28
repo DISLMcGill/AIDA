@@ -35,9 +35,13 @@ class RandomLoad:
             self.__cum_prob = (1 - cond_prob) * self.__cum_prob
 
 def q01(dw):
-    freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
+    rl = RandomLoad(2)
+    trip = dw.tripdata2017
+    rl.load_data_randomly(trip)
+    freqStations = trip.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
         ('stscode', 'endscode', {COUNT('*'): 'numtrips'}), ('stscode', 'endscode')).filter(
         Q('numtrips', C(50), CMP.GTE));
+    rl.load_data_randomly(freqStations)
     freqStationsCord = freqStations.join(dw.stations2017, ('stscode',), ('scode',), COL.ALL,
                                          ({'slatitude': 'stlat'}, {'slongitude': 'stlong'})).join(dw.stations2017,
                                                                                                   ('endscode',),
@@ -56,6 +60,7 @@ def q02(dw):
         ('stscode', 'endscode', {COUNT('*'): 'numtrips'}), ('stscode', 'endscode')).filter(
         Q('numtrips', C(50), CMP.GTE));
 
+    rd.load_data_randomly(freqStations)
     # Next we will enrich the trip data set by using the distance information provided by the Google maps' API.
     # This can be accomplished by the relational join operators provided by AIDA.
 
@@ -74,17 +79,8 @@ def q02(dw):
     # We will keep roughly 30% of these distances apart for testing and the rest, we will use for training.
 
     # In[7]:
-    rd.load_data_randomly(guniqueTripDist, gtripData)
-
-    gtestTripDist = guniqueTripDist[::3];
-    gtrainTripDist = guniqueTripDist.filter(Q('gdistm', gtestTripDist, CMP.NOTIN));
-
-    # We will next extract the training data set and normalize its features.
-
-    # In[8]:
-
-    gtrainData = gtripData.project(('gdistm', 'duration')).filter(Q('gdistm', gtrainTripDist, CMP.IN));
-    return gtrainData
+    return guniqueTripDist
+   
 
 """
 SELECT avg(duration) AS avgd, stsname, endsname FROM  

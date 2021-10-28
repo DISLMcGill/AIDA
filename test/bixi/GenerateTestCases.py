@@ -123,7 +123,7 @@ def run_test():
         row.append(lng)
         row.append(t1-t0)
 
-        with open('output/bixi_monet.csv', 'a') as f:
+        with open('output/bixi.csv', 'a') as f:
             wr = csv.writer(f)
             wr.writerow(row)
 run_test()
