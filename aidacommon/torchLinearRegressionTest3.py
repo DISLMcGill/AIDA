@@ -3,10 +3,9 @@ import copy
 from aida.aida import *;
 host = 'Server2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
-def trainingLoop(dw,input_size, output_size,**kwargs):
+def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
     import logging
     from aidacommon.dbAdapter import DataConversion
-    import numpy as np
     learningrate = 0.01
     epoch_size = 1000
     logging.info("running on server")
