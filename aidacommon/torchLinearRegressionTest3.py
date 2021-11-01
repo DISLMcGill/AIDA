@@ -36,7 +36,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
     dw.linearModel = model
     end_time = time.time()
     execution_time = start_time - end_time
-    logging.info("execution time is",execution_time)
+    logging.info("execution time is "+str(execution_time))
     return(model.weight)
 
 
