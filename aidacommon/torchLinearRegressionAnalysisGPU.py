@@ -25,7 +25,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
         optimizer.zero_grad()
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("execution time for 2000000 samples and 1000 iteration is " + str(execution_time))
+    logging.info("execution time for 2000000 samples and 1000 iteration on GPU is " + str(execution_time))
     return(model.weight)
 
 weight = dw._X(trainingLoop,1,1)
