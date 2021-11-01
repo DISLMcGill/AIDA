@@ -6,7 +6,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
     import logging
     start_time = time.time()
     learningrate = 0.01
-    epoch_size = 10000
+    epoch_size = 100000
     model = nn.Linear(input_size,output_size)
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
@@ -22,7 +22,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
         optimizer.zero_grad()
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("execution time for 10000 samples and 10000 iteration on CPU is " + str(execution_time))
+    logging.info("execution time for 10000 samples and 100000 iteration on CPU is " + str(execution_time))
     return(model.weight)
 
 weight = dw._X(trainingLoop,1,1)
