@@ -38,7 +38,6 @@ from sklearn import datasets
 import sys
 import torch.nn as nn
 import torch.nn.functional as F
-import tensorflow as tf
 
 # helper class and methods that convert TabularData Object to numpy arrays
 class DataConversion:
