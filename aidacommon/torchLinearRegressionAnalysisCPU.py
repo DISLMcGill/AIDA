@@ -12,7 +12,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
     model = nn.Linear(input_size,output_size)
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
-    X, y = datasets.make_regression(n_samples=100000,n_features=1,noise=20,random_state=1)
+    X, y = datasets.make_regression(n_samples=1000000,n_features=1,noise=20,random_state=1)
     X = torch.from_numpy(X.astype(np.float32))
     y = torch.from_numpy(y.astype(np.float32))
     y = y.view(y.shape[0],1)
@@ -27,8 +27,8 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
     end_time = time.time()
     execution_time = end_time - start_time
     average_usage = sum(cpu_usage)/len(cpu_usage)
-    logging.info("Average cpu usage for the training loop of 100000 samples is "+str(average_usage))
-    logging.info("execution time for 100000 samples and 1000 iterations on CPU is " + str(execution_time))
+    logging.info("Average cpu usage for the training loop of 1000000 samples is "+str(average_usage))
+    logging.info("execution time for 1000000 samples and 1000 iterations on CPU is " + str(execution_time))
     return(average_usage)
 
 cpu_usage = dw._X(trainingLoop,1,1)
