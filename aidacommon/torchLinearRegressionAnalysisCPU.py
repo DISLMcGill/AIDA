@@ -24,7 +24,7 @@ def Analysis(dw,input_size, output_size,nn,torch,datasets,F,np):
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
-    worker_process = mp.Process(target = trainingLoop())
+    worker_process = mp.Process(target = trainingLoop)
     worker_process.start()
     p = psutil.Process(worker_process.pid)
     cpu_percents = []
