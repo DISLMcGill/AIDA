@@ -20,6 +20,7 @@ class RandomLoad:
 
     def load_data_randomly(self, *args):
         print("prob = {}, cum_prob = {}, loaded = {}".format(self.__prob, self.__cum_prob, self.__loaded))
+        tbs = list(args)
         if not self.__loaded:
             # the probability of current event and the previous events not occur
             cond_prob = self.__prob / self.__cum_prob
@@ -27,12 +28,13 @@ class RandomLoad:
             # chance of cond_prob to load the data at this point
             if r < cond_prob:
                 self.__loaded = True
-                for i, table in enumerate(args):
+                for i, table in enumerate(tbs):
                     print('args= {}, arg[i]={}'.format(args, args[i]))
                     table = table * 1
-                    args[i].loadData()
+                    tbs[i] = table
             # update the probability of current event not happening
             self.__cum_prob = (1 - cond_prob) * self.__cum_prob
+
 
 def q01(dw):
     rl = RandomLoad(2)
@@ -56,9 +58,9 @@ def q01(dw):
 
 def q02(dw):
     rd = RandomLoad(2)
-    freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
-        ('stscode', 'endscode', {COUNT('*'): 'numtrips'}), ('stscode', 'endscode')).filter(
-        Q('numtrips', C(50), CMP.GTE));
+freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
+    ('stscode', 'endscode', {COUNT('*'): 'numtrips'}), ('stscode', 'endscode')).filter(
+    Q('numtrips', C(50), CMP.GTE));
 
     rd.load_data_randomly(freqStations)
     # Next we will enrich the trip data set by using the distance information provided by the Google maps' API.
@@ -112,6 +114,10 @@ def q03(dw):
     j = j.aggregate(({AVG('duration'): 'avg'}, 'stsname', 'endsname'), ('stsname', 'endsname'))
 
     return j
+
+
+def q04(dw):
+
 
 
 
