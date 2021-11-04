@@ -2,34 +2,22 @@ from aida.aida import *;
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
-    import time
-    import logging
-    import psutil
-    current_process = psutil.Process()
-    start_time = time.time()
     learningrate = 0.01
     epoch_size = 1000
     model = nn.Linear(input_size,output_size)
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
-    X, y = datasets.make_regression(n_samples=1000000,n_features=1,noise=20,random_state=1)
+    X, y = datasets.make_regression(n_samples=100000,n_features=1,noise=20,random_state=1)
     X = torch.from_numpy(X.astype(np.float32))
     y = torch.from_numpy(y.astype(np.float32))
     y = y.view(y.shape[0],1)
-    cpu_usage = []
     for epoch in range(epoch_size):
         y_predicted = model(X)
         loss = criterion(y_predicted, y)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        cpu_usage.append(current_process.cpu_percent())
-    end_time = time.time()
-    execution_time = end_time - start_time
-    average_usage = sum(cpu_usage)/len(cpu_usage)
-    logging.info("Average cpu usage for the training loop of 1000000 samples is "+str(average_usage))
-    logging.info("execution time for 1000000 samples and 1000 iterations on CPU is " + str(execution_time))
-    return(average_usage)
+    return(model.weight)
 
-cpu_usage = dw._X(trainingLoop,1,1)
-print(cpu_usage)
+weight = dw._X(trainingLoop,1,1)
+print(weight)
