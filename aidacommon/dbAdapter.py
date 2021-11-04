@@ -533,8 +533,63 @@ class DBC(metaclass=ABCMeta):
             pass
 
         self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
-    
-    def _load(self,model_name):
+
+    def _saveTorchModel(self, model_name, model, update=False):
+
+        # Code using MERGE
+        '''
+        m = model.get_model()
+        model_type=type(m)
+        pickled_m = pickle.dumps(m)
+        pickled_m = str(pickled_m)
+        pickled_m = pickled_m.replace("'","''")
+        pickled_m = pickled_m.replace("\\","\\\\")
+
+        if (update==True):
+            self._executeQry("MERGE INTO _sys_models_ AS to_update USING _sys_models_ AS models_update ON to_update.model_name = models._update.model_name WHEN MATCHED THEN DELETE;",sqlType=DBC.SQLTYPE.MERGE)
+            self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
+        # update==False
+        else:
+            try:
+                self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
+            except:
+                raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" )
+
+        '''
+
+        duplicate_exist = False
+        logging.info("before exeucing query")
+        # check if there is another model already saved with <model_name>
+        temp = self._executeQry(
+            "SELECT COUNT(model) as count FROM _sys_models_ WHERE model_name='{}';".format(model_name))
+        # if the above SELECT COUNT query returns integer not equal to 0
+        if temp[0]['count'][0] != 0:
+            duplicate_exist = True
+        logging.info("after executing query once , and check duplicate")
+
+        # throw an error if update=False and there is another model already saved with <model_name>
+        if (update == False and duplicate_exist == True):
+            raise Exception(
+                "There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite")
+            # delete the model saved with <model_name> if update=True
+        elif (update == True and duplicate_exist == True):
+            self._executeQry("DELETE FROM _sys_models_ WHERE model_name='{}';".format(model_name),sqlType=DBC.SQLTYPE.DELETE)
+        else:
+            pass
+
+        model_type = type(model)
+        model_type = str(model_type)
+        pickled_m = pickle.dumps(model)
+        pickled_m = str(pickled_m)
+
+        if AConfig.DATABASEADAPTER == "aidaMonetDB.dbAdapter.DBCMonetDB":
+            pickled_m = pickled_m.replace("\\", "\\\\")
+        elif AConfig.DATABASEADAPTER == "aidaPostgreSQL.dbAdapter.DBCPostgreSQL":
+            pass
+
+        self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name, pickled_m, model_type),sqlType=DBC.SQLTYPE.INSERT)
+
+    def _loadTorchModel(self,model_name):
 
         unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
         try:
@@ -545,15 +600,7 @@ class DBC(metaclass=ABCMeta):
         model=pickle.loads(ast.literal_eval(unpickled_m))
         logging.info(type(model))
         # default as linear regression model
-        model_wrapper = LinearRegressionModel()
-
-        if (isinstance(model,sklearn.linear_model.LogisticRegression)):
-            model_wrapper = LogisticRegressionModel()
-        elif (isinstance(model,sklearn.tree.DecisionTreeClassifier)):
-            model_wrapper = DecisionTreeModel()
-
-        model_wrapper.model=model
-        return model_wrapper
+        return model
 
     # testing sql
     def _sql(self,sql):
