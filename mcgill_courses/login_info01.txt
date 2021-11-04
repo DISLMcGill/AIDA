@@ -1,0 +1,2 @@
+user=courses01
+password=courses01
