@@ -1,12 +1,15 @@
 from aida.aida import *;
-host = 'Server2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'tfClient2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
+    import psutil
     import time
     import logging
     start_time = time.time()
+    start_cpu = psutil.cpu_percent()
+    start_RAM = psutil.virtual_memory().percent  
     learningrate = 0.01
-    epoch_size = 100000
+    epoch_size = 1000
     model = nn.Linear(input_size,output_size)
     model = model.cuda()
     criterion = nn.MSELoss()
@@ -25,6 +28,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
         optimizer.zero_grad()
     end_time = time.time()
     execution_time = end_time - start_time
+    end_cpu = psutil.cpu_percent() 
     logging.info("execution time for 10000 samples and 100000 iteration on GPU is " + str(execution_time))
     return(model.weight)
 
