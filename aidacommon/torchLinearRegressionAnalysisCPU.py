@@ -23,4 +23,4 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
 weight = dw._X(trainingLoop,1,1)
 print(weight)
 model = dw._loadTorchModel("TorchLinearModel")
-print(model)
+model
