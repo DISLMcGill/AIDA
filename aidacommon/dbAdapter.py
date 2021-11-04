@@ -579,8 +579,11 @@ class DBC(metaclass=ABCMeta):
 
         model_type = type(model)
         model_type = str(model_type)
+        model_type = model_type.replace("'","''")
+
         pickled_m = pickle.dumps(model)
         pickled_m = str(pickled_m)
+        pickled_m = pickled_m.replace("'","''")
 
         if AConfig.DATABASEADAPTER == "aidaMonetDB.dbAdapter.DBCMonetDB":
             pickled_m = pickled_m.replace("\\", "\\\\")
