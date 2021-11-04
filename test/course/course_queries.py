@@ -2,7 +2,7 @@ import random
 
 from aida.aida import *;
 
-config = __import__('courses-config')
+config = __import__('course-config')
 seed = 101
 
 def update_seed(sd):
