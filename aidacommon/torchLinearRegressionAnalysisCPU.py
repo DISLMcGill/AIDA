@@ -17,7 +17,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-    dw._saveTorchModel("TorchLinearModel",model)
+    dw._saveTorchModel("TorchLinearModel",model,update = True)
     return(model.weight)
 
 weight = dw._X(trainingLoop,1,1)
