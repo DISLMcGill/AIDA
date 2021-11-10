@@ -88,6 +88,8 @@ def bootstrap():
     from aidacommon.dbAdapter import DataConversion;
     import numpy as np;
     builtins.np = np;
+    import tensorflow as tf;
+    builtins.tf = tf;
     builtins.DataConversion = DataConversion;
     builtins.datasets = datasets;
 
