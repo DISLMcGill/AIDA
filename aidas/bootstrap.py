@@ -7,7 +7,6 @@ from aidacommon.aidaConfig import AConfig;
 from aidacommon import rop;
 import aidas.dmro as dmro;
 import aidas.aidas as aidas;
-
 import aidacommon.gbackend as gbackend;
 
 def bootstrap():
@@ -85,7 +84,6 @@ def bootstrap():
     from sklearn import datasets;
     import time;
     builtins.time = time;
-    import logging;
     builtins.logging = logging;
     from aidacommon.dbAdapter import DataConversion;
     builtins.DataConversion = DataConversion;
