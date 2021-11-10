@@ -78,6 +78,18 @@ def bootstrap():
     builtins.matplotlib = matplotlib;
     import matplotlib.pyplot as plt;
     builtins.plt = plt;
+    import torch
+    builtins.torch = torch;
+    import torch.nn as nn;
+    builtins.nn = nn;
+    from sklearn import datasets;
+    import time;
+    builtins.time = time;
+    import logging;
+    builtins.logging = logging;
+    from aidacommon.dbAdapter import DataConversion;
+    builtins.DataConversion = DataConversion;
+    builtins.datasets = datasets;
 
     gBApp = gbackend.GBackendApp(AConfig.DASHPORT)
     aidasys.gBApp = gBApp;
