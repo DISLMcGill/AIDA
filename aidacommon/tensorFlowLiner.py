@@ -1,5 +1,4 @@
 from aida.aida import *;
-from aidacommon.dbAdapter import DataConversion
 
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
