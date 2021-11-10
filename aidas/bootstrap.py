@@ -86,6 +86,8 @@ def bootstrap():
     builtins.time = time;
     builtins.logging = logging;
     from aidacommon.dbAdapter import DataConversion;
+    import numpy as np;
+    builtins.np = np;
     builtins.DataConversion = DataConversion;
     builtins.datasets = datasets;
 
