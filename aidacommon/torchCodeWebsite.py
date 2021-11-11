@@ -47,8 +47,8 @@ def training(dw):
         # Compute gradients
         loss.backward()
 
-        print("loss = %s" % loss.data[0])
-        print("exp = %s" % exp_hat.data[0])
+        print("loss = %s" % tensor.item(loss))
+        print("exp = %s" % tensor.item(exp_hat))
 
         # Update model parameters
         exp_hat.data -= learning_rate * exp_hat.grad.data
