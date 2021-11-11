@@ -30,7 +30,7 @@ def trainingLoop(dw):
     model.cuda()
     X = torch.from_numpy(distance.astype(np.float32))
     y = torch.from_numpy(duration.astype(np.float32))
-    epoch_size = 100
+    epoch_size = 500
     learningrate = 0.0000001
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
@@ -49,7 +49,7 @@ def trainingLoop(dw):
     dw.linearModel = model
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("The execution time for 100 iterations using 2256278 samples is "+str(execution_time))
+    logging.info("The execution time for 500 iterations using 2256278 samples is "+str(execution_time))
     return(model.weight)
 
 weight = dw._X(trainingLoop)
