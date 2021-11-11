@@ -36,6 +36,8 @@ def trainingLoop(dw):
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
     X = X.cuda()
     y = y.cuda()
+    y = y.view(y.shape[0], 1)
+    X = y.view(X.shape[0], 1)
     for epoch in range(epoch_size):
         y_predicted = model(X)
         loss = criterion(y_predicted, y)
