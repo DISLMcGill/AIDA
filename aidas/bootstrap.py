@@ -89,7 +89,7 @@ def bootstrap():
     import numpy as np;
     builtins.np = np;
     import sys;
-    # sys.argv = ['']
+    sys.argv = ['']
     # import tensorflow as tf;
     import tensorflow.compat.v1 as tf;
     tf.disable_v2_behavior()
