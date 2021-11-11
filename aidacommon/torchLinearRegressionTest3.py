@@ -31,7 +31,7 @@ def trainingLoop(dw):
     X = torch.from_numpy(distance.astype(np.float32))
     y = torch.from_numpy(duration.astype(np.float32))
     epoch_size = 100
-    learningrate = 0.000001
+    learningrate = 0.0000001
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
     # X = X.cuda()
