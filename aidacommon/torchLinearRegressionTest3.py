@@ -7,8 +7,6 @@ def trainingLoop(dw):
     freqStationsCord = freqStations.join(dw.stations2017, ('stscode',), ('scode',), COL.ALL, ({'slatitude':'stlat'}, {'slongitude':'stlong'}))     .join(dw.stations2017, ('endscode',), ('scode',), COL.ALL, ({'slatitude':'enlat'}, {'slongitude':'enlong'}));
 
     def computeDist(tblrData):
-        import geopy.distance;  # We will use this module to compute distance.
-        import copy, numpy as np;
         # We are going to keep all the columns of the source tabularData object.
         data = copy.copy(tblrData.rows);  # This only makes a copy of the metadata, but retains original column data
         vdistm = data['vdistm'] = np.empty(tblrData.numRows, dtype=int);  # add a new empty column to hold distance.
@@ -18,7 +16,7 @@ def trainingLoop(dw):
         enlat = data['enlat'];
         enlong = data['enlong'];
         for i in range(0, tblrData.numRows):  # populate the distance metric using longitude/latitude of coordinates.
-            vdistm[i] = int(geopy.distance.distance((stlat[i], stlong[i]), (enlat[i], enlong[i])).meters);
+            vdistm[i] = int(geopyd.distance((stlat[i], stlong[i]), (enlat[i], enlong[i])).meters);
         return data;
 
     freqStationsDist = freqStationsCord._U(computeDist);  # Execute the user transform

@@ -87,9 +87,11 @@ def bootstrap():
     builtins.logging = logging;
     from aidacommon.dbAdapter import DataConversion;
     import numpy as np;
-    import geopy.distance;
-    builtins.geopy.distance = geopy.distance;
+    import geopy.distance as geopyd;
+    builtins.geopyd = geopyd;
     builtins.np = np;
+    import copy
+    builtins.copy = copy
     import sys;
     sys.argv = ['']
     # import tensorflow as tf;
