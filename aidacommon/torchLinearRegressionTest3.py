@@ -27,15 +27,15 @@ def trainingLoop(dw):
     distance = tripData[:,2].cdata['vdistm']
 
     model = nn.Linear(1, 1);
-    model.cuda()
+    # model.cuda()
     X = torch.from_numpy(distance.astype(np.float32))
     y = torch.from_numpy(duration.astype(np.float32))
-    epoch_size = 10000
+    epoch_size = 10
     learningrate = 0.0000001
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
-    X = X.cuda()
-    y = y.cuda()
+    # X = X.cuda()
+    # y = y.cuda()
     y = y.view(y.shape[0], 1)
     X = X.view(X.shape[0], 1)
     start_time = time.time()
@@ -49,7 +49,7 @@ def trainingLoop(dw):
     dw.linearModel = model
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("The execution time for 10000 iterations using 2256278 samples is "+str(execution_time))
+    logging.info("The execution time for 10 iterations using 2256278 samples is "+str(execution_time))
     return(model.weight)
 
 weight = dw._X(trainingLoop)
