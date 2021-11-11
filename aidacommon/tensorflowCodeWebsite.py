@@ -4,6 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def training(dw):
 
+
     def rmse(y, y_hat):
         """Compute root mean squared error"""
         return tf.sqrt(tf.reduce_mean(tf.square((y - y_hat))))
