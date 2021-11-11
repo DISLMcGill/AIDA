@@ -1,9 +1,11 @@
 import random
 
+from test.RandomLoad import RandomLoad
 from aida.aida import *;
 
 config = __import__('bixi-config')
 seed = 101
+
 
 def update_seed(sd):
     global seed
@@ -11,33 +13,8 @@ def update_seed(sd):
     random.seed(seed)
 
 
-class RandomLoad:
-    def __init__(self, n=1):
-        self.__loaded = False
-        self.__prob = 1 / n
-        # chance of previous event not occur
-        self.__cum_prob = 1
-
-    def load_data_randomly(self, *args):
-        print("prob = {}, cum_prob = {}, loaded = {}".format(self.__prob, self.__cum_prob, self.__loaded))
-        tbs = list(args)
-        if not self.__loaded:
-            # the probability of current event and the previous events not occur
-            cond_prob = self.__prob / self.__cum_prob
-            r = random.random()
-            # chance of cond_prob to load the data at this point
-            if r < cond_prob:
-                self.__loaded = True
-                for i, table in enumerate(tbs):
-                    print('args= {}, arg[i]={}'.format(args, args[i]))
-                    table = table * 1
-                    tbs[i] = table
-            # update the probability of current event not happening
-            self.__cum_prob = (1 - cond_prob) * self.__cum_prob
-
-
 def q01(dw):
-    rl = RandomLoad(2)
+    rl = RandomLoad(2, seed)
     trip = dw.tripdata2017
     rl.load_data_randomly(trip)
     freqStations = trip.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
@@ -57,12 +34,12 @@ def q01(dw):
 
 
 def q02(dw):
-    rd = RandomLoad(2)
-freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
+    rd = RandomLoad(2, seed)
+    freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(
     ('stscode', 'endscode', {COUNT('*'): 'numtrips'}), ('stscode', 'endscode')).filter(
     Q('numtrips', C(50), CMP.GTE));
 
-    rd.load_data_randomly(freqStations)
+    rd.load_data_randomly(freqStations)[0]
     # Next we will enrich the trip data set by using the distance information provided by the Google maps' API.
     # This can be accomplished by the relational join operators provided by AIDA.
 
@@ -75,7 +52,7 @@ freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregat
     gtripData = dw.gmdata2017.join(dw.tripdata2017, ('stscode', 'endscode'), ('stscode', 'endscode'), COL.ALL,
                                    COL.ALL).join(freqStations, ('stscode', 'endscode'), ('stscode', 'endscode'),
                                                  ('id', 'duration', 'gdistm', 'gduration'));
-    rd.load_data_randomly(gtripData)
+    gtripData, freq = rd.load_data_randomly(gtripData, freqStations)
     guniqueTripDist = gtripData.project(('gdistm')).distinct().order('gdistm');
 
     # We will keep roughly 30% of these distances apart for testing and the rest, we will use for training.
@@ -96,7 +73,7 @@ GROUP BY stsname, endsname
 HAVING avg(duration) > 1.5*max(gduration); 
 """
 def q03(dw):
-    rd = RandomLoad(3)
+    rd = RandomLoad(3, seed)
     gm = dw.gmdata2017
     rd.load_data_randomly(gm)
 
@@ -117,7 +94,7 @@ def q03(dw):
 
 
 def q04(dw):
-
+    pass
 
 
 

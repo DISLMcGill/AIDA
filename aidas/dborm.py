@@ -1833,6 +1833,10 @@ class DataFrame(TabularData):
                     cur.add_edge(LineageEdge(self, src_node, 'project'))
                 if isinstance(self.__transform__, SQLOrderTransform):
                     cur.add_edge(LineageEdge(self, src_node, 'order'))
+                if isinstance(self.__transform__, SQLDistinctTransform):
+                    cur.add_edge(LineageEdge(self, src_node, 'distinct'))
+                else:
+                    cur.add_edge(LineageEdge(self, src_node))
             else:
                 src_node = self.__source__.gen_lineage()
                 cur.add_edge(LineageEdge(self, src_node))
@@ -1871,12 +1875,9 @@ class DataFrame(TabularData):
                 self.rows
             elif self.__transform__ is not None:
                 #logging.info(f'[{time.ctime()}] executePandasSql: is transform')
-                # stmt = 'self.__transform__.execute_pandas()'
-                # profile = cProfile.runctx(stmt, globals(), locals(), 'cProfile')
-                # logging.info('[{}]\n {}'.format(time.ctime(), profile))
-                logging.info('[{}] transform type={}'.format(time.ctime(), self.__transform__))
+                # logging.info('[{}] transform type={}'.format(time.ctime(), self.__transform__))
                 rs = self.__transform__.execute_pandas()
-                logging.info('[{}]completed'.format(time.ctime()))
+                # logging.info('[{}]completed'.format(time.ctime()))
                 return rs
             if self.__data__ is not None and (self.__pdData__ is None):
                 self.__pdData__ = df_from_arrays(self.__data__.values(), self.__data__.keys(), range(self.numRows))
@@ -1893,9 +1894,8 @@ class DataFrame(TabularData):
             if(self.isDBQry):
                 fv = FeatureVector(self)
                 np.set_printoptions(suppress=True)
-                logging.info("Feature vector = {}".format(fv.vector))
-                logging.info("Lineage = {}".format(self.gen_lineage()))
-
+                # logging.info("Feature vector = {}".format(fv.vector))
+                # logging.info("Lineage = {}".format(self.gen_lineage()))
                 data = None
                 if not AConfig.FORCEDB:
                     data = self.execute_pandas()
@@ -2282,40 +2282,41 @@ class FeatureVector:
 
     @classmethod
     def extract_feature(cls, tb, dp):
+        if str(tb) in dp:
+            return np.zeros(6, dtype=int)
+        dp.add(str(tb))
         if tb.__data__ is not None:
             if tb.__pdData__ is None:
                 tb.__pdData__ = df_from_arrays(tb.__data__.values(), tb.__data__.keys(), range(tb.numRows))
-            if str(tb) not in dp:
-                dp.add(str(tb))
-                types = list(filter(lambda x: x == 'object', tb.__pdData__.dtypes))
-                logging.info("Numpy type = {}, col={}, row={}".format(types, tb.columns, tb.numRows))
-                return np.array([0, 0, len(tb.columns), tb.numRows, 0, len(types)])
+            # if table not seen before, add to dp
+            types = list(filter(lambda x: x == 'object', tb.__pdData__.dtypes))
+            # logging.info("Numpy type = {}, col={}, row={}".format(types, tb.columns, tb.numRows))
+            return np.array([0, 0, len(tb.columns), tb.numRows, 0, len(types)])
         else:
             """
             If no data is inside the memory, send query to db to retrieve the column and row numbers
             """
             if isinstance(tb, DBTable):
-                if str(tb) not in dp:
-                    """retrieved value is a tuple with form ({'L1', array[]}, 1)"""
-                    rowNum = tb.dbc._getTableRowCount(tb.__tableName__)
-                    colNum = tb.dbc._getTableColumnCount(tb.__tableName__)
-                    strNum = tb.dbc._getTableStrCount(tb.__tableName__)
-                    # logging.info(
-                    #     "Retrieve info via db query, table={}, row={}, col={}".format(tb.tableName, rowNum, colNum))
-                    dp.add(str(tb))
-                    return np.array([rowNum, colNum, 0, 0, strNum, 0])
+                """retrieved value is a tuple with form ({'L1', array[]}, 1)"""
+                rowNum = tb.dbc._getTableRowCount(tb.__tableName__)
+                colNum = tb.dbc._getTableColumnCount(tb.__tableName__)
+                strNum = tb.dbc._getTableStrCount(tb.__tableName__)
+                # logging.info(
+                #     "Retrieve info via db query, table={}, row={}, col={}".format(tb.tableName, rowNum, colNum))
+                return np.array([rowNum, colNum, 0, 0, strNum, 0])
             else:
                 """
                 add vectors together for all upstream data
                 """
                 lineage = tb.gen_lineage()
                 tables = cls._collect_from_lineage(lineage)
-                #logging.info("PRINT LINEAGE: \n {} \n tables#={}".format(lineage, len(tables)))
+                # logging.info("PRINT LINEAGE: \n {} \n tables#={}".format(lineage, len(tables)))
                 vector = np.array([0, 0, 0, 0, 0, 0])
                 for table in tables:
-                    if isinstance(table, DBTable) or table.__data__ is not None:
+                    logging.info(f'{table} data is {table.__data__}')
+                    if isinstance(table, DBTable) or table.__data__ is not None or table.__pdData__ is not None:
                         vector = vector + cls.extract_feature(table, dp)
-                        logging.info("Vector = {}, dp={}".format(vector, dp))
+                        # logging.info("Vector = {}, dp={}".format(vector, dp))
                 return vector
 
         return np.zeros(6, dtype=int)

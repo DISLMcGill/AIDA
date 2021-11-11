@@ -74,10 +74,11 @@ def chosen():
 
 #PATH = "/mnt/local/xwang223/monet/dbfarm/aidas.log"
 #PATH = "/home/monet/dbfarm/aidas.log"
-PATH = "/mnt/local/xwang223/postgres_build/pg_storeddata/aidas.log"
+PATH = "/home/build/postgres/pg_storeddata/aidas.log"
 PATTERN_FV = r".*Feature vector = \[(.*)\].*"
 PATTERN_FV = r".*Feature vector = \[(.*)\].*"
 PATTERN_LNG = r".*Lineage = (.*).*"
+output = 'output/pg/pg_sf01'
 prog_fv = re.compile(PATTERN_FV)
 prog_lng = re.compile(PATTERN_LNG)
 
@@ -102,6 +103,10 @@ def retrieve_lng(path):
             return lineage
     return None
 
+def write_header():
+    with open(output, 'a') as f:
+        wr = csv.writer(f)
+        wr.writerow(['seed', 'query', 'DBrow', 'DBcol', 'RAMcol', 'RAMrow', 'DBstr', 'RAMstr', 'lineage', 'time'])
 
 #@profile
 def run_test():
@@ -127,7 +132,13 @@ def run_test():
         row.append(lng)
         row.append(t1-t0)
 
-        with open('output/po2_random_load_pg.csv', 'a') as f:
+        try:
+            if os.stat(output).st_size == 0:
+                write_header()
+        except FileNotFoundError:
+            write_header()
+
+        with open(output, 'a') as f:
             wr = csv.writer(f)
             wr.writerow(row)
 run_test()

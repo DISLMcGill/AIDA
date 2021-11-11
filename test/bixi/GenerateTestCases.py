@@ -15,6 +15,7 @@ tpchqueries = __import__('bixi_queries')
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=101)
+parser.add_argument("--output", type=int, default=None)
 parser.add_argument("qry", type=int, metavar='N', nargs='+')
 args = parser.parse_args()
 
@@ -68,12 +69,13 @@ def chosen():
     return True if random.random() > .5 else False
 
 
-#PATH = "/mnt/local/xwang223/monet/dbfarm/aidas.log"
+PATH = "/home/build/postgres/pg_storeddata/aidas.log"
 #PATH = "/home/monet/dbfarm/aidas.log"
-PATH = "/home/build/monet/dbfarm/aidas.log"
+#PATH = "/home/build/monet/dbfarm/aidas.log"
 PATTERN_FV = r".*Feature vector = \[(.*)\].*"
 PATTERN_FV = r".*Feature vector = \[(.*)\].*"
 PATTERN_LNG = r".*Lineage = (.*).*"
+output = 'output/bixi0.csv'
 prog_fv = re.compile(PATTERN_FV)
 prog_lng = re.compile(PATTERN_LNG)
 
@@ -97,6 +99,11 @@ def retrieve_lng(path):
             lineage = m.group(1)
             return lineage
     return None
+
+def write_header():
+    with open(output, 'a') as f:
+        wr = csv.writer(f)
+        wr.writerow(['seed', 'query', 'DBrow', 'DBcol', 'RAMcol', 'RAMrow', 'DBstr', 'RAMstr', 'lineage', 'time'])
 
 
 #@profile
@@ -123,7 +130,13 @@ def run_test():
         row.append(lng)
         row.append(t1-t0)
 
-        with open('output/bixi.csv', 'a') as f:
+        try:
+            if os.stat(output).st_size == 0:
+                write_header()
+        except FileNotFoundError:
+            write_header()
+
+        with open(output, 'a') as f:
             wr = csv.writer(f)
             wr.writerow(row)
 run_test()
