@@ -42,7 +42,7 @@ def training(dw):
 
         # Do some recordings for plots
         loss_history.append(loss.item())
-        exp_history.append(y_hat.item())
+        exp_history.append(y_hat.data[0])
 
         # Compute gradients
         loss.backward()
