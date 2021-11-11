@@ -41,8 +41,8 @@ def training(dw):
         loss = rmse(y, y_hat)
 
         # Do some recordings for plots
-        loss_history.append(loss.data[0])
-        exp_history.append(y_hat.data[0])
+        loss_history.append(tensor.item(loss))
+        exp_history.append(tensor.item(y_hat))
 
         # Compute gradients
         loss.backward()
