@@ -9,17 +9,18 @@ import argparse
 
 #from memory_profiler import profile
 
-config = __import__('TPCHconfig-AIDA')
-tpchqueries = __import__('query_sampling')
+config = __import__('bixi-config')
+tpchqueries = __import__('bixi_queries')
 #table_list = getattr(tpchqueries, 'TABLE_INVOLVED')
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--seed", type=int, default=101)
+parser.add_argument("--output", type=int, default=None)
 parser.add_argument("qry", type=int, metavar='N', nargs='+')
 args = parser.parse_args()
 
 assert len(sys.argv) > 1, 'Usage: python3 runTPCH-AIDA.py (<query_number>)...'
-assert all(int(e) < 23 and int(e) >= 1 for e in args.qry), 'Query numbers must be integers between 1 and 22'
+assert all(int(e) < 4 and int(e) >= 1 for e in args.qry), 'Query numbers must be integers between 1 and 22'
 queries = ['0' + str(int(e)) if int(e) < 10 else str(int(e)) for e in args.qry]
 seed = args.seed
 
@@ -27,15 +28,11 @@ db = config.getDBC(config.jobName);
 
 os.system('mkdir -p {}'.format(config.outputDir))
 
-cols =  {'region': ('r_regionkey', 'r_name', 'r_comment'),
-         'nation': ('n_nationkey', 'n_name', 'n_regionkey', 'n_comment'),
-         'part': ('p_partkey', 'p_name', 'p_mfgr', 'p_brand', 'p_type', 'p_size', 'p_container', 'p_retailprice', 'p_comment'),
-         'supplier': ('s_suppkey', 's_name', 's_address', 's_nationkey', 's_phone', 's_acctbal', 's_comment'),
-         'partsupp': ('ps_partkey', 'ps_suppkey', 'ps_availqty', 'ps_supplycost', 'ps_comment'),
-         'customer': ('c_custkey', 'c_name', 'c_address', 'c_nationkey', 'c_phone', 'c_acctbal', 'c_mktsegment', 'c_comment'),
-         'orders': ('o_orderkey', 'o_custkey', 'o_orderstatus', 'o_totalprice', 'o_orderdate', 'o_orderpriority', 'o_clerk', 'o_shippriority', 'o_comment'),
-         'lineitem': ('l_orderkey', 'l_partkey', 'l_suppkey', 'l_linenumber', 'l_quantity', 'l_extendedprice', 'l_discount', 'l_tax', 'l_returnflag', 'l_linestatus', 'l_shipdate', 'l_commitdate', 'l_receiptdate', 'l_shipinstruct', 'l_shipmode', 'l_comment'),
+cols =  {'gmdata2017': ('stscode', 'endscode', 'gdistm', 'gduration'),
+        'stations2017': ('scode', 'sname', 'slatitude', 'slongitude', 'sispublic'),
+         'tripdata2017': ('id', 'starttm', 'stscode', 'endtm', 'endcode', 'duration', 'ismember')
         }
+
 
 class Database:
     def __init__(self, db):
@@ -72,13 +69,13 @@ def chosen():
     return True if random.random() > .5 else False
 
 
-#PATH = "/mnt/local/xwang223/monet/dbfarm/aidas.log"
-#PATH = "/home/monet/dbfarm/aidas.log"
 PATH = "/home/build/postgres/pg_storeddata/aidas.log"
+#PATH = "/home/monet/dbfarm/aidas.log"
+#PATH = "/home/build/monet/dbfarm/aidas.log"
 PATTERN_FV = r".*Feature vector = \[(.*)\].*"
 PATTERN_FV = r".*Feature vector = \[(.*)\].*"
 PATTERN_LNG = r".*Lineage = (.*).*"
-output = 'output/pg/pg_sf01'
+output = 'output/bixi0.csv'
 prog_fv = re.compile(PATTERN_FV)
 prog_lng = re.compile(PATTERN_LNG)
 
@@ -107,6 +104,7 @@ def write_header():
     with open(output, 'a') as f:
         wr = csv.writer(f)
         wr.writerow(['seed', 'query', 'DBrow', 'DBcol', 'RAMcol', 'RAMrow', 'DBstr', 'RAMstr', 'lineage', 'time'])
+
 
 #@profile
 def run_test():
