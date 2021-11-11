@@ -97,11 +97,12 @@ def bootstrap():
     # import tensorflow as tf;
     import tensorflow.compat.v1 as tf;
     tf.disable_v2_behavior()
-
     builtins.tf = tf;
     builtins.DataConversion = DataConversion;
     builtins.datasets = datasets;
     from torch.autograd import Variable
+    from aida.aida import Q
+    builtins.Q = Q
     builtins.Variable = Variable
 
     gBApp = gbackend.GBackendApp(AConfig.DASHPORT)
