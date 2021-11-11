@@ -87,6 +87,8 @@ def bootstrap():
     builtins.logging = logging;
     from aidacommon.dbAdapter import DataConversion;
     import numpy as np;
+    import geopy.distance;
+    builtins.geopy.distance = geopy.distance;
     builtins.np = np;
     import sys;
     sys.argv = ['']

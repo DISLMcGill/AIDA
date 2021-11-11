@@ -1,29 +1,41 @@
-import copy
-
 from aida.aida import *;
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
-def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
-    import time
-    import logging
-    from aidacommon.dbAdapter import DataConversion
-    start_time = time.time()
-    learningrate = 0.0000001
-    epoch_size = 8000
-    logging.info("running on server")
-    model = nn.Linear(input_size,output_size)
-    model = model.cuda()
+def trainingLoop(dw):
+    freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))     .aggregate(('stscode','endscode',{COUNT('*'):'numtrips'}), ('stscode','endscode'))     .filter(Q('numtrips',C(50), CMP.GTE));
+
+    freqStationsCord = freqStations.join(dw.stations2017, ('stscode',), ('scode',), COL.ALL, ({'slatitude':'stlat'}, {'slongitude':'stlong'}))     .join(dw.stations2017, ('endscode',), ('scode',), COL.ALL, ({'slatitude':'enlat'}, {'slongitude':'enlong'}));
+
+    def computeDist(tblrData):
+        import geopy.distance;  # We will use this module to compute distance.
+        import copy, numpy as np;
+        # We are going to keep all the columns of the source tabularData object.
+        data = copy.copy(tblrData.rows);  # This only makes a copy of the metadata, but retains original column data
+        vdistm = data['vdistm'] = np.empty(tblrData.numRows, dtype=int);  # add a new empty column to hold distance.
+        # These are the inputs to Vincenty's formula.
+        stlat = data['stlat'];
+        stlong = data['stlong'];
+        enlat = data['enlat'];
+        enlong = data['enlong'];
+        for i in range(0, tblrData.numRows):  # populate the distance metric using longitude/latitude of coordinates.
+            vdistm[i] = int(geopy.distance.distance((stlat[i], stlong[i]), (enlat[i], enlong[i])).meters);
+        return data;
+
+    freqStationsDist = freqStationsCord._U(computeDist);  # Execute the user transform
+
+    tripData = dw.tripdata2017.join(freqStationsDist, ('stscode', 'endscode'), ('stscode', 'endscode')
+                                    , ('id', 'duration'), ('vdistm',));
+
+    duration = tripData[:,1].cdata['duration']
+    distance = tripData[:,2].cdata['vdistm']
+    model = nn.Linear(1, 1);
+    model.cuda()
+    X = torch.from_numpy(distance.astype(np.float32))
+    y = torch.from_numpy(duration.astype(np.float32))
+    epoch_size = 10000
+    learningrate = 0.1
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
-    distance = dw.gmdata2017[:,2]
-    duration = dw.gmdata2017[:,3]
-    X = DataConversion.extract_X(distance)
-    y = DataConversion.extract_y(duration)
-    X = np.copy(X)
-    y = np.copy(y)
-    X = torch.from_numpy(X.astype(np.float32))
-    y = torch.from_numpy(y.astype(np.float32))
-    y = y.view(y.shape[0],1)
     X = X.cuda()
     y = y.cuda()
     for epoch in range(epoch_size):
@@ -34,11 +46,7 @@ def trainingLoop(dw,input_size, output_size,nn,torch,datasets,F,np):
         optimizer.zero_grad()
         print(model.weight)
     dw.linearModel = model
-    end_time = time.time()
-    execution_time = end_time - start_time
-    logging.info("execution time is "+str(execution_time))
     return(model.weight)
 
-
-weight = dw._X(trainingLoop,1,1)
+weight = dw._X(trainingLoop)
 print(weight)
