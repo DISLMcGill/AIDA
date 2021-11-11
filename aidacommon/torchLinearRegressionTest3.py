@@ -49,7 +49,7 @@ def trainingLoop(dw):
     dw.linearModel = model
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("The execution time for 10 iterations using 2256278 samples is "+str(execution_time))
+    logging.info("The execution time for 100 iterations using 2256278 samples is "+str(execution_time))
     return(model.weight)
 
 weight = dw._X(trainingLoop)
