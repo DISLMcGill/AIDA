@@ -4,7 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
     freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))     .aggregate(('stscode','endscode',{COUNT('*'):'numtrips'}), ('stscode','endscode'))     .filter(Q('numtrips',C(50), CMP.GTE));
 
-    freqStationsCord = freqStations.join(dw.stations2017, ('stscode',), ('scode',), COL.ALL, ({'slatitude':'stlat'}, {'slongitude':'stlong'}))     .join(dw.stations2017, ('endscode',), ('scode',), COL.ALL, ({'slatitude':'enlat'}, {'slongitude':'enlong'}));
+    freqStationsCord = freqStations     .join(dw.stations2017, ('stscode',), ('scode',), COL.ALL, ({'slatitude':'stlat'}, {'slongitude':'stlong'}))     .join(dw.stations2017, ('endscode',), ('scode',), COL.ALL, ({'slatitude':'enlat'}, {'slongitude':'enlong'}));
 
     def computeDist(tblrData):
         # We are going to keep all the columns of the source tabularData object.
@@ -30,7 +30,7 @@ def trainingLoop(dw):
     # model.cuda()
     X = torch.from_numpy(distance.astype(np.float32))
     y = torch.from_numpy(duration.astype(np.float32))
-    epoch_size = 100
+    epoch_size = 10
     learningrate = 0.0000001
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
