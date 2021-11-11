@@ -103,8 +103,10 @@ def bootstrap():
     from torch.autograd import Variable
     from aida.aida import Q
     builtins.Q = Q
+    from aidacommon.dborm import CMP,COL
+    builtins.CMP = CMP
+    builtins.COL = COL
     builtins.Variable = Variable
-
     gBApp = gbackend.GBackendApp(AConfig.DASHPORT)
     aidasys.gBApp = gBApp;
     gBApp.start();
