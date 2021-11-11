@@ -94,6 +94,8 @@ def bootstrap():
     builtins.tf = tf;
     builtins.DataConversion = DataConversion;
     builtins.datasets = datasets;
+    from torch.autograd import Variable
+    builtins.Variable = Variable
 
     gBApp = gbackend.GBackendApp(AConfig.DASHPORT)
     aidasys.gBApp = gBApp;
