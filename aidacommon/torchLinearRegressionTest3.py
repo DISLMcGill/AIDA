@@ -2,7 +2,6 @@ from aida.aida import *;
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
-    start_time = time.time()
     freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))     .aggregate(('stscode','endscode',{COUNT('*'):'numtrips'}), ('stscode','endscode'))     .filter(Q('numtrips',C(50), CMP.GTE));
 
     freqStationsCord = freqStations.join(dw.stations2017, ('stscode',), ('scode',), COL.ALL, ({'slatitude':'stlat'}, {'slongitude':'stlong'}))     .join(dw.stations2017, ('endscode',), ('scode',), COL.ALL, ({'slatitude':'enlat'}, {'slongitude':'enlong'}));
@@ -39,6 +38,7 @@ def trainingLoop(dw):
     y = y.cuda()
     y = y.view(y.shape[0], 1)
     X = X.view(X.shape[0], 1)
+    start_time = time.time()
     for epoch in range(epoch_size):
         y_predicted = model(X)
         loss = criterion(y_predicted, y)
