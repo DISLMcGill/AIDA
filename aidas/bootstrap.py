@@ -102,7 +102,7 @@ def bootstrap():
     from tensorflow import keras
     builtins.keras = keras
     from tensorflow.keras import layers
-    builtins.keras = layers
+    builtins.layers = layers
 
 
 
