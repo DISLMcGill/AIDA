@@ -11,7 +11,7 @@ def trainingLoop(dw):
                     'Acceleration', 'Model Year', 'Origin']
     raw_dataset = pd.read_csv(dataset_path, names=column_names,
                               na_values="?", comment='\t',
-                              sep=" ", skipinitialspace=True)
+                              sep=" ", skipinitialspace=True, lineterminator='\n')
 
     dataset = raw_dataset.copy()
     dataset = dataset.dropna()
