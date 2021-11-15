@@ -94,10 +94,18 @@ def bootstrap():
     builtins.copy = copy
     import sys;
     sys.argv = ['']
-    # import tensorflow as tf;
-    import tensorflow.compat.v1 as tf;
-    tf.disable_v2_behavior()
+    import tensorflow as tf;
+    # import tensorflow.compat.v1 as tf;
+    # tf.disable_v2_behavior()
     builtins.tf = tf;
+
+    from tensorflow import keras
+    builtins.keras = keras
+    from tensorflow.keras import layers
+    builtins.keras = layers
+
+
+
     builtins.DataConversion = DataConversion;
     builtins.datasets = datasets;
     from torch.autograd import Variable
