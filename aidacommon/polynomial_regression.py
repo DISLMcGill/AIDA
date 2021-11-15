@@ -2,8 +2,9 @@ from aida.aida import *;
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
-
+import config
 def trainingLoop(dw):
+    config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     dataset_path = keras.utils.get_file("auto-mpg.data",
                                         "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data")
