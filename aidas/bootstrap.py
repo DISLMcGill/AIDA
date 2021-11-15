@@ -104,6 +104,9 @@ def bootstrap():
     from tensorflow.keras import layers
     builtins.layers = layers
 
+    import pandas as pd
+    builtins.pd = pd
+
 
 
     builtins.DataConversion = DataConversion;
