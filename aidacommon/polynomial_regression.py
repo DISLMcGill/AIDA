@@ -4,6 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 
 def trainingLoop(dw):
+    config.gpu_options.allow_growth = True
     dataset_path = keras.utils.get_file("auto-mpg.data",
                                         "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data")
 
