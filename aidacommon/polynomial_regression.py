@@ -64,7 +64,8 @@ def trainingLoop(dw):
         epochs=EPOCHS, validation_split=0.2, verbose=0,
         callbacks=[PrintDot()])
 
-    return history
+    loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
+    return [loss, mae, mse]
 
 
 data = dw._X(trainingLoop)
