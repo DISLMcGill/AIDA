@@ -30,7 +30,7 @@ def trainingLoop(dw):
                     'Acceleration', 'Model Year', 'Origin']
     raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,
                               na_values="?", comment='\t',
-                              sep=" ", skipinitialspace=True)
+                              sep=" ", skipinitialspace=True, engine='python')
     dataset = raw_dataset.copy()
 
 
