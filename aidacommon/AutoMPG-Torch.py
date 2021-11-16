@@ -204,8 +204,3 @@ for epoch in range(epoch_size):
 predicted = model(normed_test_data)
 loss = criterion(predicted,test_target)
 
-
-# In[128]:
-
-
-loss
