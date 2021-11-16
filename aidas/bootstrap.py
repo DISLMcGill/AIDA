@@ -107,6 +107,14 @@ def bootstrap():
     import pandas as pd
     builtins.pd = pd
 
+    import requests
+    builtins.requests = requests
+
+    from collections import OrderedDict
+    builtins.OrderedDict = OrderedDict
+
+
+
 
 
     builtins.DataConversion = DataConversion;
