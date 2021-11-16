@@ -32,11 +32,8 @@ def trainingLoop(dw):
                               na_values="?", comment='\t',
                               sep=" ", skipinitialspace=True)
     dataset = raw_dataset.copy()
-    dataset.tail()
 
-    # In[107]:
 
-    dataset.isna().sum()
 
     # In[108]:
 
@@ -45,7 +42,7 @@ def trainingLoop(dw):
     dataset['USA'] = (origin == 1) * 1.0
     dataset['Europe'] = (origin == 2) * 1.0
     dataset['Japan'] = (origin == 3) * 1.0
-    dataset.tail()
+
 
     # In[109]:
 
@@ -57,16 +54,12 @@ def trainingLoop(dw):
     train_stats = train_dataset.describe()
     train_stats.pop("MPG")
     train_stats = train_stats.transpose()
-    train_stats
 
     # In[111]:
 
     train_labels = train_dataset.pop('MPG')
     test_labels = test_dataset.pop('MPG')
 
-    # In[112]:
-
-    train_labels
 
     # In[113]:
 
@@ -83,10 +76,6 @@ def trainingLoop(dw):
     # In[116]:
 
     test_target = test_target.view(test_target.shape[0], 1)
-
-    # In[117]:
-
-    train_target.size()
 
     # In[118]:
 
