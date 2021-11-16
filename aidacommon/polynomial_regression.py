@@ -3,14 +3,12 @@ host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName 
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def trainingLoop(dw):
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    dataset_path = keras.utils.get_file("auto-mpg.data",
-                                        "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data")
+    # config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
 
     column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
                     'Acceleration', 'Model Year', 'Origin']
-    raw_dataset = pd.read_csv(dataset_path, names=column_names,
+    raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,
                               na_values="?", comment='\t',
                               sep=" ", skipinitialspace=True, engine='python')
 
@@ -66,7 +64,7 @@ def trainingLoop(dw):
 
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
-    weights = model.get_weights()
+    weights = model.layers[2].get_weights()[0]
     return weights
 
 
