@@ -12,23 +12,23 @@ def trainingLoop(dw):
     import pandas as pd
     import torch.nn as nn
     import torch
-    from collections import OrderedDict
+
     import numpy as np
 
     # In[105]:
-
-    url_csv = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
-    req = requests.get(url_csv)
-    url_content = req.content
-    csv_file = open('downloaded.csv', 'wb')
-    csv_file.write(url_content)
-    csv_file.close()
+    #
+    # url_csv = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
+    # req = requests.get(url_csv)
+    # url_content = req.content
+    # csv_file = open('downloaded.csv', 'wb')
+    # csv_file.write(url_content)
+    # csv_file.close()
 
     # In[106]:
 
     column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
                     'Acceleration', 'Model Year', 'Origin']
-    raw_dataset = pd.read_csv('downloaded.csv', names=column_names,
+    raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,
                               na_values="?", comment='\t',
                               sep=" ", skipinitialspace=True)
     dataset = raw_dataset.copy()
