@@ -64,10 +64,12 @@ def trainingLoop(dw):
 
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
-    weights = model.layers[2].get_weights()[0]
-    example_batch = normed_train_data[:10]
-    example_result = model.predict(example_batch)
-    example_result
+    # weights = model.layers[2].get_weights()[0]
+    # example_batch = normed_train_data[:10]
+    # example_result = model.predict(example_batch)
+    # example_result
+    loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
+    return [loss, mae, mse]
 
 
 data = dw._X(trainingLoop)
