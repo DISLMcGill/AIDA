@@ -40,10 +40,10 @@ def trainingLoop(dw):
     df['C'] = randn(n)
     df['D'] = randn(n)
     df['E'] = randn(n)
-    df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D + randn(n)
+    df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D
 
     dataset = df.copy()
-    dataset = datset.dropna()
+
 
 
     # In[108]:
