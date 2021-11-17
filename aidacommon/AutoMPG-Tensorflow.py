@@ -45,8 +45,8 @@ def trainingLoop(dw):
 
     def build_model():
         model = keras.Sequential([
-            layers.Dense(64, activation='relu', input_shape=[len(train_dataset.keys())]),
-            layers.Dense(64, activation='relu'),
+            layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
+            layers.Dense(16, activation='relu'),
             layers.Dense(1)
         ])
 
