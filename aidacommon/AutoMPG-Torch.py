@@ -33,7 +33,7 @@ def trainingLoop(dw):
     #                           sep=" ", skipinitialspace=True, engine='python')
 
 
-    n = 5000
+    n = 50000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -108,7 +108,7 @@ def trainingLoop(dw):
 
     # In[121]:
 
-    def get_training_model(inFeatures=len(train_dataset.keys()), hiddenDim=64, nbClasses=1):
+    def get_training_model(inFeatures=len(train_dataset.keys()), hiddenDim=32, nbClasses=1):
         # construct a shallow, sequential neural network
         model = nn.Sequential(OrderedDict([
             ("hidden_layer_1", nn.Linear(inFeatures, hiddenDim)),
