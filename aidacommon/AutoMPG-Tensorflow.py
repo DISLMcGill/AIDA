@@ -12,7 +12,7 @@ def trainingLoop(dw):
     #                           na_values="?", comment='\t',
     #                           sep=" ", skipinitialspace=True, engine='python')
 
-    n = 5000000
+    n = 5000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
