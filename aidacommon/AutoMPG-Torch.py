@@ -1,206 +1,156 @@
-#!/usr/bin/env python
-# coding: utf-8
+from aida.aida import *;
+host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
+def trainingLoop(dw):
+    # !/usr/bin/env python
+    # coding: utf-8
 
-# In[102]:
 
+    # In[104]:
 
-get_ipython().system('pip install requests')
+    import requests
+    import pandas as pd
+    import torch.nn as nn
+    import torch
 
+    import numpy as np
 
-# In[103]:
+    # In[105]:
+    #
+    # url_csv = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
+    # req = requests.get(url_csv)
+    # url_content = req.content
+    # csv_file = open('downloaded.csv', 'wb')
+    # csv_file.write(url_content)
+    # csv_file.close()
 
+    # In[106]:
 
-get_ipython().system('pip3 install torch==1.10.0+cu102 torchvision==0.11.1+cu102 torchaudio===0.10.0+cu102 -f https://download.pytorch.org/whl/cu102/torch_stable.html')
+    # column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
+    #                 'Acceleration', 'Model Year', 'Origin']
+    # raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,
+    #                           na_values="?", comment='\t',
+    #                           sep=" ", skipinitialspace=True, engine='python')
 
 
-# In[104]:
+    n = 5000
+    df = pd.DataFrame(randn(n))
+    df.columns = ['A']
+    df['B'] = randn(n)
+    df['C'] = randn(n)
+    df['D'] = randn(n)
+    df['E'] = randn(n)
+    df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D + randn(n)
 
+    dataset = df.copy()
 
-import requests
-import pandas as pd
-import torch.nn as nn
-import torch
-from collections import OrderedDict
-import numpy as np
 
+    # In[108]:
 
-# In[105]:
+    # dataset = dataset.dropna()
+    # origin = dataset.pop('Origin')
+    # dataset['USA'] = (origin == 1) * 1.0
+    # dataset['Europe'] = (origin == 2) * 1.0
+    # dataset['Japan'] = (origin == 3) * 1.0
 
 
-url_csv = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
-req = requests.get(url_csv)
-url_content = req.content
-csv_file = open('downloaded.csv', 'wb')
-csv_file.write(url_content)
-csv_file.close()
+    # In[109]:
 
+    train_dataset = dataset.sample(frac=0.8, random_state=0)
+    test_dataset = dataset.drop(train_dataset.index)
 
-# In[106]:
+    # In[110]:
 
+    train_stats = train_dataset.describe()
+    train_stats.pop("Y")
+    train_stats = train_stats.transpose()
 
-column_names = ['MPG','Cylinders','Displacement','Horsepower','Weight',
-                'Acceleration', 'Model Year', 'Origin']
-raw_dataset = pd.read_csv('downloaded.csv', names=column_names,
-                      na_values = "?", comment='\t',
-                      sep=" ", skipinitialspace=True)
-dataset = raw_dataset.copy()
-dataset.tail()
+    # In[111]:
 
+    train_labels = train_dataset.pop('Y')
+    test_labels = test_dataset.pop('Y')
 
-# In[107]:
 
+    # In[113]:
 
-dataset.isna().sum()
+    train_target = torch.tensor(train_labels.values.astype(np.float32))
 
+    # In[114]:
 
-# In[108]:
+    train_target = train_target.view(train_target.shape[0], 1)
 
+    # In[115]:
 
-dataset = dataset.dropna()
-origin = dataset.pop('Origin')
-dataset['USA'] = (origin == 1)*1.0
-dataset['Europe'] = (origin == 2)*1.0
-dataset['Japan'] = (origin == 3)*1.0
-dataset.tail()
+    test_target = torch.tensor(test_labels.values.astype(np.float32))
 
+    # In[116]:
 
-# In[109]:
+    test_target = test_target.view(test_target.shape[0], 1)
 
+    # In[118]:
 
-train_dataset = dataset.sample(frac=0.8,random_state=0)
-test_dataset = dataset.drop(train_dataset.index)
+    def norm(x):
+        return (x - train_stats['mean']) / train_stats['std']
 
+    normed_train_data = norm(train_dataset)
+    normed_test_data = norm(test_dataset)
 
-# In[110]:
+    # In[119]:
 
+    normed_train_data = torch.from_numpy(normed_train_data.values)
+    normed_train_data = normed_train_data.float()
 
-train_stats = train_dataset.describe()
-train_stats.pop("MPG")
-train_stats = train_stats.transpose()
-train_stats
+    # In[120]:
 
+    normed_test_data = torch.from_numpy(normed_test_data.values)
+    normed_test_data = normed_test_data.float()
 
-# In[111]:
+    # In[121]:
 
+    def get_training_model(inFeatures=len(train_dataset.keys()), hiddenDim=64, nbClasses=1):
+        # construct a shallow, sequential neural network
+        model = nn.Sequential(OrderedDict([
+            ("hidden_layer_1", nn.Linear(inFeatures, hiddenDim)),
+            ("activation_1", nn.ReLU()),
+            ("hidden_layer_2", nn.Linear(hiddenDim, hiddenDim)),
+            ("activation_2", nn.ReLU()),
+            ("output_layer", nn.Linear(hiddenDim, nbClasses))
+        ]))
+        # return the sequential model
+        return model
 
-train_labels = train_dataset.pop('MPG')
-test_labels = test_dataset.pop('MPG')
+    # In[122]:
 
+    model = get_training_model()
 
-# In[112]:
+    # In[123]:
 
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=0.001)
 
-train_labels
+    # In[124]:
 
+    criterion = nn.MSELoss()
+    epoch_size = 1000
 
-# In[113]:
+    # In[125]:
 
+    model(normed_train_data).size()
 
-train_target = torch.tensor(train_labels.values.astype(np.float32))
+    # In[126]:
 
+    for epoch in range(epoch_size):
+        predicted = model(normed_train_data)
+        loss = criterion(predicted, train_target)
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
 
-# In[114]:
+    # In[127]:
 
+    predicted = model(normed_test_data)
+    loss = criterion(predicted, test_target)
+    return loss
 
-train_target = train_target.view(train_target.shape[0],1)
 
-
-# In[115]:
-
-
-test_target = torch.tensor(test_labels.values.astype(np.float32))
-
-
-# In[116]:
-
-
-test_target = test_target.view(test_target.shape[0],1)
-
-
-# In[117]:
-
-
-train_target.size()
-
-
-# In[118]:
-
-
-def norm(x):
-  return (x - train_stats['mean']) / train_stats['std']
-normed_train_data = norm(train_dataset)
-normed_test_data = norm(test_dataset)
-
-
-# In[119]:
-
-
-normed_train_data = torch.from_numpy(normed_train_data.values)
-normed_train_data = normed_train_data.float()
-
-
-# In[120]:
-
-
-normed_test_data = torch.from_numpy(normed_test_data.values)
-normed_test_data = normed_test_data.float()
-
-
-# In[121]:
-
-
-def get_training_model(inFeatures=len(train_dataset.keys()), hiddenDim=64, nbClasses=1):
-    # construct a shallow, sequential neural network
-    model = nn.Sequential(OrderedDict([
-        ("hidden_layer_1", nn.Linear(inFeatures, hiddenDim)),
-        ("activation_1", nn.ReLU()),
-        ("hidden_layer_2", nn.Linear(hiddenDim, hiddenDim)),
-        ("activation_2", nn.ReLU()),
-        ("output_layer", nn.Linear(hiddenDim, nbClasses))
-    ]))
-    # return the sequential model
-    return model
-
-
-# In[122]:
-
-
-model = get_training_model()
-
-
-# In[123]:
-
-
-optimizer = torch.optim.RMSprop(model.parameters(), lr=0.001)
-
-
-# In[124]:
-
-
-criterion = nn.MSELoss()
-epoch_size = 1000
-
-
-# In[125]:
-
-
-model(normed_train_data).size()
-
-
-# In[126]:
-
-
-for epoch in range(epoch_size):
-    predicted = model(normed_train_data)
-    loss = criterion(predicted,train_target)
-    loss.backward()
-    optimizer.step()
-    optimizer.zero_grad()
-
-
-# In[127]:
-
-
-predicted = model(normed_test_data)
-loss = criterion(predicted,test_target)
-
+weight = dw._X(trainingLoop)
+print(weight)
