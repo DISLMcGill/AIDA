@@ -43,6 +43,7 @@ def trainingLoop(dw):
     df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D + randn(n)
 
     dataset = df.copy()
+    dataset = datset.dropna()
 
 
     # In[108]:
