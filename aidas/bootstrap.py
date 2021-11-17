@@ -113,6 +113,9 @@ def bootstrap():
     from collections import OrderedDict
     builtins.OrderedDict = OrderedDict
 
+    from numpy.random import randn
+    builtins.randn = randn
+
 
 
 
