@@ -15,22 +15,6 @@ def trainingLoop(dw):
 
     import numpy as np
 
-    # In[105]:
-    #
-    # url_csv = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
-    # req = requests.get(url_csv)
-    # url_content = req.content
-    # csv_file = open('downloaded.csv', 'wb')
-    # csv_file.write(url_content)
-    # csv_file.close()
-
-    # In[106]:
-
-    # column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
-    #                 'Acceleration', 'Model Year', 'Origin']
-    # raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,
-    #                           na_values="?", comment='\t',
-    #                           sep=" ", skipinitialspace=True, engine='python')
 
 
     n = 50000
@@ -44,15 +28,6 @@ def trainingLoop(dw):
 
     dataset = df.copy()
 
-
-
-    # In[108]:
-
-    # dataset = dataset.dropna()
-    # origin = dataset.pop('Origin')
-    # dataset['USA'] = (origin == 1) * 1.0
-    # dataset['Europe'] = (origin == 2) * 1.0
-    # dataset['Japan'] = (origin == 3) * 1.0
 
 
     # In[109]:

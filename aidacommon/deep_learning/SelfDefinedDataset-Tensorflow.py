@@ -6,34 +6,25 @@ def trainingLoop(dw):
     # config = tf.ConfigProto()
     # config.gpu_options.allow_growth = True
 
-    column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
-                    'Acceleration', 'Model Year', 'Origin']
-    raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,
-                              na_values="?", comment='\t',
-                              sep=" ", skipinitialspace=True, engine='python')
+    n = 5000
+    df = pd.DataFrame(randn(n))
+    df.columns = ['A']
+    df['B'] = randn(n)
+    df['C'] = randn(n)
+    df['D'] = randn(n)
+    df['E'] = randn(n)
+    df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D + randn(n)
 
-    # n = 5000
-    # df = pd.DataFrame(randn(n))
-    # df.columns = ['A']
-    # df['B'] = randn(n)
-    # df['C'] = randn(n)
-    # df['D'] = randn(n)
-    # df['E'] = randn(n)
-    # df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D + randn(n)
-    #
-    dataset = raw_dataset.copy()
-    dataset = dataset.dropna()
-    origin = dataset.pop('Origin')
-    dataset['USA'] = (origin == 1) * 1.0
-    dataset['Europe'] = (origin == 2) * 1.0
-    dataset['Japan'] = (origin == 3) * 1.0
+    dataset = df.copy()
+
+
     train_dataset = dataset.sample(frac=0.8, random_state=0)
     test_dataset = dataset.drop(train_dataset.index)
     train_stats = train_dataset.describe()
-    train_stats.pop("MPG")
+    train_stats.pop("Y")
     train_stats = train_stats.transpose()
-    train_labels = train_dataset.pop('MPG')
-    test_labels = test_dataset.pop('MPG')
+    train_labels = train_dataset.pop('Y')
+    test_labels = test_dataset.pop('Y')
 
 
 
