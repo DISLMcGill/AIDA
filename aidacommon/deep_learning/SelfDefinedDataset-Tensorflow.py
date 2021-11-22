@@ -3,8 +3,8 @@ host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName 
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def trainingLoop(dw):
-    # config = tf.ConfigProto()
-    # config.gpu_options.allow_growth = True
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
 
     n = 5000
     df = pd.DataFrame(randn(n))
