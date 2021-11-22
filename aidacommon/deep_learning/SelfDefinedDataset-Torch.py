@@ -113,7 +113,7 @@ def trainingLoop(dw):
     model(normed_train_data).size()
 
     # In[126]:
-    model.cuda()
+    model = model.cuda()
     normed_train_data = normed_train_data.cuda()
     train_target = train_target.cuda()
     start_time = time.time()
