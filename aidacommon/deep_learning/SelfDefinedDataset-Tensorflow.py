@@ -61,11 +61,11 @@ def trainingLoop(dw):
     start_time = time.time()
     history = model.fit(
         normed_train_data, train_labels,
-        epochs=EPOCHS, validation_split=0.2, verbose=0,
-        callbacks=[PrintDot()])
+        epochs=EPOCHS, validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
     logging.info("The execution time on GPU for a dataset of size 5000 and 10 epochs using TensorFlow is:",execution_time)
+    print("The execution time on GPU for a dataset of size 5000 and 10 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
     # weights = model.layers[2].get_weights()[0]
