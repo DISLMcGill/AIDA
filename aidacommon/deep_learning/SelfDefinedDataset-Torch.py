@@ -125,7 +125,7 @@ def trainingLoop(dw):
         optimizer.zero_grad()
     end_time = time.time()
     execution_time = end_time - start_time
-    print("The execution time on GPU for a dataset of size 5000 and 10 epochs using Pytorch is:", execution_time)
+    logging.info("The execution time on GPU for a dataset of size 5000 and 10 epochs using Pytorch is:", execution_time)
     # In[127]:
     normed_test_data = normed_test_data.cuda()
     test_target = test_target.cuda()
