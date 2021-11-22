@@ -17,7 +17,7 @@ def trainingLoop(dw):
 
 
 
-    n = 50000
+    n = 5000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -83,7 +83,7 @@ def trainingLoop(dw):
 
     # In[121]:
 
-    def get_training_model(inFeatures=len(train_dataset.keys()), hiddenDim=32, nbClasses=1):
+    def get_training_model(inFeatures=len(train_dataset.keys()), hiddenDim=16, nbClasses=1):
         # construct a shallow, sequential neural network
         model = nn.Sequential(OrderedDict([
             ("hidden_layer_1", nn.Linear(inFeatures, hiddenDim)),
@@ -106,21 +106,26 @@ def trainingLoop(dw):
     # In[124]:
 
     criterion = nn.MSELoss()
-    epoch_size = 1000
+    epoch_size = 10
 
     # In[125]:
 
     model(normed_train_data).size()
 
     # In[126]:
-
+    model.cuda()
+    normed_train_data.cuda()
+    train_target.cuda()
+    start_time = time.time()
     for epoch in range(epoch_size):
         predicted = model(normed_train_data)
         loss = criterion(predicted, train_target)
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print("The execution time on GPU for a dataset of size 5000 and 10 epochs using Pytorch is:", execution_time)
     # In[127]:
 
     predicted = model(normed_test_data)
