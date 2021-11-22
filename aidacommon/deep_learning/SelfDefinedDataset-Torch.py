@@ -114,8 +114,8 @@ def trainingLoop(dw):
 
     # In[126]:
     model.cuda()
-    normed_train_data.cuda()
-    train_target.cuda()
+    normed_train_data = normed_train_data.cuda()
+    train_target = train_target.cuda()
     start_time = time.time()
     for epoch in range(epoch_size):
         predicted = model(normed_train_data)
