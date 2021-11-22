@@ -127,7 +127,8 @@ def trainingLoop(dw):
     execution_time = end_time - start_time
     print("The execution time on GPU for a dataset of size 5000 and 10 epochs using Pytorch is:", execution_time)
     # In[127]:
-
+    normed_test_data = normed_test_data.cuda()
+    test_target = test_target.cuda()
     predicted = model(normed_test_data)
     loss = criterion(predicted, test_target)
     return loss
