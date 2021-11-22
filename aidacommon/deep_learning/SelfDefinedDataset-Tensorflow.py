@@ -4,7 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def trainingLoop(dw):
     config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    config.gpu_options.allow_growth = False
 
     n = 5000
     df = pd.DataFrame(randn(n))
