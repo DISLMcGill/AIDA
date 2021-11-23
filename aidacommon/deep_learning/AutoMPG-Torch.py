@@ -151,6 +151,7 @@ def trainingLoop(dw):
 
     predicted = model(normed_test_data)
     loss = criterion(predicted, test_target)
+    logging.info("running on server")
     return loss
 
 
