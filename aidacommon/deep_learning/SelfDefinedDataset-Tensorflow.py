@@ -3,7 +3,7 @@ host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName 
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def trainingLoop(dw):
-    n = 100000
+    n = 1000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -61,8 +61,8 @@ def trainingLoop(dw):
         epochs=EPOCHS, validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("The execution time on GPU for a dataset of size 100000 and 10 epochs using TensorFlow is:",execution_time)
-    print("The execution time on GPU for a dataset of size 100000 and 10 epochs using TensorFlow is:",execution_time)
+    logging.info("The execution time on GPU for a dataset of size 1000 and 10 epochs using TensorFlow is:",execution_time)
+    print("The execution time on GPU for a dataset of size 1000 and 10 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
     # weights = model.layers[2].get_weights()[0]
