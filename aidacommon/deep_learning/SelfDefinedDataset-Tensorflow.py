@@ -13,7 +13,11 @@ def trainingLoop(dw):
     df['Y'] = 5 + 3 * df.A + 6 * df.B ** 2 + 7 * df.C ** 3 + 2 * df.D ** 2 + 8 * df.E * df.D + randn(n)
 
     dataset = df.copy()
-
+    def loadPandasDataFrame(df):
+        return df
+    dataset = dw._L(loadPandasDataFrame,dataset)
+    print(type(dataset))
+    dataset = pd.DataFrame(dataset.cdata)
 
     train_dataset = dataset.sample(frac=0.8, random_state=0)
     test_dataset = dataset.drop(train_dataset.index)
