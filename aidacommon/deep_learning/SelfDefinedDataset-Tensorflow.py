@@ -53,8 +53,7 @@ def trainingLoop(dw):
     EPOCHS = 100
     start_time = time.time()
     history = model.fit(
-        dataset,
-        epochs=EPOCHS, validation_split=0.2, verbose=0)
+        dataset,epochs=EPOCHS)
     end_time = time.time()
     execution_time = end_time - start_time
     logging.info("The execution time on GPU for a dataset of size 100000 and 100 epochs using TensorFlow is:",execution_time)
