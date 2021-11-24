@@ -48,7 +48,7 @@ def trainingLoop(dw):
     model = build_model()
 
     with tf.device('/gpu:1'):
-        dataset = tf.data.Dataset.from_tensor_slices((dataset.values, train_labels.values))
+        dataset = tf.data.Dataset.from_tensor_slices((normed_train_data.values, train_labels.values))
 
     EPOCHS = 100
     start_time = time.time()
