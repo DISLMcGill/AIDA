@@ -47,16 +47,13 @@ def trainingLoop(dw):
 
     model = build_model()
 
-
-    class PrintDot(keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs):
-            if epoch % 100 == 0: print('')
-            print('.', end='')
+    with tf.device('/gpu:1'):
+        dataset = tf.data.Dataset.from_tensor_slices((dataset.values, train_labels.values))
 
     EPOCHS = 100
     start_time = time.time()
     history = model.fit(
-        normed_train_data, train_labels,
+        dataset,
         epochs=EPOCHS, validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
