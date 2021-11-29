@@ -2,6 +2,8 @@ from aida.aida import *;
 host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
+    script_start = time.time()
+    print("Script start time ", script_start)
     max_usage = 2000 # example for using up to 95%
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -61,10 +63,12 @@ def trainingLoop(dw):
 
     EPOCHS = 100
     start_time = time.time()
+    print("ML tranining start time ", start_time)
     history = model.fit(
         train_set,label,epochs=EPOCHS,validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
+    print("ML tranining end time ",end_time)
     logging.info("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     print("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
@@ -74,6 +78,8 @@ def trainingLoop(dw):
     # example_result = model.predict(example_batch)
     # example_result
     loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
+    script_end = time.time()
+    print("script end time ", script_end)
     return [loss, mae, mse]
 
 
