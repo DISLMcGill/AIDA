@@ -32,7 +32,7 @@ def trainingLoop(dw):
 
     def build_model():
         model = keras.Sequential([
-            layers.Dense(16, activation='relu'),
+            layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
             layers.Dense(16, activation='relu'),
             layers.Dense(1)
         ])
@@ -50,7 +50,7 @@ def trainingLoop(dw):
     EPOCHS = 100
     start_time = time.time()
     history = model.fit(
-        dataset,epochs=EPOCHS)
+        normed_train_data,train_labels,epochs=EPOCHS,validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
     logging.info("The execution time on GPU for a dataset of size 100000 and 100 epochs using TensorFlow is:",execution_time)
