@@ -7,8 +7,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 logging.basicConfig(level=logging.INFO, filename='query.log')
 
-while True:
-    t1=time.time()
-    dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))
-    logging.info("start:{}:elapsed:{}".format(t1,time.time()-t1))
+t1=time.time()
+dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))
+logging.info("start:{}:elapsed:{}".format(t1,time.time()-t1))
 
