@@ -2033,7 +2033,8 @@ class DataFrame(TabularData):
 
     #User transformations.
     def _U(self, func, *args, **kwargs):
-        return DataFrame(self, UserTransform(self, func, *args, **kwargs));
+        return DataFrame(
+            self, UserTransform(self, func, *args, **kwargs));
 
     #Load external data -> called by database workspace (DB Adapter)
     @classmethod
