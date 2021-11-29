@@ -80,10 +80,10 @@ def trainingLoop(dw):
     # example_result = model.predict(example_batch)
     # example_result
     loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
-    script_end_time = time.time()
-    print("Script end time ", script_end_time)
     return [loss, mae, mse]
 
 
 data = dw._X(trainingLoop)
+script_end_time = time.time()
+print("Script end time ", script_end_time)
 print(data)
