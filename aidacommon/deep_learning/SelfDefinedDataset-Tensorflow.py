@@ -3,7 +3,7 @@ host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName =
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def trainingLoop(dw):
-    n = 10000
+    n = 100000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
