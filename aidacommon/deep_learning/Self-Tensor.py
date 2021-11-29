@@ -6,6 +6,7 @@ def trainingLoop(dw):
     script_start = time.time()
     print("Script start time ", script_start)
     logging.info('Script start time ', script_start)
+    logging.info('running')
     max_usage = 2000 # example for using up to 95%
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
