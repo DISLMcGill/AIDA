@@ -5,7 +5,7 @@ def trainingLoop(dw):
     tf.config.experimental.set_virtual_device_configuration(
         gpus[0],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 1000000
+    n = 10000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -31,11 +31,14 @@ def trainingLoop(dw):
 
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
-
+    transfer_start = time.time()
     with tf.device('/gpu:0'):
         train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[8000, 5])
         label = tf.constant(train_labels, 'float32', shape=[8000, 1])
-
+    transfer_end = time.time()
+    transfer_time = transfer_end - transfer_start
+    logging.info("The data transfer time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",transfer_time)
+    print("The data transfer time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
         model = keras.Sequential([
             layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
@@ -59,8 +62,8 @@ def trainingLoop(dw):
         train_set,label,epochs=EPOCHS,validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
-    logging.info("The execution time on GPU for a dataset of size 100000 and 100 epochs using TensorFlow is:",execution_time)
-    print("The execution time on GPU for a dataset of size 100000 and 100 epochs using TensorFlow is:",execution_time)
+    logging.info("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
+    print("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
     # weights = model.layers[2].get_weights()[0]
