@@ -1,6 +1,7 @@
 from aida.aida import *;
 host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
+import time
 def trainingLoop(dw):
     script_start = time.time()
     print("Script start time ", script_start)
