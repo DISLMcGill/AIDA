@@ -5,8 +5,7 @@ import time
 def trainingLoop(dw):
     script_start = time.time()
     print("Script start time ", script_start)
-    logging.info('Script start time ', script_start)
-    logging.info('running')
+    logging.info('Script start time ' + str(script_start))
     max_usage = 2000 # example for using up to 95%
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -47,7 +46,7 @@ def trainingLoop(dw):
     print(train_set.device)
     print(label.device)
     transfer_time = transfer_end - transfer_start
-    logging.info('The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:',transfer_time)
+    logging.info('The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
         model = keras.Sequential([
@@ -69,14 +68,14 @@ def trainingLoop(dw):
     EPOCHS = 100
     start_time = time.time()
     print("ML tranining start time ", start_time)
-    logging.info('ML tranining start time ', start_time)
+    logging.info('ML tranining start time ' + str(start_time))
     history = model.fit(
         train_set,label,epochs=EPOCHS,validation_split=0.2, verbose=0)
     end_time = time.time()
     execution_time = end_time - start_time
     print("ML tranining end time ",end_time)
-    logging.info('ML tranining end time ', end_time)
-    logging.info('The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:',execution_time)
+    logging.info('ML tranining end time ' + str(end_time))
+    logging.info('The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:'+str(execution_time))
     print("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
@@ -87,7 +86,7 @@ def trainingLoop(dw):
     loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     end_time = time.time()
     print("Script end time ", end_time)
-    logging.info('Script end time ', end_time)
+    logging.info('Script end time ' + str(end_time))
     return [loss, mae, mse]
 
 
