@@ -1,4 +1,4 @@
-import logging
+
 import time
 from aida.aida import *;
 host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
