@@ -9,6 +9,6 @@ logging.basicConfig(level=logging.INFO, filename='query.log')
 
 while True:
     t1=time.time()
-    dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(('stscode','endscode',{COUNT('*'):'numtrips'}), ('stscode','endscode'))     .filter(Q('numtrips',C(50), CMP.GTE));
+    dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))
     logging.info("start:{}:elapsed:{}".format(t1,time.time()-t1))
 
