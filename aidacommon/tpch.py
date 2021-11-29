@@ -1,10 +1,14 @@
 import logging
 import time
-import psycopg2
+from aida.aida import *;
+host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
+
+
 logging.basicConfig(level=logging.INFO, filename='query.log')
-connection=psycopg2.connect(user='bixi',password='bixi',host='tfNewServer',database='bixi')
-cursor=connection.cursor()
+
 while True:
     t1=time.time()
-    cursor.execute("SELECT * FROM gmdata2017;")
+    dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(('stscode','endscode',{COUNT('*'):'numtrips'}), ('stscode','endscode'))     .filter(Q('numtrips',C(50), CMP.GTE));
     logging.info("start:{}:elapsed:{}".format(t1,time.time()-t1))
+
