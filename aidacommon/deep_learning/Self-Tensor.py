@@ -53,7 +53,7 @@ def trainingLoop(dw):
 
     model = build_model()
 
-    EPOCHS = 10000
+    EPOCHS = 1000
     start_time = time.time()
     history = model.fit(
         train_set,label,epochs=EPOCHS,validation_split=0.2, verbose=0)
