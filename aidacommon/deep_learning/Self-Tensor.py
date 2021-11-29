@@ -79,7 +79,7 @@ def trainingLoop(dw):
     # example_result
     loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     script_end = time.time()
-    print("script end time ", script_end)
+    print("Script end time ", script_end)
     return [loss, mae, mse]
 
 
