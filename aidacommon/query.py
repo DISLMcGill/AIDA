@@ -12,4 +12,5 @@ while True:
     t1=time.time()
     dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))
     f.write("start:{}:elapsed:{}".format(t1,time.time()-t1))
+    f.write('\n')
 
