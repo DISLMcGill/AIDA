@@ -37,8 +37,8 @@ def trainingLoop(dw):
         label = tf.constant(train_labels, 'float32', shape=[8000, 1])
     transfer_end = time.time()
     transfer_time = transfer_end - transfer_start
-    logging.info("The data transfer time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",transfer_time)
-    print("The data transfer time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",transfer_time)
+    logging.info("The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:",transfer_time)
+    print("The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
         model = keras.Sequential([
             layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
