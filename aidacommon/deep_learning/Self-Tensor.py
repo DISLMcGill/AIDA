@@ -5,7 +5,7 @@ def trainingLoop(dw):
     tf.config.experimental.set_virtual_device_configuration(
         gpus[0],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 10000
+    n = 100000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -53,7 +53,7 @@ def trainingLoop(dw):
 
     model = build_model()
 
-    EPOCHS = 1000
+    EPOCHS = 100
     start_time = time.time()
     history = model.fit(
         train_set,label,epochs=EPOCHS,validation_split=0.2, verbose=0)
