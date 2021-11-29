@@ -3,14 +3,13 @@ host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName =
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def trainingLoop(dw):
-    max_memory = 8000  # dedicated memory in MB; run 'dxdiag' to get exact figure
-    max_usage = 6000 # example for using up to 95%
+    max_usage = 2000 # example for using up to 95%
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
     tf.config.experimental.set_virtual_device_configuration(
         gpus[0],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 10000
+    n = 100000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
