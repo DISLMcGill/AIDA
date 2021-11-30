@@ -1,16 +1,11 @@
-
+import logging
 import time
-from aida.aida import *;
-host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
-dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
-
-
+import psycopg2
 logging.basicConfig(level=logging.INFO, filename='query.log')
-f = open('query_time.txt','a')
-
+connection=psycopg2.connect(user='sf01',password='sf01',host='localhost',database='sf01')
+cursor=connection.cursor()
 while True:
     t1=time.time()
-    dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE)).aggregate(('stscode', 'endscode', {COUNT('*'): 'numtrips'}), ('stscode', 'endscode'))
-    f.write("start:{}:elapsed:{}".format(t1,time.time()-t1))
-    f.write('\n')
+    cursor.execute("SELECT SUM(l_extendedprice) / 7.0 AS avg_yearly FROM lineitem, part WHERE p_partkey = l_partkey AND p_brand = '[BRAND]' AND p_container = '[CONTAINER]' AND l_quantity < (SELECT 0.2 * AVG(l_quantity) FROM lineitem WHERE l_partkey = p_partkey);")
+    logging.info("start:{}:elapsed:{}".format(t1,time.time()-t1))
 
