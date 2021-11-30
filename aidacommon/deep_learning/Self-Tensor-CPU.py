@@ -3,13 +3,14 @@ host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName =
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 import time
 def trainingLoop(dw):
-    os.environ["CUDA_VISIBLE_DEVICES"]='0'
+    os.environ["CUDA_VISIBLE_DEVICES"]='1'
     script_start = time.time()
     print("Script start time ", script_start)
     logging.info('Script start time ' + str(script_start))
     max_usage = 2000 # example for using up to 95%
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
+    print(gpus)
     tf.config.experimental.set_virtual_device_configuration(
         gpus[0],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
