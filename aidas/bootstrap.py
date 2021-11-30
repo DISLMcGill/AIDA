@@ -103,7 +103,7 @@ def bootstrap():
     builtins.keras = keras
     from tensorflow.keras import layers
     builtins.layers = layers
-
+    builtins.os = os
     import pandas as pd
     builtins.pd = pd
 
