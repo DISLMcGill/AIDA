@@ -8,12 +8,12 @@ def trainingLoop(dw):
     logging.info('Script start time ' + str(script_start))
     max_usage = 2000 # example for using up to 95%
 
-    gpus = tf.config.experimental.list_physical_devices('GPU')
-    print(gpus)
-    tf.config.experimental.set_virtual_device_configuration(
-        gpus[0],
-        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 10000
+    # gpus = tf.config.experimental.list_physical_devices('GPU')
+    # print(gpus)
+    # tf.config.experimental.set_virtual_device_configuration(
+    #     gpus[0],
+    #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
+    # n = 10000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -43,8 +43,8 @@ def trainingLoop(dw):
     train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[8000, 5])
     label = tf.constant(train_labels, 'float32', shape=[8000, 1])
     transfer_end = time.time()
-    print(train_set.device)
-    print(label.device)
+    logging.info(train_set.device)
+    logging.info(label.device)
     transfer_time = transfer_end - transfer_start
     logging.info('The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:",transfer_time)
