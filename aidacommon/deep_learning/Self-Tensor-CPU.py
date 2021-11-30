@@ -3,7 +3,6 @@ host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName =
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 import time
 def trainingLoop(dw):
-    os.environ["CUDA_VISIBLE_DEVICES"]='1'
     script_start = time.time()
     print("Script start time ", script_start)
     logging.info('Script start time ' + str(script_start))
