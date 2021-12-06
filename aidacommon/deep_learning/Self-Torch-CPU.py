@@ -4,7 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
     script_start = time.time()
     logging.info('Script start time ' + str(script_start))
-    n = 10000
+    n = 100000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
