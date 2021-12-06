@@ -7,7 +7,7 @@ def trainingLoop(dw):
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
     tf.config.experimental.set_virtual_device_configuration(
-        gpus[0],
+        gpus[1]
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
     n = 10000
     df = pd.DataFrame(randn(n))
