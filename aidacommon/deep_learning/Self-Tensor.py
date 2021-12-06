@@ -65,7 +65,7 @@ def trainingLoop(dw):
 
     model = build_model()
 
-    EPOCHS = 10
+    EPOCHS = 100
     start_time = time.time()
     print("ML tranining start time ", start_time)
     logging.info('ML tranining start time ' + str(start_time))
