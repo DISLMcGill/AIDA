@@ -100,9 +100,9 @@ def trainingLoop(dw):
     model(normed_train_data).size()
 
     # In[126]:
-    model = model.device("cuda:1")
-    normed_train_data = normed_train_data.device("cuda:1")
-    train_target = train_target.device("cuda:1")
+    model = model.to(torch.device("cuda:1"))
+    normed_train_data = normed_train_data.to(torch.device("cuda:1"))
+    train_target = train_target.to(torch.device("cuda:1"))
     start_time = time.time()
     logging.info('Training start time ' + str(start_time))
     for epoch in range(epoch_size):
