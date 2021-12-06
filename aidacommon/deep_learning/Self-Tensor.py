@@ -10,9 +10,9 @@ def trainingLoop(dw):
 
     gpus = tf.config.experimental.list_physical_devices('GPU')
     tf.config.experimental.set_virtual_device_configuration(
-        gpus[1],
+        gpus[0],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 1000
+    n = 100
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -39,7 +39,7 @@ def trainingLoop(dw):
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
     transfer_start = time.time()
-    with tf.device('/gpu:1'):
+    with tf.device('/gpu:0'):
         train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[800, 5])
         label = tf.constant(train_labels, 'float32', shape=[800, 1])
     transfer_end = time.time()
