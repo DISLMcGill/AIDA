@@ -117,8 +117,8 @@ def trainingLoop(dw):
     logging.info('The execution time on GPU for a dataset of size 10000 and 10 epochs using Pytorch is: '+str(execution_time))
     return_mesg = "The execution time on GPU for a dataset of size 10000 and 10 epochs using Pytorch is:" + str(execution_time)
     # In[127]:
-    normed_test_data = normed_test_data.cuda()
-    test_target = test_target.cuda()
+    normed_test_data = normed_test_data.torch.device("cuda:1")
+    test_target = test_target.torch.device("cuda:1")
     predicted = model(normed_test_data)
     loss = criterion(predicted, test_target)
     return_mesg = return_mesg + " and the loss of the model is: " + str(loss)
