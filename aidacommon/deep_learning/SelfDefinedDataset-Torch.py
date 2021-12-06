@@ -100,9 +100,9 @@ def trainingLoop(dw):
     model(normed_train_data).size()
 
     # In[126]:
-    model = model.to(torch.device("cuda:1"))
-    normed_train_data = normed_train_data.to(torch.device("cuda:1"))
-    train_target = train_target.to(torch.device("cuda:1"))
+    model = model.to(torch.device("cuda:0"))
+    normed_train_data = normed_train_data.to(torch.device("cuda:0"))
+    train_target = train_target.to(torch.device("cuda:0"))
     start_time = time.time()
     logging.info('Training start time ' + str(start_time))
     for epoch in range(epoch_size):
@@ -117,8 +117,8 @@ def trainingLoop(dw):
     logging.info('The execution time on GPU for a dataset of size 100000 and 100 epochs using Pytorch is: '+str(execution_time))
     return_mesg = "The execution time on GPU for a dataset of size 100000 and 100 epochs using Pytorch is:" + str(execution_time)
     # In[127]:
-    normed_test_data = normed_test_data.to(torch.device("cuda:1"))
-    test_target = test_target.to(torch.device("cuda:1"))
+    normed_test_data = normed_test_data.to(torch.device("cuda:0"))
+    test_target = test_target.to(torch.device("cuda:0"))
     predicted = model(normed_test_data)
     loss = criterion(predicted, test_target)
     return_mesg = return_mesg + " and the loss of the model is: " + str(loss)
