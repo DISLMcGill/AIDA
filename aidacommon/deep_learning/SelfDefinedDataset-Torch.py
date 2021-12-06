@@ -1,22 +1,9 @@
 from aida.aida import *;
-host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'ht_Server'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
-    # !/usr/bin/env python
-    # coding: utf-8
-
-
-    # In[104]:
-
-    import requests
-    import pandas as pd
-    import torch.nn as nn
-    import torch
-
-    import numpy as np
-
-
-
+    script_start = time.time()
+    logging.info('Script start time ' + str(script_start))
     n = 30000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
@@ -117,6 +104,7 @@ def trainingLoop(dw):
     normed_train_data = normed_train_data.cuda()
     train_target = train_target.cuda()
     start_time = time.time()
+    logging.info('Training start time ' + str(start_time))
     for epoch in range(epoch_size):
         predicted = model(normed_train_data)
         loss = criterion(predicted, train_target)
@@ -124,9 +112,9 @@ def trainingLoop(dw):
         optimizer.step()
         optimizer.zero_grad()
     end_time = time.time()
+    logging.info('Training end time ' + str(end_time))
     execution_time = end_time - start_time
-    logging.info("The execution time on GPU for a dataset of size 30000 and 5000 epochs using Pytorch is:", execution_time)
-    print("The execution time on GPU for a dataset of size 30000 and 5000 epochs using Pytorch is:", execution_time)
+    logging.info('The execution time on GPU for a dataset of size 30000 and 5000 epochs using Pytorch is: '+str(execution_time))
     return_mesg = "The execution time on GPU for a dataset of size 30000 and 5000 epochs using Pytorch is:" + str(execution_time)
     # In[127]:
     normed_test_data = normed_test_data.cuda()
@@ -134,6 +122,8 @@ def trainingLoop(dw):
     predicted = model(normed_test_data)
     loss = criterion(predicted, test_target)
     return_mesg = return_mesg + " and the loss of the model is: " + str(loss)
+    script_end = time.time()
+    logging.info('The script end time is: '+str(script_end))
     return return_mesg
 
 
