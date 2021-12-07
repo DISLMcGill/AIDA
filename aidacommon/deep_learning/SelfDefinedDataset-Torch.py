@@ -93,7 +93,7 @@ def trainingLoop(dw):
     # In[124]:
 
     criterion = nn.MSELoss()
-    epoch_size = 100
+    epoch_size = 1000
 
     # In[125]:
 
@@ -114,8 +114,8 @@ def trainingLoop(dw):
     end_time = time.time()
     logging.info('Training end time ' + str(end_time))
     execution_time = end_time - start_time
-    logging.info('The execution time on GPU for a dataset of size 100000 and 100 epochs using Pytorch is: '+str(execution_time))
-    return_mesg = "The execution time on GPU for a dataset of size 100000 and 100 epochs using Pytorch is:" + str(execution_time)
+    logging.info('The execution time on GPU for a dataset of size 100000 and 1000 epochs using Pytorch is: '+str(execution_time))
+    return_mesg = "The execution time on GPU for a dataset of size 100000 and 1000 epochs using Pytorch is:" + str(execution_time)
     # In[127]:
     normed_test_data = normed_test_data.to(torch.device("cuda:0"))
     test_target = test_target.to(torch.device("cuda:0"))
