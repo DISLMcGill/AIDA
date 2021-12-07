@@ -12,7 +12,7 @@ def trainingLoop(dw):
     tf.config.experimental.set_virtual_device_configuration(
         gpus[1],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 20000
+    n = 200
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -41,13 +41,13 @@ def trainingLoop(dw):
     # normed_test_data = norm(test_dataset)
     transfer_start = time.time()
     with tf.device('/gpu:1'):
-        train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[20000, 5])
-        label = tf.constant(train_labels, 'float32', shape=[20000, 1])
+        train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[200, 5])
+        label = tf.constant(train_labels, 'float32', shape=[200, 1])
     transfer_end = time.time()
     print(train_set.device)
     print(label.device)
     transfer_time = transfer_end - transfer_start
-    logging.info('The data transfer time on GPU for a dataset of 20000 and 500 epochs using TensorFlow is:'+str(transfer_time))
+    logging.info('The data transfer time on GPU for a dataset of 200 and 500 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on GPU for a dataset of 20000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
         model = keras.Sequential([
