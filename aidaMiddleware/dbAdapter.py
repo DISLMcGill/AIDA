@@ -88,3 +88,9 @@ class DBCMiddleware(DBC):
         #return DBTable(self, metaData_);
         d = DBTable(self, metaData_);
         return d;
+
+class DBCMiddlewareStub(DBCRemoteStub):
+    pass;
+
+copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);
+copyreg.pickle(DBCMiddlewareStub, DBCMiddlewareStub.serializeObj);
