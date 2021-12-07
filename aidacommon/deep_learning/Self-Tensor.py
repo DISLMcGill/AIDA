@@ -38,7 +38,7 @@ def trainingLoop(dw):
         return (x - train_stats['mean']) / train_stats['std']
 
     normed_train_data = norm(train_dataset)
-    normed_test_data = norm(test_dataset)
+    # normed_test_data = norm(test_dataset)
     transfer_start = time.time()
     with tf.device('/gpu:1'):
         train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[800, 5])
