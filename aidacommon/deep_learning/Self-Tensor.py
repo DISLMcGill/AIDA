@@ -12,7 +12,7 @@ def trainingLoop(dw):
     tf.config.experimental.set_virtual_device_configuration(
         gpus[1],
         [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 200
+    n = 300
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -78,7 +78,7 @@ def trainingLoop(dw):
     execution_time = end_time - start_time
     print("ML tranining end time ",end_time)
     logging.info('ML tranining end time ' + str(end_time))
-    logging.info('The execution time on GPU for a dataset of size 200 and 500 epochs using TensorFlow is:'+str(execution_time))
+    logging.info('The execution time on GPU for a dataset of size 300 and 500 epochs using TensorFlow is:'+str(execution_time))
     print("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
