@@ -41,8 +41,8 @@ def trainingLoop(dw):
     # normed_test_data = norm(test_dataset)
     transfer_start = time.time()
     with tf.device('/gpu:1'):
-        train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[500, 5])
-        label = tf.constant(train_labels, 'float32', shape=[500, 1])
+        train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[1000, 5])
+        label = tf.constant(train_labels, 'float32', shape=[1000, 1])
     transfer_end = time.time()
     print(train_set.device)
     print(label.device)
