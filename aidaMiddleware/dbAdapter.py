@@ -5,14 +5,20 @@ import collections;
 import datetime;
 
 from aidacommon.dbAdapter import *;
-from aidaMonetDB import DBCMonetDB;
 from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 from aida.aida import *;
+from aidaMonetDB.dbAdapter import DBCMonetDB;
 
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
+    def __getstate__(self):
+       return self.__dict__
+
+    def __setstate__(self, d):
+       self.__dict__ = d
+
     def _executeQry(self, sql, resultFormat='column'):
         return self.__extDBCcon._executeQry(sql, resultFormat)
 
@@ -51,7 +57,7 @@ class DBCMiddleware(DBC):
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
+        super().__init__(dbcRepoMgr, jobName, dbname, 'whe_server_1');
         #Setup the actual database connection to be used.
         self.__setDBC__();
 
