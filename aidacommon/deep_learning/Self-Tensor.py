@@ -47,7 +47,7 @@ def trainingLoop(dw):
     print(train_set.device)
     print(label.device)
     transfer_time = transfer_end - transfer_start
-    logging.info('The data transfer time on GPU for a dataset of 5000 and 1000 epochs using TensorFlow is:'+str(transfer_time))
+    logging.info('The data transfer time on GPU for a dataset of 5000 and 5000 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on GPU for a dataset of 10000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
         model = keras.Sequential([
@@ -66,7 +66,7 @@ def trainingLoop(dw):
 
     model = build_model()
 
-    EPOCHS = 1000
+    EPOCHS = 5000
     start_time = time.time()
     print("ML tranining start time ", start_time)
     logging.info('ML tranining start time ' + str(start_time))
@@ -76,7 +76,7 @@ def trainingLoop(dw):
     execution_time = end_time - start_time
     print("ML tranining end time ",end_time)
     logging.info('ML tranining end time ' + str(end_time))
-    logging.info('The execution time on GPU for a dataset of size 5000 and 1000 epochs using TensorFlow is:'+str(execution_time))
+    logging.info('The execution time on GPU for a dataset of size 5000 and 5000 epochs using TensorFlow is:'+str(execution_time))
     print("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
