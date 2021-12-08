@@ -40,8 +40,10 @@ def trainingLoop(dw):
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
     transfer_start = time.time()
-    train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
-    label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+    # train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
+    # label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+    train_set= normed_train_data
+    label = train_labels
     transfer_end = time.time()
     # logging.info(train_set.device)
     # logging.info(label.device)
@@ -83,11 +85,11 @@ def trainingLoop(dw):
     # example_batch = normed_train_data[:10]
     # example_result = model.predict(example_batch)
     # example_result
-    loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
+    # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     end_time = time.time()
     print("Script end time ", end_time)
     logging.info('Script end time ' + str(end_time))
-    return [loss, mae, mse]
+    return 'success'
 
 
 data = dw._X(trainingLoop)
