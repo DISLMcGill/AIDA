@@ -64,7 +64,7 @@ def trainingLoop(dw):
                       metrics=['mae', 'mse'])
         return model
 
-    ogging.info('test')
+    logging.info('test')
     model = build_model()
 
     EPOCHS = 100
