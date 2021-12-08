@@ -43,8 +43,8 @@ def trainingLoop(dw):
     train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
     label = tf.constant(train_labels, 'float32', shape=[4000, 1])
     transfer_end = time.time()
-    logging.info(train_set.device)
-    logging.info(label.device)
+    # logging.info(train_set.device)
+    # logging.info(label.device)
     transfer_time = transfer_end - transfer_start
     logging.info('The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:",transfer_time)
