@@ -51,20 +51,22 @@ def trainingLoop(dw):
     logging.info('The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
+        logging.info('test')
         model = keras.Sequential([
             layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
             layers.Dense(16, activation='relu'),
             layers.Dense(1)
         ])
-
+        logging.info('test1')
         optimizer = tf.keras.optimizers.RMSprop(0.001)
-
+        logging.info('test2')
         model.compile(loss='mse',
                       optimizer=optimizer,
                       metrics=['mae', 'mse'])
+        logging.info('test3')
         return model
 
-    logging.info('test')
+
     model = build_model()
 
     EPOCHS = 100
