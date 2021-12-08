@@ -6,6 +6,7 @@ def trainingLoop(dw):
     script_start = time.time()
     print("Script start time ", script_start)
     logging.info('Script start time ' + str(script_start))
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     max_usage = 2000 # example for using up to 95%
     #
     # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -40,8 +41,10 @@ def trainingLoop(dw):
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
     transfer_start = time.time()
-    train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
-    label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+    # train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
+    # label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+    train_set = normed_train_data
+    label = train_labels
 
     transfer_end = time.time()
     # logging.info(train_set.device)
