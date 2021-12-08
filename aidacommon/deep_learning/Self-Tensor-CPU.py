@@ -64,7 +64,7 @@ def trainingLoop(dw):
                       metrics=['mae', 'mse'])
         return model
 
-
+    ogging.info('test')
     model = build_model()
 
     EPOCHS = 100
@@ -79,13 +79,7 @@ def trainingLoop(dw):
     logging.info('ML tranining end time ' + str(end_time))
     logging.info('The execution time on CPU for a dataset of size 5000 and 100 epochs using TensorFlow is:'+str(execution_time))
     print("The execution time on CPU for a dataset of size 5000 and 100 epochs using TensorFlow is:",execution_time)
-    # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
-    # return [loss, mae, mse]
-    # weights = model.layers[2].get_weights()[0]
-    # example_batch = normed_train_data[:10]
-    # example_result = model.predict(example_batch)
-    # example_result
-    # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
+
     end_time = time.time()
     print("Script end time ", end_time)
     logging.info('Script end time ' + str(end_time))
