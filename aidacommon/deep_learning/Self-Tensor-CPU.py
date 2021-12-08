@@ -40,10 +40,9 @@ def trainingLoop(dw):
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
     transfer_start = time.time()
-    # train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
-    # label = tf.constant(train_labels, 'float32', shape=[4000, 1])
-    train_set= normed_train_data
-    label = train_labels
+    train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
+    label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+
     transfer_end = time.time()
     # logging.info(train_set.device)
     # logging.info(label.device)
@@ -53,7 +52,7 @@ def trainingLoop(dw):
     def build_model():
         logging.info('test')
         model = keras.Sequential([
-            layers.Dense(16, activation='relu', input_shape=[len(train_set.keys())]),
+            layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
             layers.Dense(16, activation='relu'),
             layers.Dense(1)
         ])
