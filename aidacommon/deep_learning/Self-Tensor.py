@@ -1,4 +1,5 @@
 from aida.aida import *;
+
 host = 'tf_gpu_server1'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 import time
@@ -12,6 +13,7 @@ def trainingLoop(dw):
     # tf.config.experimental.set_virtual_device_configuration(
     #     gpus[0],
     #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
+    import os
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     n = 500
     df = pd.DataFrame(randn(n))
