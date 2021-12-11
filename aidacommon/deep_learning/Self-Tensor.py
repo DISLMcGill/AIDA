@@ -8,11 +8,11 @@ def trainingLoop(dw):
     logging.info('Script start time ' + str(script_start))
     max_usage = 2000 # example for using up to 95%
 
-    # gpus = tf.config.experimental.list_physical_devices('GPU')
-    # tf.config.experimental.set_virtual_device_configuration(
-    #     gpus[1],
-    #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
-    n = 500000
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    tf.config.experimental.set_virtual_device_configuration(
+        gpus[0],
+        [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
+    n = 500
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -42,9 +42,9 @@ def trainingLoop(dw):
     transfer_start = time.time()
     train_set = normed_train_data
     label = train_labels
-    # with tf.device('/gpu:1'):
-    #     train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[200, 5])
-    #     label = tf.constant(train_labels, 'float32', shape=[200, 1])
+    with tf.device('/gpu:0'):
+        train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[200, 5])
+        label = tf.constant(train_labels, 'float32', shape=[200, 1])
     transfer_end = time.time()
     # print(train_set.device)
     # print(label.device)
@@ -78,7 +78,7 @@ def trainingLoop(dw):
     execution_time = end_time - start_time
     print("ML tranining end time ",end_time)
     logging.info('ML tranining end time ' + str(end_time))
-    logging.info('The execution time on GPU for a dataset of size 500000 and 500 epochs using TensorFlow is:'+str(execution_time))
+    logging.info('The execution time on GPU for a dataset of size 500 and 500 epochs using TensorFlow is:'+str(execution_time))
     print("The execution time on GPU for a dataset of size 10000 and 100 epochs using TensorFlow is:",execution_time)
     # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
     # return [loss, mae, mse]
