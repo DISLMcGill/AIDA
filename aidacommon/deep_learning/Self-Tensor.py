@@ -12,6 +12,7 @@ def trainingLoop(dw):
     # tf.config.experimental.set_virtual_device_configuration(
     #     gpus[0],
     #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     n = 500
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
