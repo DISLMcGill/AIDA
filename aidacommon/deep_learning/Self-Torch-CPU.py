@@ -4,7 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
     script_start = time.time()
     logging.info('Script start time ' + str(script_start))
-    n = 400000
+    n = 800000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -111,8 +111,8 @@ def trainingLoop(dw):
     logging.info('Training end time ' + str(end_time))
     execution_time = end_time - start_time
     #200000
-    logging.info('The execution time on CPU for a dataset of size 400000 and 10000 epochs using Pytorch is: '+str(execution_time))
-    return_mesg = "The execution time on CPU for a dataset of size 400000 and 10000 epochs using Pytorch is:" + str(execution_time)
+    logging.info('The execution time on CPU for a dataset of size 800000 and 10000 epochs using Pytorch is: '+str(execution_time))
+    return_mesg = "The execution time on CPU for a dataset of size 800000 and 10000 epochs using Pytorch is:" + str(execution_time)
     # In[127]:
     normed_test_data = normed_test_data
     test_target = test_target
