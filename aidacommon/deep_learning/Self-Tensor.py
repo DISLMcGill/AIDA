@@ -14,7 +14,7 @@ def trainingLoop(dw):
     #     gpus[0],
     #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
     import os
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
     n = 5000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
@@ -45,9 +45,9 @@ def trainingLoop(dw):
     transfer_start = time.time()
     train_set = normed_train_data
     label = train_labels
-    with tf.device('/gpu:0'):
-        train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[500, 5])
-        label = tf.constant(train_labels, 'float32', shape=[500, 1])
+    # with tf.device('/gpu:0'):
+    #     train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[500, 5])
+    #     label = tf.constant(train_labels, 'float32', shape=[500, 1])
     transfer_end = time.time()
     # print(train_set.device)
     # print(label.device)
