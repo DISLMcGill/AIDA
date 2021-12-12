@@ -114,6 +114,7 @@ def trainingLoop(dw):
     end_time = time.time()
     logging.info('Training end time ' + str(end_time))
     execution_time = end_time - start_time
+    #200000
     logging.info('The execution time on GPU for a dataset of size 200000 and 10000 epochs using Pytorch is: '+str(execution_time))
     return_mesg = "The execution time on GPU for a dataset of size 200000 and 10000 epochs using Pytorch is:" + str(execution_time)
     # In[127]:
