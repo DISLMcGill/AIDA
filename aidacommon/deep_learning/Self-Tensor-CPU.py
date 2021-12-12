@@ -1,11 +1,12 @@
 from aida.aida import *;
-host = 'tfNewServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'tf_cpu_server'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 import time
 def trainingLoop(dw):
     script_start = time.time()
     print("Script start time ", script_start)
     logging.info('Script start time ' + str(script_start))
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     max_usage = 2000 # example for using up to 95%
     #
     # gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -40,26 +41,31 @@ def trainingLoop(dw):
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
     transfer_start = time.time()
-    train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
-    label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+    # train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
+    # label = tf.constant(train_labels, 'float32', shape=[4000, 1])
+    train_set = normed_train_data
+    label = train_labels
+
     transfer_end = time.time()
-    logging.info(train_set.device)
-    logging.info(label.device)
+    # logging.info(train_set.device)
+    # logging.info(label.device)
     transfer_time = transfer_end - transfer_start
     logging.info('The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:",transfer_time)
     def build_model():
+        logging.info('test')
         model = keras.Sequential([
             layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),
             layers.Dense(16, activation='relu'),
             layers.Dense(1)
         ])
-
+        logging.info('test1')
         optimizer = tf.keras.optimizers.RMSprop(0.001)
-
+        logging.info('test2')
         model.compile(loss='mse',
                       optimizer=optimizer,
                       metrics=['mae', 'mse'])
+        logging.info('test3')
         return model
 
 
@@ -77,17 +83,11 @@ def trainingLoop(dw):
     logging.info('ML tranining end time ' + str(end_time))
     logging.info('The execution time on CPU for a dataset of size 5000 and 100 epochs using TensorFlow is:'+str(execution_time))
     print("The execution time on CPU for a dataset of size 5000 and 100 epochs using TensorFlow is:",execution_time)
-    # loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
-    # return [loss, mae, mse]
-    # weights = model.layers[2].get_weights()[0]
-    # example_batch = normed_train_data[:10]
-    # example_result = model.predict(example_batch)
-    # example_result
-    loss, mae, mse = model.evaluate(normed_test_data, test_labels, verbose=2)
+
     end_time = time.time()
     print("Script end time ", end_time)
     logging.info('Script end time ' + str(end_time))
-    return [loss, mae, mse]
+    return 'success'
 
 
 data = dw._X(trainingLoop)
