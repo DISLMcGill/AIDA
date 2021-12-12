@@ -4,7 +4,7 @@ dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
     script_start = time.time()
     logging.info('Script start time ' + str(script_start))
-    n = 100000
+    n = 10000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -93,7 +93,7 @@ def trainingLoop(dw):
     # In[124]:
 
     criterion = nn.MSELoss()
-    epoch_size = 10000
+    epoch_size = 100000
 
     # In[125]:
 
