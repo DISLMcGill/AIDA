@@ -22,7 +22,7 @@ while True:
         index = 0
 
         # logging.info("start:{}:elapsed:{}".format(t1,np.mean(lengthArr)))
-        with open('result_cpu.csv', 'a') as f:
+        with open('result_gpu.csv', 'a') as f:
             f.write(str(t1)+','+str(np.mean(lengthArr)) +','+ str(np.mean(cpuArr))+'\n')
         lengthArr = []
         cpuArr = []
