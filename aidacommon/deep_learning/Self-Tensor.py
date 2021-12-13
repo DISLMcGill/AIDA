@@ -15,7 +15,7 @@ def trainingLoop(dw):
     #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
     import os
     os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
-    n = 100000
+    n = 1000
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)

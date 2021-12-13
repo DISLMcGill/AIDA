@@ -94,8 +94,8 @@ def bootstrap():
     builtins.copy = copy
     import sys;
     sys.argv = ['']
-    # import tensorflow as tf;
-    import tensorflow.compat.v1 as tf;
+    import tensorflow as tf;
+    # import tensorflow.compat.v1 as tf;
     # tf.disable_v2_behavior()
     builtins.tf = tf;
 
