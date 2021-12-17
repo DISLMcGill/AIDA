@@ -9,7 +9,7 @@ from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
-from aidaMiddleware import ServerConfig;
+from aidaMiddleware.serverConfig import ServerConfig;
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -59,14 +59,15 @@ class DBCMiddleware(DBC):
         self._username = username; self._password = password;
         self._serverConfig = ServerConfig();
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName, dbname, serverIpAddr);
+        super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
         self.__setDBC__();
 
     def __setDBC__(self):
         connections = []
-        for host_name in self._serverConfig.get_server_names():
+        for host_name in self._serverConfig.get_server_names(): 
            con = AIDA.connect(host_name, self._dbName,self._username,self._password,self._jobName,55660);
+           connections += [con]
         ##cursor = con.cursor();
         #This function call should set the internal database connection to MonetDB in THIS DBC object, using the jobName passed to it.
         #The database function basically calls back the _setConnection method.
@@ -76,6 +77,7 @@ class DBCMiddleware(DBC):
         ##cursor.close();
         #con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
         self.__extDBCcon = connections;
+        print(connections)
 
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
