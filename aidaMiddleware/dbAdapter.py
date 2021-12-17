@@ -9,6 +9,7 @@ from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
+from aidaMiddleware import ServerConfig;
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -20,28 +21,28 @@ class DBCMiddleware(DBC):
        self.__dict__ = d
 
     def _executeQry(self, sql, resultFormat='column'):
-        return self.__extDBCcon._executeQry(sql, resultFormat)
+        return self.__extDBCcon[0]._executeQry(sql, resultFormat)
 
     def _toTable(self, tblrData, tableName=None):
-        return self.__extDBCcon._toTable(tblrData, tableName)
+        return self.__extDBCcon[0]._toTable(tblrData, tableName)
 
     def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
-        return self.__extDBCcon._saveTablrData(tblrData,tableName,dbName,drop)
+        return self.__extDBCcon[0]._saveTablrData(tblrData,tableName,dbName,drop)
 
     def _dropTable(self, tableName, dbName=None):
-        return self.__extDBCcon._dropTable(tableName, dbName)
+        return self.__extDBCcon[0]._dropTable(tableName, dbName)
 
     def _dropTblUDF(self, tblrData, tableName=None):
-        return self.__extDBCcon.dropTblUDF(tblrData, tableName)
+        return self.__extDBCcon[0].dropTblUDF(tblrData, tableName)
 
     def _describe(self, tblrData):
-        return self.__extDBCcon._describe(tblrData)
+        return self.__extDBCcon[0]._describe(tblrData)
 
     def _agg(self, agfn, tblrData, collist=None, valueOnly=True):
-        return self.__extDBCcon._add(agfn,tblrData,collist,valueOnly)
+        return self.__extDBCcon[0]._add(agfn,tblrData,collist,valueOnly)
 
     def _tables(self):
-        return self.__extDBCcon._tables()
+        return self.__extDBCcon[0]._tables()
 
     def __new__(cls, dbname, username, password, jobName, dbcRepoMgr, serverIPAddr):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""
@@ -56,13 +57,16 @@ class DBCMiddleware(DBC):
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
+        self._serverConfig = ServerConfig();
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName, dbname, 'whe_server_1');
+        super().__init__(dbcRepoMgr, jobName, dbname, serverIpAddr);
         #Setup the actual database connection to be used.
         self.__setDBC__();
 
     def __setDBC__(self):
-        con = AIDA.connect('whe_server_1', self._dbName,self._username,self._password,self._jobName,55660);
+        connections = []
+        for host_name in self._serverConfig.get_server_names():
+           con = AIDA.connect(host_name, self._dbName,self._username,self._password,self._jobName,55660);
         ##cursor = con.cursor();
         #This function call should set the internal database connection to MonetDB in THIS DBC object, using the jobName passed to it.
         #The database function basically calls back the _setConnection method.
@@ -71,7 +75,7 @@ class DBCMiddleware(DBC):
         #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
         ##cursor.close();
         #con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
-        self.__extDBCcon = con;
+        self.__extDBCcon = connections;
 
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
