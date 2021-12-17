@@ -28,8 +28,10 @@ def trainingLoop(dw):
 
     model = nn.Linear(1, 1);
     model.cuda()
-    X = torch.from_numpy(distance.astype(np.float32))
-    y = torch.from_numpy(duration.astype(np.float32))
+    train_X = 'a'
+    train_y = 'b'
+    X = torch.from_numpy(train_X)
+    y = torch.from_numpy(train_y)
     epoch_size = 10000
     learningrate = 0.0000001
     criterion = nn.MSELoss()

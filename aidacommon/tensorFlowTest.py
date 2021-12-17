@@ -1,9 +1,9 @@
 from aida.aida import *;
 
-host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'sampleServer; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
-def Test(dw):
+def SampleFunction(dw):
     const1 = tf.constant([[1,2,3], [1,2,3]]);
     const2 = tf.constant([[3,4,5], [3,4,5]]);
 
@@ -11,5 +11,5 @@ def Test(dw):
 
     return result
 
-result = dw._X(Test)
+result = dw._X(SampleFunction)
 print(result)

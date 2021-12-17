@@ -8,7 +8,7 @@ def trainingLoop(dw):
     epoch_size = 1000
     distance = dw.gmdata2017[:,2]
     duration = dw.gmdata2017[:,3]
-    train_X = DataConversion.extract_y(distance)
+    train_X = DataConversion.extract_X(distance)
     train_Y = DataConversion.extract_y(duration)
     n_samples = train_X.shape[0]
     X = tf.placeholder('float')

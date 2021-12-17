@@ -96,7 +96,6 @@ def bootstrap():
     sys.argv = ['']
     # import tensorflow as tf;
     import tensorflow.compat.v1 as tf;
-    # tf.disable_v2_behavior()
     builtins.tf = tf;
 
     from tensorflow import keras
