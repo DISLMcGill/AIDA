@@ -6,6 +6,7 @@ import numpy as np
 
 from aidacommon.dborm import CMP, DATE, Q, F, C, EXTRACT, JOIN, SUBSTRING, CASE
 
+
 def convert_type(func):
     def inner(data, sc):
         # when condition type is date

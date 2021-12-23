@@ -1,21 +1,13 @@
-import cProfile;
 import time;
-import timeit;
 import weakref;
 import collections;
-import re;
 import copy;
 import uuid;
-
-import logging;
-
-import numpy as np;
-import pandas as pd;
 
 from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
-from aidas.pd_helper import *
+from pd_transforms.pd_helper import *
 from aidacommon.utils import VirtualOrderedColumnsDict;
 from aidas.BlockManagerUnconsolidated import df_from_arrays
 
@@ -35,6 +27,8 @@ class SQLQuery:
 
 #Base class for all data transformations.
 class Transform:
+    def transform_name(self):
+        pass
     def applyTransformation(self, data):
         pass;
 
@@ -84,6 +78,9 @@ class SQLSelectTransform(SQLTransform):
     def __init__(self, source, *selcols):
         super().__init__(source);
         self.__selcols__  = selcols;
+
+    def transform_name(self):
+        return 'select'
 
     def gen_lineage(self):
         nodes = []
@@ -252,6 +249,9 @@ class SQLJoinTransform(SQLTransform):
                     );
 
         return SQLQuery(sqlText);
+
+    def transform_name(self):
+        return 'join'
 
 #
 ##Base aggregation function.
@@ -450,6 +450,9 @@ class SQLAggregateTransform(SQLTransform):
 
         return SQLQuery(sqlText);
 
+    def transform_name(self):
+        return 'aggregate'
+
 
 class SQLProjectionTransform(SQLTransform):
     def __init__(self, source, projcols):
@@ -564,6 +567,10 @@ class SQLProjectionTransform(SQLTransform):
 
         return SQLQuery(sqlText);
 
+    def transform_name(self):
+        return 'project'
+
+
 class SQLOrderTransform(SQLTransform):
     def __init__(self, source, orderlist):
         super().__init__(source);
@@ -622,6 +629,10 @@ class SQLOrderTransform(SQLTransform):
             self.__columns__ = self._source_.columns;
         return self.__columns__;
 
+    def transform_name(self):
+        return 'order'
+
+
 class SQLDistinctTransform(SQLTransform):
     def __init__(self, source):
         super().__init__(source);
@@ -652,6 +663,9 @@ class SQLDistinctTransform(SQLTransform):
         if(not  self.__columns__):
             self.__columns__ = self._source_.columns;
         return self.__columns__;
+
+    def transform_name(self):
+        return 'distinct'
 
 
 class SliceTransform(Transform):
@@ -1401,6 +1415,12 @@ class DBTable(TabularData):
     def gen_lineage(self):
         return LineageNode(self)
 
+    def run_query(self, with_pd=False):
+        self.rows
+        if with_pd:
+            self.execute_pandas()
+        return self.rows
+
     @property
     def rows(self):
         if(self.__data__ is None):
@@ -1633,9 +1653,10 @@ class DBTable(TabularData):
 
 
 class DataFrame(TabularData):
-    def __init__(self, source, transform, name=None, dbc=None):
+    def __init__(self, source, transform, pd_transform=None, name=None, dbc=None):
         self.__source__ = source;
         self.__transform__ = transform;
+        self.__pd_transform__ = pd_transform
 
         self.__data__ = None;
         self.__pdData__ = None;
@@ -1864,44 +1885,49 @@ class DataFrame(TabularData):
             return self.__pdData__ if self.__pdData__ is not None else self.__source__.execute_pandas()
         return None
 
+    def run_query(self, with_pd=False):
+        data = None
+        if with_pd:
+            data = self.execute_pandas()
+        if data is None:
+            logging.info('[{}]Generating data by _genSQL'.format(time.ctime()))
+
+            # logging.info('--------execution plan--------\n{}\n'.format(self.dbc._executeQry('EXPLAIN ' +
+            # self._genSQL_(doOrder=True).sqlText + ';')));
+
+            (data, rows) = self.dbc._executeQry(self._genSQL_(doOrder=True).sqlText + ';');
+
+        # logging.info(f'[{time.ctime()}]Before convert, type of data {type(data)}, data = \n {data}')
+        # Convert the results to an ordered dictionary format.
+        if isinstance(data, pd.DataFrame):
+            # logging.info('[{}]final result dtypes = {}'.format(time.ctime(), data.dtypes))
+            self.__pdData__ = data
+            # logging.info(f'Converting pd to dict, columns = {self.columns}')
+            data_ = collections.OrderedDict()
+            for c in self.columns:
+                data_[c] = data[c].to_numpy()
+            data = data_;
+            self.__data__ = data;
+        if (not isinstance(data, collections.OrderedDict)):
+            data_ = collections.OrderedDict();
+            for c in self.columns:
+                data_[c] = data[c];
+            data.clear();
+            data = data_;
+            self.__data__ = data;
+
     @property
     def rows(self):
         #logging.debug("DataFrame: id {}, {} : rows called.".format(id(self), self.tableName));
         if(self.__data__ is None):
             #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
-                fv = FeatureVector(self)
-                np.set_printoptions(suppress=True)
-                # logging.info("Feature vector = {}".format(fv.vector))
-                # logging.info("Lineage = {}".format(self.gen_lineage()))
-                data = None
-                if not AConfig.FORCEDB:
-                    data = self.execute_pandas()
-                if data is None:
-                    logging.info('[{}]Generating data by _genSQL'.format(time.ctime()))
-
-                    #logging.info('--------execution plan--------\n{}\n'.format(self.dbc._executeQry('EXPLAIN ' + self._genSQL_(doOrder=True).sqlText + ';')));
-
-                    (data, rows) = self.dbc._executeQry(self._genSQL_(doOrder=True).sqlText + ';');
-
-                # logging.info(f'[{time.ctime()}]Before convert, type of data {type(data)}, data = \n {data}')
-                #Convert the results to an ordered dictionary format.
-                if isinstance(data, pd.DataFrame):
-                    #logging.info('[{}]final result dtypes = {}'.format(time.ctime(), data.dtypes))
-                    self.__pdData__ = data
-                    #logging.info(f'Converting pd to dict, columns = {self.columns}')
-                    data_ = collections.OrderedDict()
-                    for c in self.columns:
-                        data_[c] = data[c].to_numpy()
-                    data = data_;
-                    self.__data__ = data;
-                if(not isinstance(data, collections.OrderedDict)):
-                    data_ = collections.OrderedDict();
-                    for c in self.columns:
-                        data_[c] = data[c];
-                    data.clear();
-                    data = data_;
-                    self.__data__ = data;
+                from pd_transforms.transform_scheduler import HeuristicScheduler
+                scheduler = HeuristicScheduler()
+                lineage = scheduler.build_lineage(self)
+                logging.info(f'Generated lineage for {self}:')
+                logging.info(str(lineage))
+                scheduler.materialize(lineage)
             elif(isinstance(self.__transform__, AlgebraicVectorTransform)):
                 self.__data__ = self.__transform__.rows;
                 self.__columns__ = self.__transform__.columns;
