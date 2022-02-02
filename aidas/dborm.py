@@ -53,8 +53,22 @@ class SQLTransform(Transform):
     def __init__(self, source):
         self._source_    = weakref.proxy(source) if(source) else None;
         self.__columns__ = None;
-    #The columns that will be produced once this transform is applied on its source.
+        self._real_source_ = self._source_
+
+    def temp_source(self, source):
+        self._source_ = weakref.proxy(source) if(source) else None
+        self.__columns__ = None
+
+    def discard_temp_source(self):
+        self._source_ = self._real_source_
+        self.__columns__ = None
+
+    def relink_source(self, source):
+        self._source_= weakref.proxy(source) if(source) else None;
+        self.__columns__ = None
+
     @property
+    #The columns that will be produced once this transform is applied on its source.
     def columns(self):
         if(not self.__columns__):
             self.__columns__ = copy.deepcopy(self._source_.columns);
@@ -147,6 +161,11 @@ class SQLJoinTransform(SQLTransform):
         self._src1projcols_ = cols1;                    self._src2projcols_ = cols2;
 
         self._jointype_ = join;
+
+    def relink_source(self, source):
+        self._source1_= weakref.proxy(source[0])
+        self._source2_ = weakref.proxy(source[1])
+        self.__columns__ = None
 
     @property
     def columns(self):
@@ -1653,7 +1672,7 @@ class DBTable(TabularData):
 
 
 class DataFrame(TabularData):
-    def __init__(self, source, transform, pd_transform=None, name=None, dbc=None):
+    def __init__(self, source, transform, name=None, dbc=None, pd_transform=None):
         self.__source__ = source;
         self.__transform__ = transform;
         self.__pd_transform__ = pd_transform
@@ -1680,6 +1699,39 @@ class DataFrame(TabularData):
 #            self.__matrix__ = transform.matrix;
 #            self.__rowNames__ = transform.rowNames;
 #
+
+    def relink_source(self):
+        trans_copy = copy.deepcopy(self.__transform__)
+        print(trans_copy.transform_name())
+        trans_copy.relink_source(self.__source__)
+        self.__transform__ = trans_copy
+
+    def copy_with_new_source(self, source):
+        new_df = copy.copy(self)
+        new_df.__source__ = source
+        new_df.__columns__ = copy.deepcopy(self.__columns__)
+        if self.__transform__:
+            new_df.relink_source()
+        return new_df
+
+    # called by scheduler to update the lineage, should not be called on the original node
+    def update_source(self, source):
+        self.__source__ = source
+        self.__columns__ = None
+        self.relink_source()
+
+    def partial_copy(self):
+        if self.__source__ is None or self.__data__ is not None:
+            return self
+
+        if isinstance(self.__source__, tuple):
+            source = (self.__source__[0].partial_copy(), self.__source__[1].partial_copy())
+        elif hasattr(self.__source__, 'partial_copy'):
+            source = self.__source__.partial_copy()
+        else:
+            source = self.__source__
+        return self.copy_with_new_source(source)
+
     @property
     def tableName(self):
         return self.__tableName__ if(self.__tableName__) else self.__source__.tableName;
@@ -1744,12 +1796,18 @@ class DataFrame(TabularData):
     def columns(self):
         if(not self.__columns__):
             #TODO fix this deep copy.
-            self.__columns__ = copy.deepcopy(self.__transform__.columns if(self.__transform__ and hasattr(self.__transform__, 'columns')) else self.__source__.columns);
-            for c in self.__columns__:
-                col = self.__columns__[c];
-                col.tableName = self.tableName;
-                col.colTransform = None;
-
+            if self.__source__ is None:
+                assert self.__data__ is not None, 'the data of a dataframe must not be none if the source is none.'
+                self.__columns__ = collections.OrderedDict()
+                for key, val in self.__data__.items():
+                    metadata = (self.__tableName__, self.__tableName__, key, type(val[0]), 0, 0, True)
+                    self.__columns__[key] = DBTable.Column(metadata)
+            else:
+                self.__columns__ = copy.deepcopy(self.__transform__.columns if(self.__transform__ and hasattr(self.__transform__, 'columns')) else self.__source__.columns);
+                for c in self.__columns__:
+                    col = self.__columns__[c];
+                    col.tableName = self.tableName;
+                    col.colTransform = None;
         return self.__columns__;
 
     @property
@@ -1924,7 +1982,10 @@ class DataFrame(TabularData):
             if(self.isDBQry):
                 from pd_transforms.transform_scheduler import HeuristicScheduler
                 scheduler = HeuristicScheduler()
-                lineage = scheduler.build_lineage(self)
+                import pickle
+                with open('/home/AIDA/test/scheduler/dataframe_dump', 'wb') as f:
+                    pickle.dump(self, f)
+                lineage = scheduler.build_lineage(self.partial_copy())
                 logging.info(f'Generated lineage for {self}:')
                 logging.info(str(lineage))
                 scheduler.materialize(lineage)
