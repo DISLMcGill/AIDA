@@ -12,6 +12,8 @@ from aidacommon.utils import VirtualOrderedColumnsDict;
 from aidas.BlockManagerUnconsolidated import df_from_arrays
 
 #Simple wrapper class to encapsulate a query string.
+
+
 class SQLQuery:
     def __init__(self, query):
         self.__query   = None;
@@ -214,8 +216,8 @@ class SQLJoinTransform(SQLTransform):
         return rename_params
 
     def execute_pandas(self):
-        data1 = self._source1_.__pdData__ if self._source1_.__pdData__ is not None else self._source1_.execute_pandas()
-        data2 = self._source2_.__pdData__ if self._source2_.__pdData__ is not None else self._source2_.execute_pandas()
+        data1 = self._source1_.__data__ if self._source1_.__data__ is not None else self._source1_.execute_pandas()
+        data2 = self._source2_.__data__ if self._source2_.__data__ is not None else self._source2_.execute_pandas()
         # logging.info(f'[{time.ctime()}] execute join pandas, data1 = {data1.head()}, \n data2 = {data2.head()} \n -----------------------------------\n '
         #              f'query = {self.genSQL} \n -------------------------- -----------\n')
         # logging.info(f'[{time.ctime()}] execute join pandas, data2 type = {type(data1)}')
@@ -225,10 +227,12 @@ class SQLJoinTransform(SQLTransform):
         if not isinstance(data2, pd.DataFrame):
             data2 = pd.DataFrame.from_dict(data2)
 
+        # todo: when have duplicated column names, fix the different behaviors in db and pd
         rename_params = self.get_rename_cols(self._src1projcols_)
         rename_params.update(self.get_rename_cols(self._src2projcols_))
 
         proj_cols = [c.columnName if not isinstance(c, str) else c for c in self.columns]
+        print(proj_cols)
         if self._jointype_ == JOIN.CROSS_JOIN:
             #logging.info(
             #    f'column info: {self.columns} \n proj_cols = {proj_cols} , rename = {rename_params} \n, '
@@ -241,6 +245,7 @@ class SQLJoinTransform(SQLTransform):
                             how=PJOIN_MAP[self._jointype_])
         if rename_params:
             data.rename(**{'columns': rename_params, 'inplace': True})
+        print(data)
         return data[proj_cols]
 
     @property
@@ -1440,6 +1445,9 @@ class DBTable(TabularData):
             self.execute_pandas()
         return self.rows
 
+    def partial_copy(self):
+        return self
+
     @property
     def rows(self):
         if(self.__data__ is None):
@@ -1701,8 +1709,7 @@ class DataFrame(TabularData):
 #
 
     def relink_source(self):
-        trans_copy = copy.deepcopy(self.__transform__)
-        print(trans_copy.transform_name())
+        trans_copy = copy.copy(self.__transform__)
         trans_copy.relink_source(self.__source__)
         self.__transform__ = trans_copy
 
@@ -1723,7 +1730,6 @@ class DataFrame(TabularData):
     def partial_copy(self):
         if self.__source__ is None or self.__data__ is not None:
             return self
-
         if isinstance(self.__source__, tuple):
             source = (self.__source__[0].partial_copy(), self.__source__[1].partial_copy())
         elif hasattr(self.__source__, 'partial_copy'):
@@ -1951,9 +1957,9 @@ class DataFrame(TabularData):
             logging.info('[{}]Generating data by _genSQL'.format(time.ctime()))
 
             # logging.info('--------execution plan--------\n{}\n'.format(self.dbc._executeQry('EXPLAIN ' +
-            # self._genSQL_(doOrder=True).sqlText + ';')));
-
-            (data, rows) = self.dbc._executeQry(self._genSQL_(doOrder=True).sqlText + ';');
+            sql = self._genSQL_(doOrder=True).sqlText + ';'
+            logging.info(sql)
+            (data, rows) = self.dbc._executeQry(sql);
 
         # logging.info(f'[{time.ctime()}]Before convert, type of data {type(data)}, data = \n {data}')
         # Convert the results to an ordered dictionary format.
@@ -1980,15 +1986,15 @@ class DataFrame(TabularData):
         if(self.__data__ is None):
             #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
-                from pd_transforms.transform_scheduler import HeuristicScheduler
-                scheduler = HeuristicScheduler()
+                from pd_transforms.transform_scheduler import SplitJoinScheduler
+                scheduler = SplitJoinScheduler()
                 import pickle
                 with open('/home/AIDA/test/scheduler/dataframe_dump', 'wb') as f:
                     pickle.dump(self, f)
                 lineage = scheduler.build_lineage(self.partial_copy())
                 logging.info(f'Generated lineage for {self}:')
                 logging.info(str(lineage))
-                scheduler.materialize(lineage)
+                self.__data__ = scheduler.materialize(lineage)
             elif(isinstance(self.__transform__, AlgebraicVectorTransform)):
                 self.__data__ = self.__transform__.rows;
                 self.__columns__ = self.__transform__.columns;
