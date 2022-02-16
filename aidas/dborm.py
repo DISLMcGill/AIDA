@@ -1992,8 +1992,8 @@ class DataFrame(TabularData):
                 with open('/home/AIDA/test/scheduler/dataframe_dump', 'wb') as f:
                     pickle.dump(self, f)
                 lineage = scheduler.build_lineage(self.partial_copy())
-                logging.info(f'Generated lineage for {self}:')
-                logging.info(str(lineage))
+                # logging.info('Generated lineage for {}'.format(self))
+                # logging.info(str(lineage))
                 self.__data__ = scheduler.materialize(lineage)
             elif(isinstance(self.__transform__, AlgebraicVectorTransform)):
                 self.__data__ = self.__transform__.rows;

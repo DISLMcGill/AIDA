@@ -96,7 +96,7 @@ class TransformScheduler:
             for source in cur.sources.values():
                 stack.append(source)
 
-        logging.info(f'materializing: \n all_node = {visited}, \n pd_stack={pd_stack}')
+        # logging.info(f'materializing: \n all_node = {visited}, \n pd_stack={pd_stack}')
 
         # materialize all pandas node, in reverse order
         while pd_stack:
