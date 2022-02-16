@@ -83,14 +83,6 @@ def run_test():
         print('Execution time: {}'.format(t1-t0))
         if output_file:
             with open('{}/{}.csv'.format(config.outputDir, output_file), 'a') as f:
-            # dump data to expected result file
-            # with open('{}/expected_{}'.format(config.outputDir, q), 'wb') as file:
-            #     if(hasattr(r, '_genSQL_')):
-            #         print(r.rows)
-            #         pickle.dump(r.rows, file)
-            #     else:
-            #         print(r)
-            #         pickle.dump(r, file)
                 f.write('{0},{1}\n'.format(int(q), t1 - t0))
 
 run_test()

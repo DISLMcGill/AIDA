@@ -1986,15 +1986,17 @@ class DataFrame(TabularData):
         if(self.__data__ is None):
             #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
-                from pd_transforms.transform_scheduler import SplitJoinScheduler
-                scheduler = SplitJoinScheduler()
-                import pickle
-                with open('/home/AIDA/test/scheduler/dataframe_dump', 'wb') as f:
-                    pickle.dump(self, f)
-                lineage = scheduler.build_lineage(self.partial_copy())
-                # logging.info('Generated lineage for {}'.format(self))
-                # logging.info(str(lineage))
-                self.__data__ = scheduler.materialize(lineage)
+                from pd_transforms.transform_scheduler import SplitJoinScheduler, HeuristicScheduler
+                use_scheduler = True
+                if use_scheduler:
+                    scheduler = HeuristicScheduler()
+                    # scheduler = SplitJoinScheduler()
+                    lineage = scheduler.build_lineage(self.partial_copy())
+                    # logging.info('Generated lineage for {}'.format(self))
+                    # logging.info(str(lineage))
+                    self.__data__ = scheduler.materialize(lineage)
+                else:
+                    self.run_query()
             elif(isinstance(self.__transform__, AlgebraicVectorTransform)):
                 self.__data__ = self.__transform__.rows;
                 self.__columns__ = self.__transform__.columns;
