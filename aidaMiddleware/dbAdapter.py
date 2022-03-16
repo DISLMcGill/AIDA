@@ -10,10 +10,17 @@ from aidas.dborm import DBTable, DataFrame;
 from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
+from aidaMiddleware.distTabularData import DistTabularData;
+from concurrent.futures import ThreadPoolExecutor, wait, as_completed;
 
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
+    def multithread(self, func):
+        def wrapper(*args, **kwargs):
+            func(*args, **kwargs)
+        return wrapper
+
     def __getstate__(self):
        return self.__dict__
 
@@ -21,25 +28,53 @@ class DBCMiddleware(DBC):
        self.__dict__ = d
 
     def _executeQry(self, sql, resultFormat='column'):
-        return self.__extDBCcon[0]._executeQry(sql, resultFormat)
+        futures = {self.executor.submit(lambda con: con._executeQry(sql, resultFormat), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _toTable(self, tblrData, tableName=None):
-        return self.__extDBCcon[0]._toTable(tblrData, tableName)
+        futures = {self.executor.submit(lambda con: con._toTable(tblrData, tableName), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
-        return self.__extDBCcon[0]._saveTablrData(tblrData,tableName,dbName,drop)
+        futures = {self.executor.submit(lambda con: con. _saveTblrData(tblrData, tableName, dbName, drop) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _dropTable(self, tableName, dbName=None):
-        return self.__extDBCcon[0]._dropTable(tableName, dbName)
+        futures = {self.executor.submit(lambda con: con._dropTable(tableName, dbName), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _dropTblUDF(self, tblrData, tableName=None):
-        return self.__extDBCcon[0].dropTblUDF(tblrData, tableName)
+        futures = {self.executor.submit(lambda con: con._dropTblUDF(tblrData, tableName), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _describe(self, tblrData):
-        return self.__extDBCcon[0]._describe(tblrData)
+        futures = {self.executor.submit(lambda con: con._describe(tblrData), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _agg(self, agfn, tblrData, collist=None, valueOnly=True):
-        return self.__extDBCcon[0]._add(agfn,tblrData,collist,valueOnly)
+        futures = {self.executor.submit(lambda con: con._agg(agfn, tblrData, collist, valueOnly), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            result.append(f.result())
+        return result
 
     def _tables(self):
         return self.__extDBCcon[0]._tables()
@@ -58,6 +93,7 @@ class DBCMiddleware(DBC):
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         self._serverConfig = ServerConfig();
+        self.executor = ThreadPoolExecutor(max_workers=15);
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -77,14 +113,19 @@ class DBCMiddleware(DBC):
         ##cursor.close();
         #con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
         self.__extDBCcon = connections;
-        print(connections)
 
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
-        (metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self._dbName, relName));
-        if(rows ==0):
-            logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self._dbName ));
-            raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self._dbName ));
+        distTabularData = DistTabularData(self.executor, self.__extDBCcon)
+        #(metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self._dbName, relName));
+        futures = {self.executor.submit(lambda con: con._getDBTable(relName, dbName), con) for con in self.__extDBCon}
+        result = []
+        for f in as_completed(futures):
+            try:
+                result.append(f.result())
+            except KeyError:
+                logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self._dbName ));
+                raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self._dbName ));
         #logging.debug("execute query returned for table metadata {}".format(metaData_));
         #metaData = _collections.OrderedDict();
         #for column in [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
@@ -92,7 +133,7 @@ class DBCMiddleware(DBC):
         #    metaData[column] = metaData_[column].data if hasattr(metaData_[column], 'data') else metaData_[column];
 
         #return DBTable(self, metaData_);
-        d = DBTable(self, metaData_);
+        d = distTabularData.tabular_datas = result
         return d;
 
 class DBCMiddlewareStub(DBCRemoteStub):
