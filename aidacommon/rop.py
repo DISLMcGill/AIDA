@@ -71,7 +71,7 @@ class ROMgr(metaclass=ABCMeta):
                                 #First message from client stub, check if object exists or not.
                                 if(msg == ROMessages._INIT_):
                                     robjName = custompickle.load(self.rfile);
-                                    #logging.debug("_INIT_ message to look for object {}".format(robjName));
+                                    logging.debug("_INIT_ message to look for object {}".format(robjName));
                                     if(ROMgrObj.has(robjName)):
                                         self.obj = ROMgrObj.get(robjName, self);
                                         #On success, send the id of the proxy.
@@ -82,22 +82,24 @@ class ROMgr(metaclass=ABCMeta):
                                         custompickle.dump(ROMessages._NOT_FOUND_, self.wfile); self.wfile.flush();
                                 #Check if the return should be compressed or not.
                                 elif(msg != ROMessages._COMPRESS_):
-                                    #logging.debug("RemoteMethod: {} is not a compress directive.".format(msg));
+                                    logging.debug("RemoteMethod: {} is not a compress directive.".format(msg));
                                     #Request for an attribute
                                     if(msg == ROMessages._GET_ATTRIBUTE_):
                                         item = custompickle.load(self.rfile);
+                                        logging.debug("_GET_ATTRIBUTE_ message, item={}.".format(item));
                                         try:
                                             val = self.obj.__getattribute__(item);
-                                            custompickle.dump(None,self.wfile); custompickle.dump(val, self.wfile); self.wfile.flush();
+                                            custompickle.dump(None,self.wfile);
+                                            custompickle.dump(val, self.wfile); self.wfile.flush();
                                         except Exception as e:
                                             #An exception occured. send traceback info the client stub.
                                             custompickle.dump(sys.exc_info(), self.wfile);self.wfile.flush();
                                     #Regular client stub messages contain the name of the function to be invoked and any arguments.
                                     else:
-                                        #logging.debug("ROProxy {} reading args time {:0.20f}".format(msg, time.time()));
+                                        # logging.debug("ROProxy {} reading args time {:0.20f}".format(msg, time.time()));
                                         args   = custompickle.load(self.rfile); kwargs = custompickle.load(self.rfile);
                                         #logging.debug("ROProxy {} read args time {:0.20f}".format(msg, time.time()));
-
+                                        logging.debug("Other message = {}".format(msg))
                                         #Execute the function locally and send back any results/exceptions.
                                         try:
                                             #Execute the local function, store the results.

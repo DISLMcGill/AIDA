@@ -1407,11 +1407,7 @@ class DBTable(TabularData):
 
     def execute_pandas(self):
         if self.__pdData__ is None:
-            t0 = time.time()
             data = df_from_arrays(self.__data__.values(), self.__data__.keys(), range(self.numRows))
-            #logging.info(f"[{time.ctime()}] pandas type = {data.dtypes}")
-            t1 = time.time()
-            logging.info('{} convert time = {}'.format(self.tableName, t1-t0))
             self.__pdData__ = data
         return self.__pdData__
 
@@ -1708,11 +1704,13 @@ class DataFrame(TabularData):
 #            self.__rowNames__ = transform.rowNames;
 #
 
+    # make a copy of the transform
     def relink_source(self):
         trans_copy = copy.copy(self.__transform__)
         trans_copy.relink_source(self.__source__)
         self.__transform__ = trans_copy
 
+    # create a copy of self with the new lineage as source
     def copy_with_new_source(self, source):
         new_df = copy.copy(self)
         new_df.__source__ = source
@@ -1727,9 +1725,12 @@ class DataFrame(TabularData):
         self.__columns__ = None
         self.relink_source()
 
+    # copy the lineage
     def partial_copy(self):
+        # not copy if the table is already materialized
         if self.__source__ is None or self.__data__ is not None:
             return self
+        # copy the two source tables of join
         if isinstance(self.__source__, tuple):
             source = (self.__source__[0].partial_copy(), self.__source__[1].partial_copy())
         elif hasattr(self.__source__, 'partial_copy'):
@@ -1979,24 +1980,28 @@ class DataFrame(TabularData):
             data.clear();
             data = data_;
             self.__data__ = data;
+        self.columns
+        self.dbc
+        self.__source__ = self.__transform__ = None;
 
     @property
     def rows(self):
         #logging.debug("DataFrame: id {}, {} : rows called.".format(id(self), self.tableName));
         if(self.__data__ is None):
-            #logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
+            logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
                 from pd_transforms.transform_scheduler import SplitJoinScheduler, HeuristicScheduler
                 use_scheduler = True
                 if use_scheduler:
                     scheduler = HeuristicScheduler()
                     # scheduler = SplitJoinScheduler()
+                    logging.info('---------build lineage with scheduler-------------')
                     lineage = scheduler.build_lineage(self.partial_copy())
                     # logging.info('Generated lineage for {}'.format(self))
                     # logging.info(str(lineage))
                     self.__data__ = scheduler.materialize(lineage)
                 else:
-                    self.run_query()
+                    self.run_query(AConfig.FORCEDB)
             elif(isinstance(self.__transform__, AlgebraicVectorTransform)):
                 self.__data__ = self.__transform__.rows;
                 self.__columns__ = self.__transform__.columns;

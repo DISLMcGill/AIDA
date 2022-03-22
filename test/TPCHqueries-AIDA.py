@@ -619,7 +619,7 @@ limit 20;
 
     c = db.customer;
     o = db.orders.filter(Q('o_orderdate', DATE('1993-10-01'), CMP.GTE), Q('o_orderdate', DATE('1994-01-01'), CMP.LT));
-    l = db.lineitem.filter(Q('l_returnflag', C('R'))).project(('l_orderkey', {F('l_extendedprice')*(1-F('l_discount')):'rev'}));
+    l = db.lineitem.filter(Q('l_returnflag', C('N'))).project(('l_orderkey', {F('l_extendedprice')*(1-F('l_discount')):'rev'}));
     n = db.nation;
 
     t = c.join(o, ('c_custkey',), ('o_custkey',), COL.ALL, COL.ALL);
@@ -1116,43 +1116,6 @@ where
 
 def q20(db):
     """
-select
-  s_name,
-  s_address
-from
-  supplier,
-  nation
-where
-  s_suppkey in (
-    select
-      ps_suppkey
-    from
-      partsupp
-    where
-      ps_partkey in (
-        select
-          p_partkey
-        from
-          part
-        where
-          p_name like 'forest%'
-      )
-      and ps_availqty > (
-        select
-          0.5 * sum(l_quantity)
-        from
-          lineitem
-        where
-          l_partkey = ps_partkey
-          and l_suppkey = ps_suppkey
-          and l_shipdate >= date '1994-01-01'
-          and l_shipdate < date '1994-01-01' + interval '1' year
-      )
-  )
-  and s_nationkey = n_nationkey
-  and n_name = 'CANADA'
-order by
-  s_name;
 
 -- rewritten to avoid corelated query
 

@@ -1,3 +1,4 @@
+import logging
 import sys;
 import threading;
 
@@ -64,6 +65,7 @@ class DBCPostgreSQL(DBC):
     COL_EXP = "SELECT COUNT(*) FROM information_schema.columns WHERE table_name =\'{}\';"
     STRING_TYPE_EXP = "SELECT COUNT(*) FROM information_schema.columns WHERE data_type = \'character varying\' " \
                       "AND table_name =\'{}\';"
+    EXPLAIN_EXP = "EXPLAIN (FORMAT JSON) {}"
 
     __NUMERIC_COL_DESCRIBE__ = \
         "  RIGHT ('                    ' || CAST(CAST(COUNT({}) AS DECIMAL(20,2)) AS VARCHAR(20)), 20) AS count_{}" \
@@ -128,6 +130,20 @@ class DBCPostgreSQL(DBC):
     def _getTableStrCount(self, tableName):
         count = list(self._executeQry(DBCPostgreSQL.STRING_TYPE_EXP.format(tableName))[0].values())[0][0]
         return count
+
+    def _get_estimated_card(self, sql):
+        plan = list(self._executeQry(DBCPostgreSQL.EXPLAIN_EXP.format(sql))[0].values())[0][0]
+
+        def parse_plan(s):
+            import json
+            plan_json = json.loads(s)
+            for json_element in plan_json:
+                if 'Plan' in json_element:
+                    cur_plan = json_element['Plan']
+                    return cur_plan['Plan Rows'], cur_plan['Plan Width']
+
+        rows, widths = parse_plan(plan)
+        return rows, widths
 
     def _tables(self):
         sql = DBCPostgreSQL.__TABLE_LIST_QRY__.format(self.dbName);
@@ -204,6 +220,7 @@ class DBCPostgreSQL(DBC):
                 # C Python extension conversion module:
                 elif(AConfig.CONVERSIONOPTION == 2):
                     rv = self.__connection.execute(sql);
+                    logging.info("after execution");
                     if(rv.nrows() == 0 or sqlType!=DBC.SQLTYPE.SELECT):
                         try:
                             result  =  ({k: [] for k in rv.colnames()}, 0)
@@ -244,6 +261,7 @@ class DBCPostgreSQL(DBC):
                 #re-raise the exception.
                 if (sqlType != DBC.SQLTYPE.DROP):
                     raise;
+        logging.info("finish execution")
 
             #TODO: format....
     def _toUDF(self, tblrData):

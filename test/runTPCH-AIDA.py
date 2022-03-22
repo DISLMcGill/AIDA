@@ -81,6 +81,7 @@ def run_test():
             r.loadData()
         t1 = time()
         print('Execution time: {}'.format(t1-t0))
+        print(r)
         if output_file:
             with open('{}/{}.csv'.format(config.outputDir, output_file), 'a') as f:
                 f.write('{0},{1}\n'.format(int(q), t1 - t0))

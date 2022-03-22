@@ -16,7 +16,7 @@ class LineageNode:
         self.node = node
         self.meta = meta
         self.sources = {}
-        self.strategy = 'use_pandas'
+        self.strategy = None
 
     # call after all sources added
     def update_node(self):
@@ -66,6 +66,12 @@ def get_meta_data(tb: TabularData):
             strNum = tb.dbc._getTableStrCount(tb.__tableName__)
             meta_clc['col'] = colNum
             meta_clc['row'] = rowNum
+        else:
+            """ask the query planner to give an estimation of the cardinality"""
+            row, width = tb.dbc._get_estimated_card(tb._genSQL_())
+            meta_clc['col'] = row
+            meta_clc['row'] = width
+
     return meta_clc
 
 
@@ -75,6 +81,13 @@ class TransformScheduler:
 
     def build_lineage(self, root: TabularData):
         pass
+
+    def has_more_rows(self, tbs):
+        largest = tbs[0]
+        for tb in tbs:
+            if tb.meta['row']>largest.meta['row']:
+                largest = tb
+        return largest
 
     def materialize(self, root: LineageNode):
         # materialize with pandas first since pandas needs to be executed bottom to top
@@ -96,15 +109,17 @@ class TransformScheduler:
             for source in cur.sources.values():
                 stack.append(source)
 
-        # logging.info(f'materializing: \n all_node = {visited}, \n pd_stack={pd_stack}')
+        logging.info('materializing: \n all_node = {}, \n pd_stack={}'.format(visited, pd_stack))
 
         # materialize all pandas node, in reverse order
         while pd_stack:
             cur = pd_stack.pop()
+            logging.info('execute pandas for {}'.format(cur.node.__tableName__))
             cur.node.run_query(with_pd=True)
 
         # materialize db nodes, DFS
         stack = [root]
+        logging.info('--------------after finish pandas, lineage-------------: \n{}'.format(root.node.preview_lineage()))
         while stack:
             cur = stack.pop()
             # don't need to check further as the db will convert in-memory data and handle all upstream operations
@@ -116,22 +131,25 @@ class TransformScheduler:
         return root.node.__data__
 
 
-def pushdown_filters(root):
+def pushdown_filters(root: TabularData):
     """
-    push down the filters transform to lower layer if possible
+    push down (to leave nodes/database tables) the filters transform to lower layer if possible
 
-    @param to_push:
     @param root:
-    @return: the new node to the original location
+    @return: the new node at the original location
     """
-    # BFS find all filters
     stack = [root]
     prev = None
+    # store each filter node and its downstream/child node
     filters = []
+    # DFS find all filters and their downstream/child nodes
     while stack:
         cur = stack.pop()
         if hasattr(cur, '__transform__') and isinstance(cur.__transform__, SQLSelectTransform):
-            filters.append((prev, cur))
+            # filter can have at most one source, so no need to worry about tuples
+            # multiple nodes might have a same source, need to check it
+            if (cur, prev) not in filters:
+                filters.append((cur, prev))
         if hasattr(cur, '__source__') and cur.__source__ is not None:
             if isinstance(cur.__source__, tuple):
                 for source in cur.__source__:
@@ -140,19 +158,25 @@ def pushdown_filters(root):
                 stack.append(cur.__source__)
         prev = cur
 
+    # by default, if no filters involved, we return the original node
     prev = root
+    # pushdown nodes with smaller height for each branch
     while filters:
-        child, to_push = filters.pop()
+        to_push, parent = filters.pop()
         # collect all condition function
         conditions = set()
         for sc in to_push.__transform__.__selcols__:
             conditions.add(sc._col1_)
-        parent = to_push.__source__
-        if pushdown(to_push, conditions, parent):
-            if child is None:
-                prev = parent
+        source = to_push.__source__
+        # true if we push down current node
+        if pushdown(to_push, conditions, source):
+            # if current node does not have a parent, which is true only when it's the root node,
+            # we return its child/source to be the new root
+            if parent is None:
+                prev = source
+            # if current node has a parent, then the parent's child/source should be to_push node's child/source
             else:
-                child.update_source(parent)
+                parent.update_source(source)
 
     return prev
 
@@ -179,18 +203,18 @@ def columns_names(columns):
     return cols
 
 
-def check_can_pass(condition, parent):
-    renames = get_rename_ls(parent)
+def check_can_pass(condition, child):
+    renames = get_rename_ls(child)
     return condition.isdisjoint(renames)
 
 
-def check_condition(condition, parent, gp):
-    des_cols = columns_names(gp.columns)
-    return check_can_pass(condition, parent) and condition.issubset(des_cols)
+def check_condition(condition, child, gc):
+    des_cols = columns_names(gc.columns)
+    return check_can_pass(condition, child) and condition.issubset(des_cols)
 
 
 def check_join_condition(condition, gp1, gp2):
-    print(f'check condition for {gp1.__tableName__} and {gp2.__tableName__}')
+    # print(f'check condition for {gp1.__tableName__} and {gp2.__tableName__}')
     des_cols1 = columns_names(gp1.columns)
     des_cols2 = columns_names(gp2.columns)
     # subset
@@ -199,42 +223,53 @@ def check_join_condition(condition, gp1, gp2):
     # check if any condition column in the grandparent columns
     intersects1 = condition.intersection(des_cols1)
     intersects2 = condition.intersection(des_cols2)
-    print(f'gp1{gp1.columns}, gp2 {gp2.columns}, cond {condition}')
-    print(f'issub1={issub1}, issub2={issub2}')
+    # print(f'gp1{gp1.columns}, gp2 {gp2.columns}, cond {condition}')
+    # print(f'issub1={issub1}, issub2={issub2}')
+    # todo: split the filter conditions
     return (issub1 and issub2) or (issub1 and not intersects2) or (issub2 and not intersects1)
 
 
-def pushdown(to_push, condition:set, parent):
-    # parent should not be tuple because we push down the filter for each branch
-    assert not isinstance(parent, tuple)
+def pushdown(to_push: TabularData, condition: set, child: TabularData):
+    """
+    place to_push to child's source position if possible
+    @param to_push: node to be pushed down
+    @param condition: filter conditions on to_push
+    @param child: to_push's source/child
+    @return:
+    """
+    # child should not be tuple because we push down the filter for each branch
+    assert not isinstance(child, tuple)
+    # flag indicating if this node is pushed down or not
     pushed = False
-    if parent is not None:
-        if hasattr(parent, '__source__') and parent.__source__ is not None:
-            if isinstance(parent.__source__, tuple):
-                if check_can_pass(condition, parent) and check_join_condition(condition, parent.__source__[0], parent.__source__[1]):
+    if child is not None:
+        if hasattr(child, '__source__') and child.__source__ is not None:
+            if isinstance(child.__source__, tuple):
+                if check_can_pass(condition, child) and check_join_condition(condition, child.__source__[0], child.__source__[1]):
                     # try to recursively push down each branch
-                    pushed1 = pushdown(to_push, condition, parent.__source__[0])
-                    # if grandparent and further down can not push, try insert filter at current level
-                    if not pushed1 and check_condition(condition, parent, parent.__source__[0]):
+                    pushed1 = pushdown(to_push, condition, child.__source__[0])
+                    # if can not push pass the grandchildren, insert filter at current level if condition satisfied
+                    if not pushed1 and check_condition(condition, child, child.__source__[0]):
+                        # copy lineage tree from the to push node
                         push_copy = to_push.partial_copy()
-                        push_copy.update_source(parent.__source__[0])
-                        parent.update_source((push_copy, parent.__source__[1]))
+                        push_copy.update_source(child.__source__[0])
+                        child.update_source((push_copy, child.__source__[1]))
                         pushed1 = True
-                    pushed2 = pushdown(to_push, condition, parent.__source__[1])
-                    if not pushed2 and check_condition(condition, parent, parent.__source__[1]):
+                    pushed2 = pushdown(to_push, condition, child.__source__[1])
+                    if not pushed2 and check_condition(condition, child, child.__source__[1]):
                         push_copy = to_push.partial_copy()
-                        push_copy.update_source(parent.__source__[1])
-                        parent.update_source((parent.__source__[0], push_copy))
+                        push_copy.update_source(child.__source__[1])
+                        child.update_source((child.__source__[0], push_copy))
                         pushed2 = True
-                    pushed = pushed1 or pushed2
+                    # todo: double check the condition here, should not affect though as it will be dumpy filter
+                    pushed = pushed1 and pushed2
             else:
-                if check_condition(condition, parent, parent.__source__):
-                    pushed = pushdown(to_push, condition, parent.__source__)
-                    # if grandparent and further down can not push, try insert filter at current level
+                if check_condition(condition, child, child.__source__):
+                    pushed = pushdown(to_push, condition, child.__source__)
+                    # if can not push pass the grandchildren, try insert filter at current level
                     if not pushed:
                         push_copy = to_push.partial_copy()
-                        push_copy.update_source(parent.__source__)
-                        parent.update_source((push_copy, parent.__source__))
+                        push_copy.update_source(child.__source__)
+                        child.update_source((push_copy, child.__source__))
                         pushed = True
     return pushed
 
@@ -286,8 +321,8 @@ class SplitJoinScheduler(TransformScheduler):
                 # perform semi join if the two sources from different locations
                 s1 = self.build_lineage(root.__source__[0])
                 s2 = self.build_lineage(root.__source__[1])
-                logging.info('join table1 = {}, table2 = {}'.format(s1.node.__tableName__, s2.node.__tableName__))
-                logging.info('schedule for join, s1={}, s2={}'.format(s1.strategy, s2.strategy))
+                # logging.info('join table1 = {}, table2 = {}'.format(s1.node.__tableName__, s2.node.__tableName__))
+                # logging.info('schedule for join, s1={}, s2={}'.format(s1.strategy, s2.strategy))
                 if s1.strategy != s2.strategy:
                     self.semijoin(root.__transform__, 1, s1, s2, lineage)
                 else:
@@ -347,13 +382,18 @@ class SplitJoinScheduler(TransformScheduler):
 
 
 class HeuristicScheduler(TransformScheduler):
+    def build_lineage(self, root: TabularData):
+        # we need to push down the filters to lower levels if there is any
+        new_root = pushdown_filters(root)
+        # case join, has 2 sources
+        return self._build_lineage(new_root)
+
     """
     simply check if the upstream data in pandas or db
     """
-    def build_lineage(self, root: TabularData):
+    def _build_lineage(self, root: TabularData):
         # case join, has 2 sources
-        meta = get_meta_data(root)
-        lineage = LineageNode(root, meta)
+        lineage = LineageNode(root)
 
         if root.__data__ is not None:
             # if parent already materialized, use pandas
@@ -384,18 +424,26 @@ class HeuristicScheduler(TransformScheduler):
                     lineage.add_source(ts.transform_name(), s)
                     # lineage.set_node_source(s.node)
             if len(lineage.sources) == 1:
-                lineage.set_strategy(list(lineage.sources.values())[0].strategy)
-            else:
-            # when join 2 table, as long as one table is db, we use db
-                for source in lineage.sources.values():
-                    if source.strategy == STRATEGY_DB:
-                        lineage.set_strategy(STRATEGY_DB)
-                        return lineage
-                lineage.set_strategy(STRATEGY_PD)
+                strategy = list(lineage.sources.values())[0].strategy
+                lineage.set_strategy(strategy)
+            elif len(lineage.sources) > 1:
+            # when join 2 table, we set the strategy the same as the parent table with more rows
+                dom_table = self.has_more_rows(lineage.sources.values())
+                lineage.set_strategy(dom_table.strategy)
+            # materialize with pandas to get meta info
+            if lineage.strategy == STRATEGY_PD:
+                lineage.node.run_query(with_pd=True)
+
+            lineage.set_meta(get_meta_data(root))
 
         # lineage.update_node()
         return lineage
 
+    def materialize(self, root: LineageNode):
+        # if the root is pd, should have already been materialized
+        if root.strategy == STRATEGY_PD:
+            return root.node.__data__
+        return root.node.run_query(with_pd=False)
 
 
 

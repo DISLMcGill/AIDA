@@ -1,12 +1,12 @@
 import os
 from aida.aida import *
 
-host = 'server-v2'
+host = 'localhost'
 dbname = 'sf01'
 user = 'sf01'
 passwd = 'sf01'
-jobName = 'explorer'
-port = 55660
+jobName = 'test'
+port = 44660
 
 
 outputDir = 'output'
