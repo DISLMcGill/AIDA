@@ -3,8 +3,11 @@ import collections
 import pandas as pd
 
 from functools import reduce
-from aidacommon.dborm import TabularData
+from aidacommon.dborm import TabularData, COL, JOIN
+import weakref
 
+class WeakList(list):
+    __slots__ = ('__weakref__',)
 
 class DistTabularData(TabularData):
     def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
@@ -28,7 +31,7 @@ class DistTabularData(TabularData):
         futures = []
 
         def external_join(table1, table2):
-            return table1.join(table2, src1joincols, src2joincols, cols1, col2, join).cdata
+            return table1.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
         for i in range(len(external_data)):
             futures.append(self.executor.submit(external_join, external_data[i], self.tabular_datas[i]))
         results = []
@@ -190,9 +193,9 @@ class DistTabularData(TabularData):
             self.combined_data = collections.OrderedDict(reduce(lambda a, b: {**a, **b}, results))
         return self.combined_data
 
-    def __init__(self, executor, connections):
-        self.tabular_datas = []
-        self.connections = connections
+    def __init__(self, executor, connections, tabular_datas):
+        self.tabular_datas = WeakList(tabular_datas)
+        self.connections = WeakList(connections)
         self.executor = executor
         self.combined_data = None
 
