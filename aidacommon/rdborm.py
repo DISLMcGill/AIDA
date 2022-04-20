@@ -124,6 +124,9 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
     @aidacommon.rop.RObjStub.RemoteMethod(compressResults=True)
     def cdata(self): pass;
 
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def hash_partition(self, index, keys, cols, connections): pass;
+
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 

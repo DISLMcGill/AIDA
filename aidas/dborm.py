@@ -1366,6 +1366,24 @@ class DBTable(TabularData):
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
 
+    def hash_partition(self, index, keys, cols, connections):
+        def load_data(df):
+            return df
+        indices = [[] for i in range(len(connections))]
+        for i in range(len(self.rows[keys])):
+            h = hash(self.rows[keys][i])
+            indices[h % len(connections)].append(i)
+        tables = []
+
+        for i in range(len(connections)):
+            if i != index:
+                tables.append(connections[i]._L(load_data, self[indices[i]].cdata))
+            else:
+                tables.append(self[indices[i]].cdata)
+        return tables
+
+
+
 
 class DataFrame(TabularData):
     def __init__(self, source, transform, name=None, dbc=None):

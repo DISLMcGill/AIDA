@@ -23,49 +23,49 @@ class DBCMiddleware(DBC):
        self.__dict__ = d
 
     def _executeQry(self, sql, resultFormat='column'):
-        futures = {self._executor.submit(lambda con: con._executeQry(sql, resultFormat), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._executeQry(sql, resultFormat), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
         return result
 
     def _toTable(self, tblrData, tableName=None):
-        futures = {self._executor.submit(lambda con: con._toTable(tblrData, tableName), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._toTable(tblrData, tableName), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
         return result
 
     def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
-        futures = {self._executor.submit(lambda con: con._saveTblrData(tblrData, tableName, dbName, drop), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._saveTblrData(tblrData, tableName, dbName, drop), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
         return result
 
     def _dropTable(self, tableName, dbName=None):
-        futures = {self._executor.submit(lambda con: con._dropTable(tableName, dbName), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._dropTable(tableName, dbName), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
         return result
 
     def _dropTblUDF(self, tblrData, tableName=None):
-        futures = {self._executor.submit(lambda con: con._dropTblUDF(tblrData, tableName), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._dropTblUDF(tblrData, tableName), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
         return result
 
     def _describe(self, tblrData):
-        futures = {self._executor.submit(lambda con: con._describe(tblrData), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._describe(tblrData), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
         return result
 
     def _agg(self, agfn, tblrData, collist=None, valueOnly=True):
-        futures = {self._executor.submit(lambda con: con._agg(agfn, tblrData, collist, valueOnly), con) for con in self._extDBCon}
+        futures = {self._executor.submit(lambda con: con._agg(agfn, tblrData, collist, valueOnly), con) for con in self._extDBCcon}
         result = []
         for f in as_completed(futures):
             result.append(f.result())
@@ -88,6 +88,7 @@ class DBCMiddleware(DBC):
         self._username = username; self._password = password;
         self._serverConfig = ServerConfig();
         self._executor = ThreadPoolExecutor(max_workers=15);
+        self._extDBCcon = None
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -111,14 +112,9 @@ class DBCMiddleware(DBC):
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
         #(metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self._dbName, relName));
-        futures = {self._executor.submit(lambda con: con._getDBTable(relName, dbName), con) for con in self._extDBCon}
-        result = []
-        for f in as_completed(futures):
-            try:
-                result.append(f.result())
-            except KeyError:
-                logging.error("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self._dbName ));
-                raise KeyError("ERROR: cannot find table {} in {}".format(relName, dbName if(dbName is not None) else self._dbName ));
+        results = []
+        for i in self._executor.map(lambda con: con._getDBTable(relName, dbName), self._extDBCcon):
+            results.append(i)
         #logging.debug("execute query returned for table metadata {}".format(metaData_));
         #metaData = _collections.OrderedDict();
         #for column in [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
@@ -126,7 +122,7 @@ class DBCMiddleware(DBC):
         #    metaData[column] = metaData_[column].data if hasattr(metaData_[column], 'data') else metaData_[column];
 
         #return DBTable(self, metaData_);
-        d = DistTabularData(self._executor, self._extDBCcon, result)
+        d = DistTabularData(self._executor, self._extDBCcon, results)
         return d;
 
 class DBCMiddlewareStub(DBCRemoteStub):

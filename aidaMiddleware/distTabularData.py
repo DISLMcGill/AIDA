@@ -1,44 +1,62 @@
 import concurrent.futures
 import collections
 import pandas as pd
+import copyreg;
 
 from functools import reduce
 from aidacommon.dborm import TabularData, COL, JOIN
-import weakref
+import aidacommon.rop;
+from aidacommon.rdborm import TabularDataRemoteStub
 
-class WeakList(list):
-    __slots__ = ('__weakref__',)
 
 class DistTabularData(TabularData):
+    def get_cdata(self, table):
+        return table.cdata
+
     def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
-        if self.combined_data is None:
+        if 3 % 2 == 0:  # Use block join
+            if self.combined_data is None:
+                s = self.cdata
+
+            def external_join(c, table2):
+                def load_data(df):
+                    return df
+
+                external = c._L(load_data, self.combined_data)
+                return external.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
+
             futures = []
-            for t in self.tabular_datas:
-                futures.append(self.executor.submit(t.cdata))
+            for i in range(self.tabular_datas):
+                futures.append(self.executor.submit(external_join, self.connections[i], otherTable.tabular_datas[i]))
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
-            self.combined_data = collections.OrderedDict(reduce(lambda a, b: {**a, **b}, results))
-        def load_dataframe(dict):
-            return pd.DataFrame(dict, columns=dict.keys())
-        futures = []
-        for c in self.connections:
-            futures.append(self.executor.submit(c._L, load_dataframe, self.combined_data))
-        external_data = []
-        concurrent.futures.wait(futures)
-        for f in futures:
-            external_data.append(f.result())
-        futures = []
+            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
+        else:  # Use hash join
+            redist_tables = []
+            redist_other_tables = []
+            for i in range(len(self.tabular_datas)):
+                redist_tables.append(self.tabular_datas[i].hash_partition(i, src1joincols, cols1, self.connections))
+                redist_other_tables.append(otherTable.tabular_datas[i].hash_partition(i, src2joincols,
+                                                                                      cols2, self.connections))
+            r_tables = []
+            r_other_tables = []
+            for i in range(len(self.tabular_datas)):
+                r_tables.append(redist_tables[1][i].vstack(*[redist_tables[j][i] for j in
+                                                             range(1, len(self.tabular_datas))]))
+                r_other_tables.append(redist_other_tables[1][i].vstack(*[redist_other_tables[j][i] for j in
+                                                                         range(1, len(self.tabular_datas))]))
 
-        def external_join(table1, table2):
-            return table1.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
-        for i in range(len(external_data)):
-            futures.append(self.executor.submit(external_join, external_data[i], self.tabular_datas[i]))
-        results = []
-        for f in concurrent.futures.as_completed(futures):
-            results.append(f.result())
-        return collections.OrderedDict(reduce(lambda a,b : {**a, **b}, results))
+            def partition_join(table1, table2):
+                return table1.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
 
+            futures = []
+            for i in range(len(r_tables)):
+                futures.append(self.executor.submit(partition_join, r_tables[i], r_other_tables[i]))
+            results = []
+            for f in concurrent.futures.as_completed(futures):
+                results.append(f.result())
+            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
 
     def aggregate(self, projcols, groupcols=None):
         pass
@@ -149,12 +167,13 @@ class DistTabularData(TabularData):
             results.append(f.result())
 
         if isinstance(results[0], int):
-            return reduce(lambda a,b: a + b, results)
+            return reduce(lambda a, b: a + b, results)
         else:
             def reducer(accumulator, element):
                 for key, value in element.items():
                     accumulator[key] = accumulator.get(key, 0) + value
                 return accumulator
+
             return reduce(reducer, results)
 
     def countd(self, collist=None):
@@ -190,22 +209,26 @@ class DistTabularData(TabularData):
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
-            self.combined_data = collections.OrderedDict(reduce(lambda a, b: {**a, **b}, results))
+            self.combined_data = collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
         return self.combined_data
 
     def __init__(self, executor, connections, tabular_datas):
-        self.tabular_datas = WeakList(tabular_datas)
-        self.connections = WeakList(connections)
+        self.tabular_datas = tabular_datas
+        self.connections = connections
         self.executor = executor
         self.combined_data = None
 
     def filter(self, *selcols):
         def get_filter(table, s):
             return table.filter(s).cdata
+
         futures = []
         for t in self.tabular_datas:
             futures.append(self.executor.submit(get_filter, t, selcols))
         results = []
         for f in concurrent.futures.as_completed(futures):
             results.append(f.result())
-        return collections.OrderedDict(reduce(lambda a, b: {**a, **b}, results))
+        return collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
+
+
+copyreg.pickle(DistTabularData, TabularDataRemoteStub.serializeObj);

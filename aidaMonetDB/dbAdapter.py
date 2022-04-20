@@ -105,6 +105,7 @@ class DBCMonetDB(DBC):
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
+        self._extDBCcon = None;
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
