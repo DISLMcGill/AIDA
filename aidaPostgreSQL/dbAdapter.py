@@ -99,7 +99,7 @@ class DBCPostgreSQL(DBC):
         #logging.debug("__new__ called for {}".format(jobName));
         con = psycopg2.connect(dbname=dbname,user=username,password=password,host='localhost');
         con.autocommit = True
-        #logging.debug("connection test for {} result {}".format(jobName, con));
+        #logging.debug("connection tests for {} result {}".format(jobName, con));
         con.close();
         return super().__new__(cls);
 

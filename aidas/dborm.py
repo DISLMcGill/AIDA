@@ -1,3 +1,4 @@
+import logging
 import time;
 import weakref;
 import collections;
@@ -934,9 +935,11 @@ class UserTransform(Transform):
 class ExternalDataTransform(Transform):
 
     def __init__(self, func, dbc, *args, **kwargs):
+        logging.info('[{}] creating external data...'.format(time.ctime()))
         self.__loadfunc__ = func;
         self._dbc_ = weakref.proxy(dbc);
         self.__args__ = args;
+        logging.info('Args are {}'.format(args))
         self.__kwargs__ = kwargs;
         self.__data__ = self.__matrix__ = self.__columns__ = None;
 
@@ -947,6 +950,7 @@ class ExternalDataTransform(Transform):
 
         #execute the external data load function
         data = func(*args, **kwargs);
+        logging.info('inside process transform, data = \n{}'.format(data))
         #external data load functions are allowed to return data as a Dictionary or a (numpy matrix, [c1, c2, ...]) tuple.
         if(isinstance(data, collections.OrderedDict)):
             self.__data__ = data;

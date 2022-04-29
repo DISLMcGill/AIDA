@@ -5,7 +5,7 @@ host = 'localhost'
 dbname = 'bixi'
 user = 'bixi'
 passwd = 'bixi'
-jobName = 'test'
+jobName = 'tests'
 port = 44660
 
 SF = 1 #used by query 11. indicate the scale factor of the tpch database.

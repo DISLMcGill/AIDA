@@ -1,0 +1,35 @@
+list_tables:
+  postgres: |-
+    SELECT table_name as tableName
+    FROM information_schema.tables 
+    WHERE table_schema <> 'pg_catalog' and table_schema <> 'information_schema'    
+    AND table_type = 'BASE TABLE';
+
+  monet: |-
+
+table_meta_data:
+  postgres: |-
+    SELECT table_schema as schemaName, table_name as tableName, column_name as columnName, data_type as columnType, 
+    0 as columnSize, ordinal_position as columnPos, is_nullable as columnNullable
+    FROM information_schema.columns 
+    WHERE table_name = '{}' 
+    ORDER BY schemaName, tableName, columnPos;
+
+create_table:
+  postgres: |-
+    DROP TABLE IF EXISTS {0}
+    CREATE UNLOGGED TABLE {0} ({1}); 
+
+copy_data:
+  postgres: |-
+    COPY {0} ({1}) FROM STDIN;
+
+row_num:
+  postgres: |-
+    SELECT COUNT(*) FROM {0};
+
+column_num:
+  postgres: |-
+    SELECT COUNT(*) FROM information_schema.columns WHERE table_name =\'{}\'
+    
+    

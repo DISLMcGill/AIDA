@@ -2,10 +2,10 @@ import os
 from aida.aida import *
 
 host = 'localhost'
-dbname = 'sf01'
-user = 'sf01'
-passwd = 'sf01'
-jobName = 'test'
+dbname = 'sf00'
+user = 'sf00'
+passwd = 'sf00'
+jobName = 'tests'
 port = 44660
 
 

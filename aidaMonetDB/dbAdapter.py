@@ -107,7 +107,7 @@ class DBCMonetDB(DBC):
         """See if the connection works, authentication fails etc. In which case we do not need to continue with the object creation"""
         #logging.debug("__new__ called for {}".format(jobName));
         con = pymonetdb.Connection(dbname,hostname='localhost',username=username,password=password,autocommit=True);
-        #logging.debug("connection test for {} result {}".format(jobName, con));
+        #logging.debug("connection tests for {} result {}".format(jobName, con));
         con.close();
         return super().__new__(cls);
 

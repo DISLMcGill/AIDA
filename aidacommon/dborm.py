@@ -386,6 +386,8 @@ class TabularData(metaclass=ABCMeta):
     @abstractmethod
     def preview_lineage(self): pass;
 
+    def _loadExtData_(cls, func, dbc, *args, **kwargs): pass
+
     @abstractmethod
     def __add__(self, other): pass;
 

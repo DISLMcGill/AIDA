@@ -1,1 +1,1 @@
-__name__ = 'test'
+__name__ = 'tests'

@@ -298,7 +298,7 @@ def build_single_node(root, strategy, source1, source2=None):
 
 class SplitJoinScheduler(TransformScheduler):
 
-    # do_semi is just for purpose of the test
+    # do_semi is just for purpose of the tests
     def build_lineage(self, root: TabularData):
         # we need to push down the filters to lower levels if there is any
         new_root = pushdown_filters(root)

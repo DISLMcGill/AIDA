@@ -93,7 +93,7 @@ class PandasTest(unittest.TestCase):
         print(real)
 
     def runQuery(self, q):
-        print('-------------test q{}-------------'.format(q))
+        print('-------------tests q{}-------------'.format(q))
         r = getattr(tpchqueries, 'q' + q)(db)
         if (hasattr(r, '_genSQL_')):
             r.loadData()
