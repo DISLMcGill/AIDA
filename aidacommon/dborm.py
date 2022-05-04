@@ -476,6 +476,9 @@ class TabularData(metaclass=ABCMeta):
     @abstractmethod
     def cdata(self): pass;
 
+    @abstractmethod
+    def hash_partition(self, index, keys, cols, connections): pass;
+
 #This is an object in the database.
 class DBObject(metaclass=ABCMeta):
     pass;

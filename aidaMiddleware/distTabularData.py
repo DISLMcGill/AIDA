@@ -1,6 +1,6 @@
 import concurrent.futures
 import collections
-import pandas as pd
+import numpy as np
 import copyreg;
 
 from functools import reduce
@@ -10,9 +10,6 @@ from aidacommon.rdborm import TabularDataRemoteStub
 
 
 class DistTabularData(TabularData):
-    def get_cdata(self, table):
-        return table.cdata
-
     def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
         if 3 % 2 == 0:  # Use block join
             if self.combined_data is None:
@@ -31,21 +28,25 @@ class DistTabularData(TabularData):
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
-            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
+            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
         else:  # Use hash join
-            redist_tables = []
-            redist_other_tables = []
-            for i in range(len(self.tabular_datas)):
-                redist_tables.append(self.tabular_datas[i].hash_partition(i, src1joincols, cols1, self.connections))
-                redist_other_tables.append(otherTable.tabular_datas[i].hash_partition(i, src2joincols,
-                                                                                      cols2, self.connections))
-            r_tables = []
-            r_other_tables = []
-            for i in range(len(self.tabular_datas)):
-                r_tables.append(redist_tables[1][i].vstack(*[redist_tables[j][i] for j in
-                                                             range(1, len(self.tabular_datas))]))
-                r_other_tables.append(redist_other_tables[1][i].vstack(*[redist_other_tables[j][i] for j in
-                                                                         range(1, len(self.tabular_datas))]))
+            def partition_table(table, joincols, cols):
+                tables = []
+                for i in self.executor.map(lambda j: table[j].hash_partition(j, joincols, cols, self.connections), range(len(table))):
+                    tables.append(i)
+                return tables
+
+            redist_tables = partition_table(self.tabular_datas, src1joincols, cols1)
+            redist_other_tables = partition_table(otherTable.tabular_datas, src2joincols, cols2)
+
+            def stack_table(tables):
+                t = []
+                for i in self.executor.map(lambda j: tables[0][j].vstack(tables[j][k] for k in range(1, len(self.tabular_datas)))):
+                    t.append(i)
+                return t
+
+            r_tables = stack_table(redist_tables)
+            r_other_tables = stack_table(redist_other_tables)
 
             def partition_join(table1, table2):
                 return table1.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
@@ -56,7 +57,7 @@ class DistTabularData(TabularData):
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
-            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
+            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
 
     def aggregate(self, projcols, groupcols=None):
         pass
@@ -209,7 +210,8 @@ class DistTabularData(TabularData):
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
-            self.combined_data = collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
+            self.combined_data = collections.OrderedDict(
+                (k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
         return self.combined_data
 
     def __init__(self, executor, connections, tabular_datas):
@@ -228,7 +230,7 @@ class DistTabularData(TabularData):
         results = []
         for f in concurrent.futures.as_completed(futures):
             results.append(f.result())
-        return collections.OrderedDict((k, reduce(lambda a, b: [*a[k],*b[k]], results)) for k in results[0])
+        return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
 
 
 copyreg.pickle(DistTabularData, TabularDataRemoteStub.serializeObj);

@@ -1375,14 +1375,17 @@ class DBTable(TabularData):
             indices[h % len(connections)].append(i)
         tables = []
 
+        t = [self[i[0]] for i in indices]
+        for i in range(len(connections)):
+            for j in range(1, len(indices[i])):
+                t[i] = t[i].vstack(self[indices[i][j]])
+
         for i in range(len(connections)):
             if i != index:
-                tables.append(connections[i]._L(load_data, self[indices[i]].cdata))
+                tables.append(connections[i]._L(load_data, t[i].cdata))
             else:
-                tables.append(self[indices[i]].cdata)
+                tables.append(t[i])
         return tables
-
-
 
 
 class DataFrame(TabularData):
@@ -1413,6 +1416,27 @@ class DataFrame(TabularData):
     @property
     def tableName(self):
         return self.__tableName__ if(self.__tableName__) else self.__source__.tableName;
+
+    def hash_partition(self, index, keys, cols, connections):
+        def load_data(df):
+            return df
+        indices = [[] for i in range(len(connections))]
+        for i in range(len(self.rows[keys])):
+            h = hash(self.rows[keys][i])
+            indices[h % len(connections)].append(i)
+        tables = []
+
+        t = [self[i[0]] for i in indices]
+        for i in range(len(connections)):
+            for j in range(1, len(indices[i])):
+                t[i] = t[i].vstack(self[indices[i][j]])
+
+        for i in range(len(connections)):
+            if i != index:
+                tables.append(connections[i]._L(load_data, t[i].cdata))
+            else:
+                tables.append(t[i])
+        return tables
 
     @property
     def isDBQry(self):
