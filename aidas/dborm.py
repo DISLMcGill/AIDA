@@ -14,6 +14,7 @@ from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
 from aidacommon.utils import VirtualOrderedColumnsDict;
+from concurrent.futures import ThreadPoolExecutor;
 
 #Simple wrapper class to encapsulate a query string.
 class SQLQuery:
@@ -1380,11 +1381,14 @@ class DBTable(TabularData):
             for j in range(1, len(indices[i])):
                 t[i] = t[i].vstack(self[indices[i][j]])
 
-        for i in range(len(connections)):
-            if i != index:
-                tables.append(connections[i]._L(load_data, t[i].cdata))
-            else:
-                tables.append(t[i])
+        ind = [range(len(connections))]
+        ind.remove(index)
+
+        with ThreadPoolExecutor() as executor:
+            for i in executor.map(lambda j: connections[j].L(load_data, t[j].cdata), ind):
+                tables.append(i)
+
+        tables.insert(index, t[index])
         return tables
 
 
@@ -1431,11 +1435,14 @@ class DataFrame(TabularData):
             for j in range(1, len(indices[i])):
                 t[i] = t[i].vstack(self[indices[i][j]])
 
-        for i in range(len(connections)):
-            if i != index:
-                tables.append(connections[i]._L(load_data, t[i].cdata))
-            else:
-                tables.append(t[i])
+        ind = [range(len(connections))]
+        ind.remove(index)
+
+        with ThreadPoolExecutor() as executor:
+            for i in executor.map(lambda j: connections[j].L(load_data, t[j].cdata), ind):
+                tables.append(i)
+
+        tables.insert(index, t[index])
         return tables
 
     @property

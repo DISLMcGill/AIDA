@@ -11,7 +11,7 @@ from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
 from aidaMiddleware.distTabularData import DistTabularData;
-from concurrent.futures import ThreadPoolExecutor, wait, as_completed;
+from concurrent.futures import ThreadPoolExecutor, as_completed;
 
 DBC._dataFrameClass_ = DataFrame;
 
