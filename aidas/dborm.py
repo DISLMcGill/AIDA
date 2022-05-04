@@ -1596,7 +1596,7 @@ class DBTable(TabularData):
             return DataFrame(self, VStackTransform([self, *otherdatalist]));
         else:
             return DataFrame(self, VStackTransform([self, otherdatalist]));
-        #return DataFrame(self, VStackTransform([self, *otherdatalist]));
+        #return dataframe(self, VStackTransform([self, *otherdatalist]));
 
     #For stacking columns side by side.
     def hstack(self, otherdatalist, colprefixlist=None):
@@ -1925,7 +1925,7 @@ class DataFrame(TabularData):
             return self.checkType(self.__source__)
 
     """
-    Check if the object is DataFrame or TabularData
+    Check if the object is dataframe or TabularData
     """
     def checkType(self, source):
         if isinstance(source, DBTable):
@@ -1990,9 +1990,9 @@ class DataFrame(TabularData):
 
     @property
     def rows(self):
-        #logging.debug("DataFrame: id {}, {} : rows called.".format(id(self), self.tableName));
+        #logging.debug("dataframe: id {}, {} : rows called.".format(id(self), self.tableName));
         if(self.__data__ is None):
-            logging.debug("DataFrame: {} : rows called, need to produce data.".format(self.tableName));
+            logging.debug("dataframe: {} : rows called, need to produce data.".format(self.tableName));
             if(self.isDBQry):
                 from pd_transforms.transform_scheduler import SplitJoinScheduler, HeuristicScheduler
                 use_scheduler = True
@@ -2011,18 +2011,18 @@ class DataFrame(TabularData):
                 self.__columns__ = self.__transform__.columns;
                 self.__matrix__ = self.__transform__.matrix;
                 self.__rowNames__ = self.__transform__.rowNames;
-                #logging.debug("rows : this DataFrame is of instance AlgebraicVectorTransform and produced {} columns {}".format(len(self.__columns__), time.time()));
+                #logging.debug("rows : this dataframe is of instance AlgebraicVectorTransform and produced {} columns {}".format(len(self.__columns__), time.time()));
             elif(isinstance(self.__transform__, UserTransform) or isinstance(self.__transform__, ExternalDataTransform) or isinstance(self.__transform__, VirtualDataTransform) or isinstance(self.__transform__, StackTransform)):
-                #logging.debug("DataFrame: {} : rows called retrieving source rows.".format(self.tableName));
+                #logging.debug("dataframe: {} : rows called retrieving source rows.".format(self.tableName));
                 self.__data__ = self.__transform__.rows;
-                #logging.debug("DataFrame: {} : rows transform rows retrieved.".format(self.tableName));
+                #logging.debug("dataframe: {} : rows transform rows retrieved.".format(self.tableName));
                 self.__columns__ = self.__transform__.columns;
-                #logging.debug("DataFrame: {} : rows transform columns retrieved.".format(self.tableName));
+                #logging.debug("dataframe: {} : rows transform columns retrieved.".format(self.tableName));
                 if(self.__transform__.hasMatrix):
                     self.__matrix__ = self.__transform__.matrix;
-                    #logging.debug("DataFrame: {} : rows transform matrix retrieved.".format(self.tableName));
+                    #logging.debug("dataframe: {} : rows transform matrix retrieved.".format(self.tableName));
             else:
-                #logging.debug("DataFrame: {} : rows called retrieving source rowsNtransform.".format(self.tableName));
+                #logging.debug("dataframe: {} : rows called retrieving source rowsNtransform.".format(self.tableName));
                 (srcrows, srctransformlist, rowNames) = self.__source__.rowsNtransform;
                 self.__data__ = self.__transform__.applyTransform(srcrows, srctransformlist);
                 self.__rowNames__ = rowNames;
@@ -2038,7 +2038,7 @@ class DataFrame(TabularData):
                 #logging.debug('Reference count to {}&{} is {}&{} before disposing lineage from {}'.format(self.__source__[0].tableName, self.__source__[1].tableName, sys.getrefcount(self.__source__[0]), sys.getrefcount(self.__source__[1]), self.tableName));
             self.__source__ = self.__transform__ = None;
 
-        #logging.debug("DataFrame: id {}, {} : returning rows.".format(id(self), self.tableName));
+        #logging.debug("dataframe: id {}, {} : returning rows.".format(id(self), self.tableName));
         return self.__data__;
 
     @property
@@ -2228,7 +2228,7 @@ class DataFrame(TabularData):
                         od['_c{}_'.format(i)] = data[i];
             #logging.debug('DEBUG: onesmatrix: returning data.');
             return od;
-        #return DataFrame(None, VirtualDataTransform(onesmatrix, dbc if dbc is not None else self.dbc, cols) );
+        #return dataframe(None, VirtualDataTransform(onesmatrix, dbc if dbc is not None else self.dbc, cols) );
         return DataFrame(None, VirtualDataTransform(onesmatrix, dbc, colmeta, func, tblcols=cols), dbc=dbc );
 
     def __toUDF__(self):

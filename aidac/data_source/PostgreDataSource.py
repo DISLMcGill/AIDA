@@ -1,5 +1,4 @@
-from typing import Iterator, Dict, Any, Optional
-import io
+from __future__ import annotations
 
 import numpy as np
 
@@ -30,43 +29,54 @@ class PostgreDataSource(DataSource):
         self.__cursor = self.__conn.cursor()
 
     def ls_tables(self):
-        qry = ql.load_query('list_tables').format(self.dbname)
+        qry = ql.list_tables()
         return self._execute(qry).get_result_ls()
 
-    def import_table(self, table: str, data):
-        # todo: data type should be changed, maybe also create a col object for cols
+    def import_table(self, table: str, cols: dict, data):
+        # todo: allow to specify the columns to be inserted, maybe also create a col object for cols
+        # todo: right now data iterate rows, rooms for optimization later
+        column_name = ', '.join(list(cols.keys()))
+        with self.__cursor.copy(ql.copy_data(table, column_name)) as copy:
+            for row in data:
+                copy.write_row(row)
 
-        with self.__cursor.copy(ql.load_query('copy_data')) as copy:
-            copy.write(data)
-
-    def table_meta_data(self, table):
-        qry = ql.load_query('table_meta_data').format(table)
+    def table_meta_data(self, table: str):
+        qry = ql.table_meta_data(table)
         self._execute(qry)
 
-    def cardinality(self, table):
+    def cardinality(self, table: str):
         """
 
         @param table:
         @return:
         """
-        qry = ql.load_query('row_number').format(table)
+        qry = ql.row_card(table)
         rows = self._execute(qry).get_value()
-        qry = ql.load_query('column_number').format(table)
+        qry = ql.column_card(table)
         columns = self._execute(qry).get_value()
         return rows, columns
 
-    def create_table(self, table_name, cols):
+    def create_table(self, table_name: str, cols: dict):
+        """
+        create a temporary table inside the db
+        @param table_name:
+        @param cols: data column definition
+        @return: in db column definition
+        """
         col_def = []
-        for cname, ctype in cols:
+        for cname, ctype in cols.items():
             db_type = typeConverter[ctype]
-            col_def.append(str(cname)+': '+db_type)
+            col_def.append(str(cname)+' '+db_type)
         col_def = ', '.join(col_def)
 
-        qry = ql.load_query('create_table').format(table_name, col_def)
+        qry = ql.create_table(table_name, col_def)
         self._execute(qry)
+        return col_def
 
-    def _execute(self, qry) -> ResultSet:
+    def _execute(self, qry) -> ResultSet | None:
         self.__cursor.execute(qry)
-        rs = ResultSet(self.__cursor.description, self.__cursor.fetchall())
-        return rs
-
+        if self.__cursor.description is not None:
+            # as no record returned for insert, update queries
+            rs = ResultSet(self.__cursor.description, self.__cursor.fetchall())
+            return rs
+        return None

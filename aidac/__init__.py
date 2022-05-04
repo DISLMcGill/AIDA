@@ -1,5 +1,5 @@
-from aidac.DataFrame.TabularData import *
-from aidac.Scheduler import Scheduler
+from aidac.dataframe.DataFrame import *
+from aidac.dataframe.Scheduler import Scheduler
 from aidac.data_source.DataSourceManager import DataSourceManager
 
 __name__ = 'aidac'

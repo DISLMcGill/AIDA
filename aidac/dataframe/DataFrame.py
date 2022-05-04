@@ -3,14 +3,14 @@ from abc import abstractmethod
 
 from aidac import Scheduler
 from aidac.data_source.DataSource import DataSource
-from aidac.exec.Pipe import Pipe
+from aidac.exec.Executable import Executable
 import pandas as pd
 import uuid
 
 sc = Scheduler.Scheduler()
 
 
-class TabularData:
+class DataFrame:
     def __init__(self, table_name=None):
         self.__tid__ = uuid.uuid4()
         self.tbl_name = table_name
@@ -33,7 +33,7 @@ class TabularData:
 
     def __repr__(self) -> str:
         """
-        @return: string representation of current tabularData
+        @return: string representation of current dataframe
         """
         pass
 
@@ -41,8 +41,11 @@ class TabularData:
     def filter(self, exp: str): pass
 
     @abstractmethod
-    def join(self, other: TabularData, left_on: list | str, right_on: list | str, join_type: str):
+    def join(self, other: DataFrame, left_on: list | str, right_on: list | str, join_type: str):
         sc.schedule(self)
+        """
+        May involve mixed data source
+        """
 
     @abstractmethod
     def aggregate(self, projcols, groupcols=None): pass
@@ -59,6 +62,9 @@ class TabularData:
     @abstractmethod
     def preview_lineage(self): pass
 
+    """
+    All binary algebraic operations may involve data from different data source
+    """
     @abstractmethod
     def __add__(self, other): pass
 
@@ -100,72 +106,69 @@ class TabularData:
     def __getitem__(self, item): pass
 
     #WARNING !! Permanently disabled  !
-    #Weakref proxy invokes this function for some reason, which is forcing the TabularData objects to materialize.
+    #Weakref proxy invokes this function for some reason, which is forcing the dataframe objects to materialize.
     #@abstractmethod
     #def __len__(self): pass;
 
     @property
     @abstractmethod
-    def shape(self): pass;
+    def shape(self): pass
 
     @abstractmethod
-    def vstack(self, othersrclist): pass;
+    def vstack(self, othersrclist): pass
 
     @abstractmethod
-    def hstack(self, othersrclist, colprefixlist=None): pass;
+    def hstack(self, othersrclist, colprefixlist=None): pass
 
     @abstractmethod
-    def describe(self): pass;
+    def describe(self): pass
 
     @abstractmethod
-    def sum(self, collist=None): pass;
+    def sum(self, collist=None): pass
 
     @abstractmethod
-    def avg(self, collist=None): pass;
+    def avg(self, collist=None): pass
 
     @abstractmethod
-    def count(self, collist=None): pass;
+    def count(self, collist=None): pass
 
     @abstractmethod
-    def countd(self, collist=None): pass;
+    def countd(self, collist=None): pass
 
     @abstractmethod
-    def countn(self, collist=None): pass;
+    def countn(self, collist=None): pass
 
     @abstractmethod
-    def max(self, collist=None): pass;
+    def max(self, collist=None): pass
 
     @abstractmethod
-    def min(self, collist=None): pass;
+    def min(self, collist=None): pass
 
     @abstractmethod
-    def head(self,n=5): pass;
+    def head(self,n=5): pass
 
     @abstractmethod
-    def tail(self,n=5): pass;
-
-    @abstractmethod
-    def _U(self, func, *args, **kwargs): pass;
-
-    @abstractmethod
-    def _genSQL_(self, *args, **kwargs): pass;
+    def tail(self,n=5): pass
 
     @property
     @abstractmethod
-    def cdata(self): pass;
+    def cdata(self): pass
 
 
-class LocalTable(TabularData):
-    def __init__(self, data, table_name=None):
+class LocalTable(DataFrame):
+    def __init__(self, data, table_name=None, local=True):
         super().__init__(table_name)
         self.__data__ = data
+        self.__is_local = local
 
     def read_csv(cls, path, delimiter, header) -> LocalTable:
         df = pd.read_csv(path, delimiter=delimiter, header=header)
         return LocalTable(df)
 
-    def join(self, other: TabularData, left_on: list | str, right_on: list | str, join_type: str):
+    def join(self, other: DataFrame, left_on: list | str, right_on: list | str, join_type: str):
         pass
+
+
 
     @property
     def columns(self):
@@ -175,8 +178,8 @@ class LocalTable(TabularData):
         return cols
 
 
-class RemoteTable(TabularData):
-    def __init__(self, source: DataSource, tablename: str, parent: TabularData = None, table_name: str=None):
+class RemoteTable(DataFrame):
+    def __init__(self, source: DataSource, tablename: str, parent: DataFrame = None, table_name: str=None):
         super().__init__(table_name)
         self.source = source
         self.tbl_name = tablename
@@ -202,7 +205,4 @@ class RemoteTable(TabularData):
     def _materialize(self):
         pipes = self._schedule()
         self.__data__ = pipes.process()
-
-    def _schedule(self) -> Pipe:
-        pass
 

@@ -1,5 +1,6 @@
 import unittest
 
+from aidac.common.DataIterator import generator
 from aidac.data_source.PostgreDataSource import PostgreDataSource
 import pandas as pd
 import  numpy as np
@@ -19,8 +20,9 @@ class DataSourceTest(unittest.TestCase):
 
     def test_transfer(self):
         df = pd.DataFrame({'col1': np.random.rand(1000), 'col2': np.random.rand(1000)})
-        self.ds.create_table('temp1', {'col1': np.float, 'col2': np.float})
-        self.ds.import_table('temp1', df)
+        cols = {'col1': np.float64, 'col2': np.float64}
+        self.ds.create_table('temp1', cols)
+        self.ds.import_table('temp1', cols, generator(df))
 
 if __name__ == '__main__':
     unittest.main()

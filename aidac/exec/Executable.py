@@ -1,4 +1,4 @@
-class Pipe:
+class Executable:
     def __init__(self):
         pass
 

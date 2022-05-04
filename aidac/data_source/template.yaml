@@ -17,8 +17,8 @@ table_meta_data:
 
 create_table:
   postgres: |-
-    DROP TABLE IF EXISTS {0}
-    CREATE UNLOGGED TABLE {0} ({1}); 
+    DROP TABLE IF EXISTS {0};
+    CREATE TEMPORARY TABLE {0} ({1}); 
 
 copy_data:
   postgres: |-

@@ -23,7 +23,7 @@ class DataSource:
         """
         pass
 
-    def import_table(self, table_name, data):
+    def import_table(self, table_name, cols, data):
         """
         send data to the data source as a table
         @param table_name: insert to table
@@ -32,19 +32,19 @@ class DataSource:
         """
         pass
 
-    def create_table(self, table_name, cols):
+    def create_table(self, table_name: str, cols: dict):
         """
         create a table using the table name and columns specified
+        @param cols:
         @param table_name: table name
-        @param kwargs: column name and type pair as dictionary
         @return:
         """
         pass
 
-    def _execute(self, query):
+    def _execute(self, query: str):
         pass
 
-    def table_meta_data(self, table):
+    def table_meta_data(self, table: str):
         """
         Retrieve the column metadata of a table
         @param table:

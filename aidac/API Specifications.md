@@ -68,29 +68,14 @@ joind = movies.join(reviews, movies, on='title', condition=None)
 
 stats = joind[['rate', 'box_office']] # has to be local
 
-# to use remote model -> nice to have?
+# to use remote model, this is a feature nice to have, ignore it for now
 def customized_func(stats)
     model = sklearn.LinearRegression()
     model.fit(stats['rate'], stats['box_office'])
-
-
 aidac.persist(model)
-
-# 1. data preprocessing, not the training
-# 2. lifespan of UDF objects
-# 3. scheduler architecture
-# 4. monetdb datasource 
-
-import pandas as pd
-
-df = pd.Dataframe()
-pd.join(df1, df2)
-df.join(df2)
 
 ```
 
-
-Check APIs, what we want to do, find feasible ones
 
 
 
