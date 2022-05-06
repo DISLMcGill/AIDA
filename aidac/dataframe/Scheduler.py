@@ -1,4 +1,4 @@
-from aidac import DataFrame
+from aidac.dataframe import DataFrame
 from aidac.data_source.DataSourceManager import DataSourceManager
 from aidac.exec.Executable import Executable
 

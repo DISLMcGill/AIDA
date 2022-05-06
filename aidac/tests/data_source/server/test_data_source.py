@@ -3,12 +3,12 @@ import unittest
 from aidac.common.DataIterator import generator
 from aidac.data_source.PostgreDataSource import PostgreDataSource
 import pandas as pd
-import  numpy as np
+import numpy as np
 
 
 class DataSourceTest(unittest.TestCase):
     def setUp(self) -> None:
-        from aidac.tests.DataSource.server.ds_config import PG_CONFIG
+        from aidac.tests.data_source.server.ds_config import PG_CONFIG
         config = PG_CONFIG
         self.ds = PostgreDataSource(config['host'], config['user'], config['passwd'], config['port'], config['dbname'])
         self.ds.connect()
