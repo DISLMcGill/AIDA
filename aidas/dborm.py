@@ -1370,17 +1370,18 @@ class DBTable(TabularData):
     def hash_partition(self, index, keys, cols, connections):
         def load_data(df):
             return df
+        start = time.perf_counter()
         indices = [[] for i in range(len(connections))]
         for i in range(len(self.rows[keys])):
             h = hash(self.rows[keys][i])
             indices[h % len(connections)].append(i)
         tables = []
+        chkpt_1 = time.perf_counter()
 
         t = [self[i[0]] for i in indices]
         for i in range(len(connections)):
-            for j in range(1, len(indices[i])):
-                t[i] = t[i].vstack(self[indices[i][j]])
-
+            t[i] = t[i].vstack([self[indices[i][j]] for i in range(1, len(indices[i])])
+        chkpt_2 = time.perf_counter()
         ind = [range(len(connections))]
         ind.remove(index)
 
@@ -1389,6 +1390,10 @@ class DBTable(TabularData):
                 tables.append(i)
 
         tables.insert(index, t[index])
+        chkpt_3 = time.perf_counter()
+        print("hash time: {}".format(chkpt_1 - start))
+        print("stack tables: {}".format(chkpt_2-chkpt_1))
+        print("send tables: {}".format(chkpt_3-chkpt_2))
         return tables
 
 
@@ -1424,17 +1429,18 @@ class DataFrame(TabularData):
     def hash_partition(self, index, keys, cols, connections):
         def load_data(df):
             return df
+        start = time.perf_counter()
         indices = [[] for i in range(len(connections))]
         for i in range(len(self.rows[keys])):
             h = hash(self.rows[keys][i])
             indices[h % len(connections)].append(i)
         tables = []
+        chkpt_1 = time.perf_counter()
 
         t = [self[i[0]] for i in indices]
         for i in range(len(connections)):
-            for j in range(1, len(indices[i])):
-                t[i] = t[i].vstack(self[indices[i][j]])
-
+            t[i] = t[i].vstack([self[indices[i][j]] for j in range(1, len(indices[i]))])
+        chkpt_2 = time.perf_counter()
         ind = [range(len(connections))]
         ind.remove(index)
 
@@ -1443,7 +1449,12 @@ class DataFrame(TabularData):
                 tables.append(i)
 
         tables.insert(index, t[index])
+        chkpt_3 = time.perf_counter()
+        print("hash time: {}".format(chkpt_1 - start))
+        print("stack tables: {}".format(chkpt_2-chkpt_1))
+        print("send tables: {}".format(chkpt_3-chkpt_2))
         return tables
+
 
     @property
     def isDBQry(self):

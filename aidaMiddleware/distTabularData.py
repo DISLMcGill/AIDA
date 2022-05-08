@@ -2,6 +2,7 @@ import concurrent.futures
 import collections
 import numpy as np
 import copyreg;
+import time;
 
 from functools import reduce
 from aidacommon.dborm import TabularData, COL, JOIN
@@ -30,6 +31,7 @@ class DistTabularData(TabularData):
                 results.append(f.result())
             return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
         else:  # Use hash join
+            start = time.perf_counter()
             def partition_table(table, joincols, cols):
                 tables = []
                 for i in self.executor.map(lambda j: table[j].hash_partition(j, joincols, cols, self.connections), range(len(table))):
@@ -38,7 +40,7 @@ class DistTabularData(TabularData):
 
             redist_tables = partition_table(self.tabular_datas, src1joincols, cols1)
             redist_other_tables = partition_table(otherTable.tabular_datas, src2joincols, cols2)
-
+            chkpt_1 = time.perf_counter()
             def stack_table(tables):
                 t = []
                 for i in self.executor.map(lambda j: tables[0][j].vstack(tables[j][k] for k in range(1, len(self.tabular_datas)))):
@@ -47,7 +49,7 @@ class DistTabularData(TabularData):
 
             r_tables = stack_table(redist_tables)
             r_other_tables = stack_table(redist_other_tables)
-
+            chkpt_2 = time.perf_counter()
             def partition_join(table1, table2):
                 return table1.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
 
@@ -57,6 +59,10 @@ class DistTabularData(TabularData):
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
+            chkpt_3 = time.perf_counter()
+            print("hash partition time: {}".format(chkpt_1-start))
+            print("vstack time: {}".format(chkpt_2-chkpt_1))
+            print("join time: {}".format(chkpt_3-chkpt_2))
             return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
 
     def aggregate(self, projcols, groupcols=None):
@@ -232,5 +238,7 @@ class DistTabularData(TabularData):
             results.append(f.result())
         return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
 
+    def hash_partition(self, index, keys, cols, connections):
+        pass
 
 copyreg.pickle(DistTabularData, TabularDataRemoteStub.serializeObj);
