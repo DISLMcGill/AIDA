@@ -43,33 +43,34 @@ class DistTabularData(TabularData):
             chkpt_1 = time.perf_counter()
             def stack_table(tables):
                 t = []
-                for i in self.executor.map(lambda j: tables[0][j].vstack(tables[j][k] for k in range(1, len(self.tabular_datas)))):
+                for i in self.executor.map(lambda j: tables[0][j].vstack(*[tables[j][k] for k in range(1, len(self.tabular_datas))]), range(len(self.tabular_datas))):
                     t.append(i)
                 return t
 
             r_tables = stack_table(redist_tables)
             r_other_tables = stack_table(redist_other_tables)
             chkpt_2 = time.perf_counter()
-            def partition_join(table1, table2):
-                return table1.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
+            def partition_join(i):
+                return r_tables[i].join(r_other_tables[i], src1joincols, src2joincols, cols1, cols2, join)
 
-            futures = []
-            for i in range(len(r_tables)):
-                futures.append(self.executor.submit(partition_join, r_tables[i], r_other_tables[i]))
             results = []
-            for f in concurrent.futures.as_completed(futures):
-                results.append(f.result())
+            for i in self.executor.map(partition_join, range(len(r_tables))):
+                results.append(i)
             chkpt_3 = time.perf_counter()
             print("hash partition time: {}".format(chkpt_1-start))
             print("vstack time: {}".format(chkpt_2-chkpt_1))
             print("join time: {}".format(chkpt_3-chkpt_2))
-            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
+            return DistTabularData(self.executor, self.connections, results)
 
     def aggregate(self, projcols, groupcols=None):
         pass
 
     def project(self, projcols):
-        pass
+        results = []
+        for i in self.executor.map(lambda t: t.project(projcols), self.tabular_datas):
+            results.append(i)
+
+        return DistTabularData(self.executor, self.connections, results)
 
     def order(self, orderlist):
         pass
@@ -118,7 +119,11 @@ class DistTabularData(TabularData):
         pass
 
     def __getitem__(self, item):
-        pass
+        results = []
+        for i in self.executor.map(lambda t: t.__getitem__(item), self.tabular_datas):
+            results.append(i)
+
+        return DistTabularData(self.executor, self.connections, results)
 
     @property
     def shape(self):
@@ -212,7 +217,7 @@ class DistTabularData(TabularData):
         if self.combined_data is None:
             futures = []
             for t in self.tabular_datas:
-                futures.append(self.executor.submit(t.cdata))
+                futures.append(self.executor.submit(lambda: t.cdata))
             results = []
             for f in concurrent.futures.as_completed(futures):
                 results.append(f.result())
@@ -227,16 +232,11 @@ class DistTabularData(TabularData):
         self.combined_data = None
 
     def filter(self, *selcols):
-        def get_filter(table, s):
-            return table.filter(s).cdata
-
-        futures = []
-        for t in self.tabular_datas:
-            futures.append(self.executor.submit(get_filter, t, selcols))
         results = []
-        for f in concurrent.futures.as_completed(futures):
-            results.append(f.result())
-        return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
+        for i in self.executor.map(lambda t: t.filter(selcols), self.tabular_datas):
+            results.append(i)
+
+        return DistTabularData(self.executor, self.connections, results)
 
     def hash_partition(self, index, keys, cols, connections):
         pass

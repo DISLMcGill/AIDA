@@ -1382,11 +1382,11 @@ class DBTable(TabularData):
         for i in range(len(connections)):
             t[i] = t[i].vstack([self[indices[i][j]] for i in range(1, len(indices[i])])
         chkpt_2 = time.perf_counter()
-        ind = [range(len(connections))]
+        ind = list(range(len(connections)))
         ind.remove(index)
 
         with ThreadPoolExecutor() as executor:
-            for i in executor.map(lambda j: connections[j].L(load_data, t[j].cdata), ind):
+            for i in executor.map(lambda j: connections[j]._L(load_data, t[j].cdata), ind):
                 tables.append(i)
 
         tables.insert(index, t[index])
