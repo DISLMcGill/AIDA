@@ -1380,7 +1380,7 @@ class DBTable(TabularData):
 
         t = [self[i[0]] for i in indices]
         for i in range(len(connections)):
-            t[i] = t[i].vstack([self[indices[i][j]] for i in range(1, len(indices[i])])
+            t[i] = t[i].vstack([self[indices[i][j]] for j in range(1, len(indices[i]))])
         chkpt_2 = time.perf_counter()
         ind = list(range(len(connections)))
         ind.remove(index)
