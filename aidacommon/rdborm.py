@@ -130,6 +130,34 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
+class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def filter(self, *selcols): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE,
+             join=JOIN.INNER, hash_join=False): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def aggregate(self, projcols, groupcols=None): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def project(self, projcols): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def sum(self, collist=None): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def avg(self, collist=None): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def count(self, collist=None): pass;
+
+    @property
+    @aidacommon.rop.RObjStub.RemoteMethod(compressResults=True)
+    def cdata(self): pass;
+
+copyreg.pickle(DistTabularDataRemoteStub, DistTabularDataRemoteStub.serializeObj);
 
 class DBCRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()

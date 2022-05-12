@@ -6,30 +6,31 @@ import time;
 
 from functools import reduce
 from aidacommon.dborm import TabularData, COL, JOIN
-import aidacommon.rop;
-from aidacommon.rdborm import TabularDataRemoteStub
+from aidacommon.rdborm import DistTabularDataRemoteStub
 
 
 class DistTabularData(TabularData):
-    def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER):
-        if 3 % 2 == 0:  # Use block join
-            if self.combined_data is None:
-                s = self.cdata
-
-            def external_join(c, table2):
-                def load_data(df):
-                    return df
-
-                external = c._L(load_data, self.combined_data)
-                return external.join(table2, src1joincols, src2joincols, cols1, cols2, join).cdata
-
-            futures = []
-            for i in range(self.tabular_datas):
-                futures.append(self.executor.submit(external_join, self.connections[i], otherTable.tabular_datas[i]))
+    def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER, hash_join=False):
+        if not hash_join:  # Use block join
             results = []
-            for f in concurrent.futures.as_completed(futures):
-                results.append(f.result())
-            return collections.OrderedDict((k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
+            def external_join(db, index, table1, table2, joincols1, joincols2, cols1, cols2, join):
+                from concurrent.futures import ThreadPoolExecutor
+                from aidas.dborm import DataFrame
+                other_indices = list(range(len(table1)))
+                other_indices.remove(index)
+                with ThreadPoolExecutor() as executor:
+                    result = []
+                    for i in executor.map(lambda j: DataFrame._loadExtData_(lambda t: t, db, table1[j].cdata),
+                                          other_indices):
+                        result.append(i)
+                    table = table1[index].vstack(result)
+                    return table.join(table2[index], joincols1, joincols2, cols1, cols2, join)
+            def dist_join(index):
+                return self.connections[index]._X(external_join, index, self.tabular_datas, otherTable.tabular_datas,
+                                                  src1joincols, src2joincols, cols1, cols2, join)
+            for i in self.executor.map(dist_join, range(len(self.tabular_datas))):
+                results.append(i)
+            return DistTabularData(self.executor, self.connections, self.tabular_datas)
         else:  # Use hash join
             start = time.perf_counter()
             def partition_table(table, joincols, cols):
@@ -214,31 +215,26 @@ class DistTabularData(TabularData):
 
     @property
     def cdata(self):
-        if self.combined_data is None:
-            futures = []
-            for t in self.tabular_datas:
-                futures.append(self.executor.submit(lambda: t.cdata))
-            results = []
-            for f in concurrent.futures.as_completed(futures):
-                results.append(f.result())
-            self.combined_data = collections.OrderedDict(
-                (k, reduce(lambda a, b: [*a[k], *b[k]], results)) for k in results[0])
-        return self.combined_data
+        futures = []
+        for t in self.tabular_datas:
+            futures.append(self.executor.submit(lambda: t.cdata))
+        results = []
+        for f in concurrent.futures.as_completed(futures):
+            results.append(f.result())
+        result = collections.OrderedDict(
+            (k, reduce(lambda a, b: np.asarray([*a[k], *b[k]]), results)) for k in results[0])
+        return result
 
     def __init__(self, executor, connections, tabular_datas):
         self.tabular_datas = tabular_datas
         self.connections = connections
         self.executor = executor
-        self.combined_data = None
 
     def filter(self, *selcols):
         results = []
-        for i in self.executor.map(lambda t: t.filter(selcols), self.tabular_datas):
+        for i in self.executor.map(lambda t: t.filter(*selcols), self.tabular_datas):
             results.append(i)
 
         return DistTabularData(self.executor, self.connections, results)
 
-    def hash_partition(self, index, keys, cols, connections):
-        pass
-
-copyreg.pickle(DistTabularData, TabularDataRemoteStub.serializeObj);
+copyreg.pickle(DistTabularData, DistTabularDataRemoteStub.serializeObj);

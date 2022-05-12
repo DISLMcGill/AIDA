@@ -1372,9 +1372,15 @@ class DBTable(TabularData):
             return df
         start = time.perf_counter()
         indices = [[] for i in range(len(connections))]
-        for i in range(len(self.rows[keys])):
-            h = hash(self.rows[keys][i])
-            indices[h % len(connections)].append(i)
+        if isinstance(keys, str):
+            for i in range(len(self.rows[keys])):
+                h = hash(self.rows[keys][i])
+                indices[h % len(connections)].append(i)
+        else:
+            tu = list(zip(*[self.rows[k] for k in keys]))
+            for i in range(len(tu)):
+                h = hash(tu[i])
+                indices[h % len(connections)].append(i)
         tables = []
         chkpt_1 = time.perf_counter()
 
@@ -1391,9 +1397,9 @@ class DBTable(TabularData):
 
         tables.insert(index, t[index])
         chkpt_3 = time.perf_counter()
-        print("hash time: {}".format(chkpt_1 - start))
-        print("stack tables: {}".format(chkpt_2-chkpt_1))
-        print("send tables: {}".format(chkpt_3-chkpt_2))
+        logging.warning("hash time: {}".format(chkpt_1 - start))
+        logging.warning("stack tables: {}".format(chkpt_2-chkpt_1))
+        logging.warning("send tables: {}".format(chkpt_3-chkpt_2))
         return tables
 
 
@@ -1450,9 +1456,9 @@ class DataFrame(TabularData):
 
         tables.insert(index, t[index])
         chkpt_3 = time.perf_counter()
-        print("hash time: {}".format(chkpt_1 - start))
-        print("stack tables: {}".format(chkpt_2-chkpt_1))
-        print("send tables: {}".format(chkpt_3-chkpt_2))
+        logging.warning("hash time: {}".format(chkpt_1 - start))
+        logging.warning("stack tables: {}".format(chkpt_2-chkpt_1))
+        logging.warning("send tables: {}".format(chkpt_3-chkpt_2))
         return tables
 
 
