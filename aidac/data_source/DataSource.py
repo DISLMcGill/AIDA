@@ -1,8 +1,5 @@
-# from aidac.data_source.AidaDataSource import AidaDataSource
-
-
 class DataSource:
-    def __init__(self, host, username, password, port=None, dbname=None, job_name=None):
+    def __init__(self, host, username, password, dbname=None, job_name=None, port=None):
         self.host = host
         self.port = port
         self.username = username
@@ -53,14 +50,4 @@ class DataSource:
         pass
 
 
-class DataSourceFactory:
-    def __init__(self):
-        pass
-
-    # def create_data_source(self, source: str, host: str, port: str, user: str, password: str, db: str, job_name: str):
-    #     if source == 'aida':
-    #         return AidaDataSource(host, port, user, password, db, job_name)
-
-
-data_source_factory = DataSourceFactory()
 

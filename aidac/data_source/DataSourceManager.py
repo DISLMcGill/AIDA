@@ -1,4 +1,7 @@
-from aidac.data_source.DataSource import data_source_factory, DataSource
+import uuid
+
+from aidac.data_source.DataSource import DataSource
+from aidac.data_source.PostgreDataSource import PostgreDataSource
 from aidac.data_source.exceptions import DataSourceException
 
 
@@ -6,7 +9,7 @@ class DataSourceManager:
     def __init__(self):
         self.sources = {}
 
-    def add_data_source(self, source: str, host: str, port: str, user: str, password: str, db: str, job_name: str):
+    def add_data_source(self, source: str, host: str, user: str, password: str, db: str, job_name: str, port: str):
         """
         Create a data source of specified source type
         @param source: data source type
@@ -21,7 +24,7 @@ class DataSourceManager:
         if job_name in self.sources:
             raise DataSourceException("Job {} already exists".format(job_name))
 
-        self.sources[job_name] = data_source_factory.create_data_source(source, host, port, user, password, db, job_name)
+        self.sources[job_name] = data_source_factory.create_data_source(source, host, user, password, db, job_name, port)
         self.sources[job_name].connect()
 
     def tables(self) -> dict:
@@ -44,3 +47,16 @@ class DataSourceManager:
         pass
 
 
+class DataSourceFactory:
+    def __init__(self):
+        pass
+
+    def create_data_source(self, source: str, host: str, user: str, password: str, db: str, job_name: str = None,
+                           port: str = None):
+        if job_name is None:
+            job_name = source+'_'+str(uuid.uuid4())
+        if source == 'postgres':
+            return PostgreDataSource(host, user, password, db, job_name, port)
+
+
+data_source_factory = DataSourceFactory()

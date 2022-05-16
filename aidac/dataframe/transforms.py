@@ -4,12 +4,16 @@ import collections
 import copy
 import weakref
 
-from aidac import DataFrame
+from aidac.dataframe import DataFrame
 from aidac.common.column import Column
 
 
 class Transform:
     def transform_name(self):
+        pass
+
+    @property
+    def genSQL(self):
         pass
 
 
@@ -95,14 +99,13 @@ class SQLProjectionTransform(SQLTransform):
                 if not scol:
                     raise AttributeError("Cannot locate column {} from {}".format(scol, source))
                 else:
-                    srccols += (scol.column_name if (isinstance(scol.column_name, list)) else [scol.column_name])
-                    sdbtables += (scol.db_tbl if (isinstance(scol.db_tbl, list)) else [scol.db_tbl])
+                    srccols += (scol.name if (isinstance(scol.name, list)) else [scol.name])
+                    sdbtables += (scol.db_tbl if (isinstance(scol.tablename, list)) else [scol.tablename])
 
                 column = Column(projcoln, scol.dtype)
-                column.column_name = projcoln
-                column.src_col_name = srccols
-                column.db_tbl = sdbtables
-                column.colTransform = coltransform
+                column.srccol = srccols
+                column.tablename = sdbtables
+                column.transform = coltransform
                 columns[projcoln] = column
             self._columns_ = columns
 
@@ -117,11 +120,11 @@ class SQLProjectionTransform(SQLTransform):
         projcoltxt = None
         for c in self.columns:  # Prepare the list of columns going into the select statement.
             col = self.columns[c];
-            projcoltxt = ((projcoltxt + ', ') if (projcoltxt) else '') + ((col.colTransform.columnExpr if (
-                col.colTransform) else col.source_col_name[0]) + ' AS ' + col.column_name);
+            projcoltxt = ((projcoltxt + ', ') if (projcoltxt) else '') + ((col.transform.columnExpr if (
+                col.transform) else col.srccol[0]) + ' AS ' + col.name);
 
         sql_text = ('SELECT ' + projcoltxt + ' FROM '
-                   + '(' + self._source_.genSQL.sqlText + ') ' + self._source_.tableName  # Source table transform SQL.
+                   + '(' + self._source_.genSQL + ') ' + self._source_.tbl_name  # Source table transform SQL.
                    )
 
         return sql_text

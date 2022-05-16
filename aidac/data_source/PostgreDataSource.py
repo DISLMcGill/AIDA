@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from aidac.common.column import Column
 from aidac.data_source.DataSource import DataSource
 from aidac.data_source.QueryLoader import QueryLoader
 import psycopg
@@ -14,6 +15,10 @@ ql = QueryLoader(DS)
 typeConverter = {np.int8: 'TINYINT', np.int16: 'SMALLINT', np.int32: 'INTEGER', np.int64: 'BIGINT'
     , np.float32: 'FLOAT', np.float64: 'FLOAT', np.object: 'STRING', np.object_: 'STRING', bytearray: 'BLOB'
     , 'date': 'DATE', 'time': 'TIME', 'timestamp': 'TIMESTAMP'};
+
+typeConverter_rev = {'integer': np.int32, 'character varying': np.object, 'double precision': np.float64, 'boolean': bool}
+
+constant_converter = {'YES': True, 'NO': False}
 
 
 class PostgreDataSource(DataSource):
@@ -42,7 +47,11 @@ class PostgreDataSource(DataSource):
 
     def table_meta_data(self, table: str):
         qry = ql.table_meta_data(table)
-        self._execute(qry)
+        rs = self._execute(qry)
+        # expected return value from pd:
+        # schemaname, tablename, columnname, columntype, columnsize, columnpos, nullable
+        cols = [Column(x[2], typeConverter_rev[x[3]], x[1], x[0], constant_converter[x[-1]]) for x in rs.data]
+        return cols
 
     def cardinality(self, table: str):
         """

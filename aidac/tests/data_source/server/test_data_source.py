@@ -8,7 +8,7 @@ import numpy as np
 
 class DataSourceTest(unittest.TestCase):
     def setUp(self) -> None:
-        from aidac.tests.data_source.server.ds_config import PG_CONFIG
+        from aidac.tests.ds_config import PG_CONFIG
         config = PG_CONFIG
         self.ds = PostgreDataSource(config['host'], config['user'], config['passwd'], config['port'], config['dbname'])
         self.ds.connect()
@@ -23,6 +23,13 @@ class DataSourceTest(unittest.TestCase):
         cols = {'col1': np.float64, 'col2': np.float64}
         self.ds.create_table('temp1', cols)
         self.ds.import_table('temp1', cols, generator(df))
+
+    def test_meta_data(self):
+        meta = self.ds.table_meta_data('station')
+        self.assertEqual(len(meta), 5)
+        columns = ['id', 'name', 'lati', 'longti', 'flag']
+        for x in meta:
+            self.assertIn(x.name, columns)
 
 if __name__ == '__main__':
     unittest.main()

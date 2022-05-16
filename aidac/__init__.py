@@ -1,6 +1,7 @@
 from aidac.dataframe.DataFrame import *
+from aidac.dataframe.LocalTable import LocalTable
 from aidac.dataframe.Scheduler import Scheduler
-from aidac.data_source.DataSourceManager import DataSourceManager
+from aidac.data_source.DataSourceManager import *
 
 __name__ = 'aidac'
 
@@ -8,8 +9,8 @@ ac = Scheduler()
 manager = DataSourceManager()
 
 
-def add_data_source(source: str, host: str, port: str, user: str, password: str, job_name: str = None):
-    manager.add_data_source(source, host, port, user, password, job_name)
+def add_data_source(source: str, host: str, user: str, password: str, db: str, job_name: str = None, port: str = None):
+    manager.add_data_source(source, host, user, password, db, job_name, port)
 
 
 def data_sources():
@@ -33,4 +34,4 @@ def read_remote_data(job: str, table_name: str):
     @return:
     """
     source = manager.get_data_source(job)
-    return RemoteTable(source, table_name)
+    return RemoteTable(source, table_name=table_name)

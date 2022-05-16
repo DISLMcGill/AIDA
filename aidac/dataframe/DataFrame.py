@@ -1,13 +1,16 @@
 from __future__ import annotations
 from abc import abstractmethod
+import collections
 
 from aidac.common.column import Column
 from aidac.data_source.DataSource import DataSource
+from aidac.dataframe.transforms import *
 from aidac.exec.Executable import Executable
 import pandas as pd
 import uuid
 
 import aidac.dataframe.Scheduler as Scheduler
+
 sc = Scheduler.Scheduler()
 
 
@@ -16,6 +19,7 @@ class DataFrame:
         self.__tid__ = uuid.uuid4()
         self.tbl_name = table_name
         self._transform_ = None
+        self._columns_ = None
 
     @property
     def id(self):
@@ -31,11 +35,13 @@ class DataFrame:
 
     @property
     def columns(self):
-        cols = {}
-        # create columns using pandas index column name and types
-        for cname, ctype in zip(self._data_.dtypes.index, self._data_.dtypes):
-            cols[cname] = Column(cname, ctype)
-        return cols
+        if self._columns_ is None:
+            cols = {}
+            # create columns using pandas index column name and types
+            for cname, ctype in zip(self._data_.dtypes.index, self._data_.dtypes):
+                cols[cname] = Column(cname, ctype)
+            return cols
+        return self._columns_
 
     def __repr__(self) -> str:
         """
@@ -162,17 +168,27 @@ class DataFrame:
 
 
 class RemoteTable(DataFrame):
-    def __init__(self, source: DataSource, tablename: str, parent: DataFrame = None, table_name: str=None):
+    def __init__(self, source: DataSource, transform: Transform = None, table_name: str=None):
         super().__init__(table_name)
         self.source = source
-        self.tbl_name = tablename
+        self.tbl_name = table_name
 
         # try retrieve the meta info of the table from data source
         # if table does not exist, an error will occur
         self._link_table_meta()
 
-        self.parent = parent
+        self._transform_ = transform
         self._data_ = None
+
+    @property
+    def columns(self):
+        if self._columns_ is None:
+            cols = sc.retrieve_meta_data(self)
+            self._columns_ = collections.OrderedDict()
+            for col in cols:
+                self._columns_[col.name] = col
+        return self._columns_
+
 
     def _link_table_meta(self):
         """
@@ -186,6 +202,34 @@ class RemoteTable(DataFrame):
             self._materialize()
 
     def _materialize(self):
-        pipes = self._schedule()
+        pipes = sc.schedule(self)
         self.__data__ = pipes.process()
+
+    def __getitem__(self, key):
+        if self._data_ is not None:
+            return self._data_[key]
+
+        if isinstance(key, DataFrame):
+            # todo: selection
+            pass
+        if isinstance(key, collections.Hashable):
+            keys = [key]
+        elif isinstance(key, tuple):
+            raise ValueError("Multi-level index is not supported")
+        else:
+            keys = key
+
+        trans = SQLProjectionTransform(self, keys)
+        return RemoteTable(self.source, trans)
+
+    @property
+    def transform(self):
+        return self._transform_
+
+    @property
+    def genSQL(self):
+        if self.transform is not None:
+            return self.transform.genSQL
+        else:
+            return 'SELECT * FROM ' + self.tbl_name
 
