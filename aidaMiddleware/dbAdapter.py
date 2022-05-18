@@ -12,6 +12,7 @@ from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
 from aidaMiddleware.distTabularData import DistTabularData;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
+import pymonetdb.sql;
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -22,54 +23,51 @@ class DBCMiddleware(DBC):
     def __setstate__(self, d):
        self.__dict__ = d
 
-    def _executeQry(self, sql, resultFormat='column'):
-        futures = {self._executor.submit(lambda con: con._executeQry(sql, resultFormat), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
+    def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
+        """Execute a query and return results"""
+        #TODO: either support row format results or throw an exception for not supported.
+        #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
 
-    def _toTable(self, tblrData, tableName=None):
-        futures = {self._executor.submit(lambda con: con._toTable(tblrData, tableName), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
+        with self.__qryLock__:
+            try:
+                ## -- QLOG -- ##
+                ##st = timer();
+                result = self.__connection.execute(sql);
+                ## -- QLOG -- 2##
+                ##et = timer();
+                ##logging.info("_executeQry: {} {}".format(et-st, sql.replace("\n", "")))
+                #logging.debug("__executeQry result {}".format(result));
+                if(sqlType==DBC.SQLTYPE.SELECT):
+                    if(resultFormat == 'column'):
+                        #get some columns
+                        c_tmp = result[list(result.keys())[0]]
+                        #Find the length of the array (or masked array) that is the number of rows
+                        rows = len(c_tmp.data if hasattr(c_tmp, 'data')  else c_tmp);
+                        #rows = None;
 
-    def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
-        futures = {self._executor.submit(lambda con: con._saveTblrData(tblrData, tableName, dbName, drop), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
+                        #for col in result:
+                            #logging.debug("_executeQry col {} size {}  references {}".format(col, sys.getsizeof(result[col]), sys.getrefcount(result[col])));
+                        #for c in result:
+                        #    logging.debug("Result column {} type {}".format(c, result[c].dtype));
 
-    def _dropTable(self, tableName, dbName=None):
-        futures = {self._executor.submit(lambda con: con._dropTable(tableName, dbName), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
+                        return (result, rows);
+                    elif(resultFormat == 'row'):
+                        pass;
 
-    def _dropTblUDF(self, tblrData, tableName=None):
-        futures = {self._executor.submit(lambda con: con._dropTblUDF(tblrData, tableName), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
+            except Exception as e:
+                the_type, the_value, the_traceback = sys.exc_info();
+                logging.error("An exception occured while trying to execute query {}".format((the_type, the_value, the_traceback)));
+                logging.exception("An exception occured while executing query {}".format(sql));
+                #TODO: This is a patch fix as for some reason we are not able to execut queries using the connection once an exception is thrown.
+                self.__setDBC__();
+                #re-raise the exception.
+                if (sqlType != DBC.SQLTYPE.DROP):
+                    raise;
 
-    def _describe(self, tblrData):
-        futures = {self._executor.submit(lambda con: con._describe(tblrData), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
-
-    def _agg(self, agfn, tblrData, collist=None, valueOnly=True):
-        futures = {self._executor.submit(lambda con: con._agg(agfn, tblrData, collist, valueOnly), con) for con in self._extDBCcon}
-        result = []
-        for f in as_completed(futures):
-            result.append(f.result())
-        return result
+    def _setConnection(self, con):
+        """Called by the database function to set the internal database connection for executing queries"""
+        #logging.debug("__setConnection_ called for {} with {}".format(self._jobName, con));
+        self.__connection= con;
 
     def _tables(self):
         return self._extDBCcon[0]._tables()
@@ -89,6 +87,8 @@ class DBCMiddleware(DBC):
         self._serverConfig = ServerConfig();
         self._executor = ThreadPoolExecutor(max_workers=15);
         self._extDBCcon = None
+        self._localDBCcon = None
+        self.__qryLock__ = threading.Lock();
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -99,29 +99,13 @@ class DBCMiddleware(DBC):
         for host_name in self._serverConfig.get_server_names(): 
            con = AIDA.connect(host_name, self._dbName,self._username,self._password,self._jobName,55660);
            connections += [con]
-        ##cursor = con.cursor();
-        #This function call should set the internal database connection to MonetDB in THIS DBC object, using the jobName passed to it.
-        #The database function basically calls back the _setConnection method.
-        ##rows = cursor.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
-        ##data = cursor.fetchall();
-        #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
-        ##cursor.close();
-        #con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
+        self._localDBCcon = pymonetdb.Connection(self.dbName,hostname='localhost',username=self._username,password=self._password,autocommit=True);
         self._extDBCcon = connections;
 
     def _getDBTable(self, relName, dbName=None):
-        #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
-        #(metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self._dbName, relName));
         results = []
         for i in self._executor.map(lambda con: con._getDBTable(relName, dbName), self._extDBCcon):
             results.append(i)
-        #logging.debug("execute query returned for table metadata {}".format(metaData_));
-        #metaData = _collections.OrderedDict();
-        #for column in [ 'schemaname', 'tablename', 'columnname', 'columntype', 'columnsize', 'columnpos', 'columnnullable']:
-        #    logging.debug("For column {} data is {}".format(column, metaData_[column].data if hasattr(metaData_[column], 'data') else metaData_[column]));
-        #    metaData[column] = metaData_[column].data if hasattr(metaData_[column], 'data') else metaData_[column];
-
-        #return DBTable(self, metaData_);
         d = DistTabularData(self._executor, self._extDBCcon, results)
         return d;
 

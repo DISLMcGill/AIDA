@@ -5,8 +5,8 @@ import copyreg;
 import time;
 
 from functools import reduce
-from aidacommon.dborm import TabularData, COL, JOIN
 from aidacommon.rdborm import DistTabularDataRemoteStub
+from aidas.dborm import *
 
 
 class DistTabularData(TabularData):
@@ -20,7 +20,7 @@ class DistTabularData(TabularData):
                 other_indices.remove(index)
                 with ThreadPoolExecutor() as executor:
                     result = []
-                    for i in executor.map(lambda j: DataFrame._loadExtData_(lambda t: t, db, table1[j].cdata),
+                    for i in executor.map(lambda j: DataFrame._loadExtData_(lambda t: t, db, table1[j].cdata, db),
                                           other_indices):
                         result.append(i)
                     table = table1[index].vstack(result)
@@ -64,7 +64,8 @@ class DistTabularData(TabularData):
             return DistTabularData(self.executor, self.connections, results)
 
     def aggregate(self, projcols, groupcols=None):
-        pass
+        df = DataFrame._loadExtData_(lambda: self.cdata, self.dbc)
+        return DataFrame(df, SQLAggregateTransform(df, projcols, groupcols))
 
     def project(self, projcols):
         results = []
@@ -225,7 +226,8 @@ class DistTabularData(TabularData):
             (k, reduce(lambda a, b: np.asarray([*a[k], *b[k]]), results)) for k in results[0])
         return result
 
-    def __init__(self, executor, connections, tabular_datas):
+    def __init__(self, dbc, executor, connections, tabular_datas):
+        self.dbc = dbc
         self.tabular_datas = tabular_datas
         self.connections = connections
         self.executor = executor
@@ -236,5 +238,7 @@ class DistTabularData(TabularData):
             results.append(i)
 
         return DistTabularData(self.executor, self.connections, results)
+
+    def hash_partition(self, index, keys, cols, connections): pass;
 
 copyreg.pickle(DistTabularData, DistTabularDataRemoteStub.serializeObj);
