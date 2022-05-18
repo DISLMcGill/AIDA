@@ -30,7 +30,7 @@ class DistTabularData(TabularData):
                                                   src1joincols, src2joincols, cols1, cols2, join)
             for i in self.executor.map(dist_join, range(len(self.tabular_datas))):
                 results.append(i)
-            return DistTabularData(self.executor, self.connections, self.tabular_datas)
+            return DistTabularData(self.executor, self.connections, self.tabular_datas, self.dbc)
         else:  # Use hash join
             start = time.perf_counter()
             def partition_table(table, joincols, cols):
@@ -61,7 +61,7 @@ class DistTabularData(TabularData):
             print("hash partition time: {}".format(chkpt_1-start))
             print("vstack time: {}".format(chkpt_2-chkpt_1))
             print("join time: {}".format(chkpt_3-chkpt_2))
-            return DistTabularData(self.executor, self.connections, results)
+            return DistTabularData(self.executor, self.connections, results, self.dbc)
 
     def aggregate(self, projcols, groupcols=None):
         df = DataFrame._loadExtData_(lambda: self.cdata, self.dbc)
@@ -72,7 +72,7 @@ class DistTabularData(TabularData):
         for i in self.executor.map(lambda t: t.project(projcols), self.tabular_datas):
             results.append(i)
 
-        return DistTabularData(self.executor, self.connections, results)
+        return DistTabularData(self.executor, self.connections, results, self.dbc)
 
     def order(self, orderlist):
         pass
@@ -125,7 +125,7 @@ class DistTabularData(TabularData):
         for i in self.executor.map(lambda t: t.__getitem__(item), self.tabular_datas):
             results.append(i)
 
-        return DistTabularData(self.executor, self.connections, results)
+        return DistTabularData(self.executor, self.connections, results, self.dbc)
 
     @property
     def shape(self):
@@ -166,7 +166,7 @@ class DistTabularData(TabularData):
         if isinstance(sum, int):
             return sum / count
         else:
-            result = collections.OrderedDict();
+            result = collections.OrderedDict()
             for key, value in sum:
                 result[key] = value / count[key]
             return result
@@ -237,8 +237,8 @@ class DistTabularData(TabularData):
         for i in self.executor.map(lambda t: t.filter(*selcols), self.tabular_datas):
             results.append(i)
 
-        return DistTabularData(self.executor, self.connections, results)
+        return DistTabularData(self.executor, self.connections, results, self.dbc)
 
     def hash_partition(self, index, keys, cols, connections): pass;
 
-copyreg.pickle(DistTabularData, DistTabularDataRemoteStub.serializeObj);
+copyreg.pickle(DistTabularData, DistTabularDataRemoteStub.serializeObj)

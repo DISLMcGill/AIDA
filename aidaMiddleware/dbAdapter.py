@@ -17,6 +17,24 @@ import pymonetdb.sql;
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
+    def _toTable(self, tblrData, tableName=None):
+        pass
+
+    def _saveTblrData(self, tblrData, tableName, dbName=None, drop=False):
+        pass
+
+    def _dropTable(self, tableName, dbName=None):
+        pass
+
+    def _dropTblUDF(self, tblrData, tableName=None):
+        pass
+
+    def _describe(self, tblrData):
+        pass
+
+    def _agg(self, agfn, tblrData, collist=None, valueOnly=True):
+        pass
+
     def __getstate__(self):
        return self.__dict__
 
@@ -106,7 +124,7 @@ class DBCMiddleware(DBC):
         results = []
         for i in self._executor.map(lambda con: con._getDBTable(relName, dbName), self._extDBCcon):
             results.append(i)
-        d = DistTabularData(self._executor, self._extDBCcon, results)
+        d = DistTabularData(self._executor, self._extDBCcon, results, self)
         return d;
 
 class DBCMiddlewareStub(DBCRemoteStub):
