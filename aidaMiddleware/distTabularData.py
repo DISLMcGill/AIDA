@@ -226,7 +226,7 @@ class DistTabularData(TabularData):
             (k, reduce(lambda a, b: np.asarray([*a[k], *b[k]]), results)) for k in results[0])
         return result
 
-    def __init__(self, dbc, executor, connections, tabular_datas):
+    def __init__(self, executor, connections, tabular_datas, dbc):
         self.dbc = dbc
         self.tabular_datas = tabular_datas
         self.connections = connections
