@@ -1367,41 +1367,6 @@ class DBTable(TabularData):
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
 
-    def hash_partition(self, index, keys, cols, connections):
-        def load_data(df):
-            return df
-        start = time.perf_counter()
-        indices = [[] for i in range(len(connections))]
-        if isinstance(keys, str):
-            for i in range(len(self.rows[keys])):
-                h = hash(self.rows[keys][i])
-                indices[h % len(connections)].append(i)
-        else:
-            tu = list(zip(*[self.rows[k] for k in keys]))
-            for i in range(len(tu)):
-                h = hash(tu[i])
-                indices[h % len(connections)].append(i)
-        tables = []
-        chkpt_1 = time.perf_counter()
-
-        t = [self[i[0]] for i in indices]
-        for i in range(len(connections)):
-            t[i] = t[i].vstack([self[indices[i][j]] for j in range(1, len(indices[i]))])
-        chkpt_2 = time.perf_counter()
-        ind = list(range(len(connections)))
-        ind.remove(index)
-
-        with ThreadPoolExecutor() as executor:
-            for i in executor.map(lambda j: connections[j]._L(load_data, t[j].cdata), ind):
-                tables.append(i)
-
-        tables.insert(index, t[index])
-        chkpt_3 = time.perf_counter()
-        logging.warning("hash time: {}".format(chkpt_1 - start))
-        logging.warning("stack tables: {}".format(chkpt_2-chkpt_1))
-        logging.warning("send tables: {}".format(chkpt_3-chkpt_2))
-        return tables
-
 
 class DataFrame(TabularData):
     def __init__(self, source, transform, name=None, dbc=None):
@@ -1431,42 +1396,6 @@ class DataFrame(TabularData):
     @property
     def tableName(self):
         return self.__tableName__ if(self.__tableName__) else self.__source__.tableName;
-
-    def hash_partition(self, index, keys, cols, connections):
-        def load_data(df):
-            return df
-        start = time.perf_counter()
-        indices = [[] for i in range(len(connections))]
-        if isinstance(keys, str):
-            for i in range(len(self.rows[keys])):
-                h = hash(self.rows[keys][i])
-                indices[h % len(connections)].append(i)
-        else:
-            tu = list(zip(*[self.rows[k] for k in keys]))
-            for i in range(len(tu)):
-                h = hash(tu[i])
-                indices[h % len(connections)].append(i)
-        tables = []
-        chkpt_1 = time.perf_counter()
-
-        t = [self[i[0]] for i in indices]
-        for i in range(len(connections)):
-            t[i] = t[i].vstack([self[indices[i][j]] for j in range(1, len(indices[i]))])
-        chkpt_2 = time.perf_counter()
-        ind = [range(len(connections))]
-        ind.remove(index)
-
-        with ThreadPoolExecutor() as executor:
-            for i in executor.map(lambda j: connections[j].L(load_data, t[j].cdata), ind):
-                tables.append(i)
-
-        tables.insert(index, t[index])
-        chkpt_3 = time.perf_counter()
-        logging.warning("hash time: {}".format(chkpt_1 - start))
-        logging.warning("stack tables: {}".format(chkpt_2-chkpt_1))
-        logging.warning("send tables: {}".format(chkpt_3-chkpt_2))
-        return tables
-
 
     @property
     def isDBQry(self):

@@ -1,4 +1,5 @@
 import sys;
+import sysconfig
 import threading;
 
 import collections;
@@ -77,11 +78,12 @@ class DBCMiddleware(DBC):
         self._extDBCcon = connections;
 
     def _getDBTable(self, relName, dbName=None):
-        results = []
-        for i in self._executor.map(lambda con: con._getDBTable(relName, dbName), self._extDBCcon):
-            results.append(i)
-        d = DistTabularData(self._executor, self._extDBCcon, results, self.__monetConnection)
-        return d;
+        results = {}
+        futures = {self._executor.submit(con._getDBTable, relName, dbName): con for con in self._extDBCcon}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+        d = DistTabularData(self._executor, results, self.__monetConnection)
+        return d
 
 class DBCMiddlewareStub(DBCRemoteStub):
     pass;
