@@ -25,7 +25,7 @@ class DistTabularData(TabularData):
                 if len(table2) > 0:
                     with ThreadPoolExecutor() as executor:
                         result = []
-                        for i in executor.map(lambda con: DataFrame._loadExtData_(lambda t: t, db, table2[con].cdata, db),
+                        for i in executor.map(lambda con: DataFrame._loadExtData_(lambda: table2[con].cdata, con),
                                               table2.keys()):
                             result.append(i)
                     if other_table is None:
@@ -200,7 +200,7 @@ class DistTabularData(TabularData):
 
     def sum(self, collist=None):
         futures = []
-        for t in self.tabular_datas:
+        for t in self.tabular_datas.values():
             futures.append(self.executor.submit(t.sum, collist))
         results = []
 
@@ -231,7 +231,7 @@ class DistTabularData(TabularData):
 
     def count(self, collist=None):
         futures = []
-        for t in self.tabular_datas:
+        for t in self.tabular_datas.values():
             futures.append(self.executor.submit(t.count, collist))
         results = []
 
@@ -275,7 +275,7 @@ class DistTabularData(TabularData):
     @property
     def cdata(self):
         futures = []
-        for t in self.tabular_datas:
+        for t in self.tabular_datas.values():
             futures.append(self.executor.submit(lambda: t.cdata))
         results = []
         for f in as_completed(futures):
@@ -291,7 +291,7 @@ class DistTabularData(TabularData):
 
     def filter(self, *selcols):
         results = {}
-        futures = {self.executor.submit(self.tabular_datas[con].filter, *selcols): con for con in
+        futures = {self.executor.submit(lambda: self.tabular_datas[con].filter(*selcols)): con for con in
                    self.tabular_datas.keys()}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
