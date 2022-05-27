@@ -25,7 +25,7 @@ class DistTabularData(TabularData):
                 if len(table2) > 0:
                     with ThreadPoolExecutor() as executor:
                         result = []
-                        for i in executor.map(lambda con: DataFrame._loadExtData_(lambda: table2[con].cdata, con),
+                        for i in executor.map(lambda con: DataFrame._loadExtData_(lambda: table2[con].cdata, db),
                                               table2.keys()):
                             result.append(i)
                     if other_table is None:
@@ -57,20 +57,20 @@ class DistTabularData(TabularData):
                 start = time.perf_counter()
                 indices = [[] for i in range(len(connections))]
                 if isinstance(keys, str):
-                    for i in range(len(table[keys])):
-                        h = hash(table[keys][i])
+                    for i in range(len(table.rows[keys])):
+                        h = hash(table.rows[keys][i])
                         indices[h % len(connections)].append(i)
                 else:
-                    tu = list(zip(*[table[k] for k in keys]))
+                    tu = list(zip(*[table.rows[k] for k in keys]))
                     for i in range(len(tu)):
                         h = hash(tu[i])
                         indices[h % len(connections)].append(i)
                 tables = []
                 chkpt_1 = time.perf_counter()
 
-                t = [self[i[0]] for i in indices]
+                t = [table[i[0]] for i in indices]
                 for i in range(len(connections)):
-                    t[i] = t[i].vstack([self[indices[i][j]] for j in range(1, len(indices[i]))])
+                    t[i] = t[i].vstack([table[indices[i][j]] for j in range(1, len(indices[i]))])
                 chkpt_2 = time.perf_counter()
                 ind = list(range(len(connections)))
                 ind.remove(index)
@@ -88,7 +88,7 @@ class DistTabularData(TabularData):
             start = time.perf_counter()
             def partition_table(table, joincols):
                 tables = []
-                for i in self.executor.map(lambda con: con._X(hash_partition, table[con], joincols, cons),table.keys()):
+                for i in self.executor.map(lambda con: con._X(hash_partition, table[con], joincols, cons), table.keys()):
                     tables.append(i)
                 return tables
 
@@ -97,7 +97,7 @@ class DistTabularData(TabularData):
             chkpt_1 = time.perf_counter()
             def stack_table(tables):
                 t = []
-                for i in self.executor.map(lambda j: tables[0][j].vstack(*[tables[j][k] for k in range(1, len(cons))]), range(len(cons))):
+                for i in self.executor.map(lambda j: tables[0][j].vstack(*[tables[k][j] for k in range(1, len(cons))]), range(len(cons))):
                     t.append(i)
                 return t
 
@@ -280,6 +280,8 @@ class DistTabularData(TabularData):
         results = []
         for f in as_completed(futures):
             results.append(f.result())
+        if len(results) == 1:
+            return results[0]
         result = collections.OrderedDict(
             (k, reduce(lambda a, b: np.asarray([*a[k], *b[k]]), results)) for k in results[0])
         return result
