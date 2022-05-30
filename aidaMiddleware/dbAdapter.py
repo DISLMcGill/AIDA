@@ -71,15 +71,16 @@ class DBCMiddleware(DBC):
         self.__setDBC__();
 
     def __setDBC__(self):
-        connections = []
+        connections = {}
         for host_name in self._serverConfig.get_server_names(): 
            con = AIDA.connect(host_name, self._dbName,self._username,self._password,self._jobName,55660)
-           connections += [con]
+           connections[host_name] = con
         self._extDBCcon = connections;
 
     def _getDBTable(self, relName, dbName=None):
         results = {}
-        futures = {self._executor.submit(con._getDBTable, relName, dbName): con for con in self._extDBCcon}
+        cons = [self._extDBCcon[c] for c in self._serverConfig.get_servers(relName)]
+        futures = {self._executor.submit(con._getDBTable, relName, dbName): con for con in cons}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
         d = DistTabularData(self._executor, results, self.__monetConnection)
