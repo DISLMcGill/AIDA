@@ -132,10 +132,14 @@ class DistTabularData(TabularData):
         return DistTabularData(self.executor, results, self.dbc)
 
     def order(self, orderlist):
-        pass
+        df = DataFrame._loadExtData_(lambda: self.cdata, self.dbc)
+        result = {self.dbc: DataFrame(df, SQLOrderTransform(df, orderlist))}
+        return DistTabularData(self.executor, result, self.dbc)
 
     def distinct(self):
-        pass
+        df = DataFrame._loadExtData_(lambda: self.cdata, self.dbc)
+        result = {self.dbc: DataFrame(df, SQLDistinctTransform(df))}
+        return DistTabularData(self.executor, result, self.dbc)
 
     def loadData(self, matrix=False):
         pass
@@ -283,7 +287,7 @@ class DistTabularData(TabularData):
         if len(results) == 1:
             return results[0]
         result = collections.OrderedDict(
-            (k, reduce(lambda a, b: np.asarray([*a[k], *b[k]]), results)) for k in results[0])
+            (k, reduce(lambda a, b: np.concatenate((a[k], b[k]), axis=None), results)) for k in results[0])
         return result
 
     def __init__(self, executor, tabular_datas, dbc):

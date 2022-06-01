@@ -30,6 +30,6 @@ class ServerConfig:
          return self.table_partitions[table_name]
       else:
          logging.error(
-            "ERROR: cannot find table {} in configuration".format(table_name);
+            "ERROR: cannot find table {} in configuration".format(table_name))
          raise KeyError(
-            "ERROR: cannot find table {} in configuration".format(table_name);
+            "ERROR: cannot find table {} in configuration".format(table_name))
