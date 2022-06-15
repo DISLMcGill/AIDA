@@ -357,6 +357,15 @@ class CASE(F):
         expr += ' ELSE ' + ( F.__formatval__(self._deflt_) if(self._deflt_) else 'NULL' ) + ' END ';
         return expr;
 
+class Model(metaclass=ABCMeta):
+    @abstractmethod
+    def fit(self, x, y, iterations): pass;
+
+    @abstractmethod
+    def predict(self, x): pass;
+
+    @abstractmethod
+    def get_params(self): pass;
 
 
 class TabularData(metaclass=ABCMeta):

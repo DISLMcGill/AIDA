@@ -127,6 +127,16 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
+class ModelStub(aidacommon.rop.RObjStub):
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def fit(self, x, y, iterations): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def predict(self, x): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def get_params(self): pass;
+
 class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def filter(self, *selcols): pass;
@@ -140,6 +150,12 @@ class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def project(self, projcols): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def order(self, orderlist): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def distinct(self): pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def sum(self, collist=None): pass;

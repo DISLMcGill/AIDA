@@ -1,65 +1,37 @@
-from abc import ABCMeta
-from aida.aida import *
+from aidacommon.dborm import Model
+import numpy as np
 import threading
 
-class agent(threading.Thread):
+class LinearRegressionModel(Model):
+    def __init__(self, executor, db, learning_rate):
+        super().__init__()
+        self.executor = executor
+        self.db = db
+        self.lr = learning_rate
+        self.weights = None
+        self.bias = 0
+        self.lock = threading.Lock()
 
-    dbname = 'db'
-    user = 'monetdb'
-    passwd = 'monetdb'
-    port = 55660
-    shutdown_flag = threading.Event()
-    jobName = 'algo'
+    def fit(self, x, y, iterations, batch_size=1):
+        if self.weights is None:
+            self.weights = np.random.rand(x.shape[1])
+        else:
+            if self.weights.shape[0] != x.shape[1]:
+                raise ValueError("Model weights are not the same dimension as input.")
 
-    def __init__(self, host):
-        threading.Thread.__init__(self)
-        self.daemon = True
-        self.host = host
-        self.db = None
-        self.connect()
+        def iterate(db, table, weights, bias, batch_size):
+            batch = np.random.choice(table.size[0], batch_size, replace=False)
+            preds = table[batch] @ weights.T + bias
 
-    def connect(self):
-        self.db = AIDA.connect(self.host, agent.dbname, agent.user, agent.passwd, agent.jobName, agent.port)
 
-class synch_agent(agent):
+        pass
 
-    barrier = None
-    iter_time = 0
+    def predict(self, x):
+        pass
 
-    def run(self):
-        agent.preprocessing(self.db)
-        while not agent.shutdown_flag.is_set():
-            delta_m, validation_error, validation_batch_size, iter_time = self.db._XP('exec_iter', agent.algo.gparams[agent.algo.t]);
-            t = agent.algo.update_param(delta_m, validation_error, validation_batch_size, self.host) # potential to raise exception
-            synch_agent.barrier.wait()
-            agent.algo.progress_check(self.db, t) # potential to raise exception
-
-class Model(ABCMeta):
-    def __init__(self, hosts):
-        self.params = None
-        self.hosts = hosts
-        self.threads = []
-
-    @abstractmethod
     def update_params(self, delta_params):
-        pass
+        self.lock.acquire()
 
-    @abstractmethod
-    def exec_iter(self, params):
-        pass
 
-    @abstractmethod
-    def get_data(self, data):
-        pass
-
-    def run(self):
-        for h in self.hosts:
-            agent = synch_agent(h)
-            self.threads.append(agent)
-        synch_agent.barrier = threading.Barrier(
-            parties=len(self.hosts),
-        )
-        for a in self.threads:
-            a.start()
-        for a in self.threads:
-            a.join()
+    def get_params(self):
+        return self.params
