@@ -367,6 +367,10 @@ class Model(metaclass=ABCMeta):
     @abstractmethod
     def get_params(self): pass;
 
+    @staticmethod
+    @abstractmethod
+    def score(y_preds, y): pass;
+
 
 class TabularData(metaclass=ABCMeta):
     @abstractmethod

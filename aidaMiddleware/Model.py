@@ -4,6 +4,7 @@ import threading
 from aidaMiddleware.distTabularData import DistTabularData
 from concurrent.futures import as_completed
 
+
 class LinearRegressionModel(Model):
     def __init__(self, executor, db, learning_rate):
         super().__init__()
@@ -43,20 +44,28 @@ class LinearRegressionModel(Model):
             grad_desc_weights = db.grad_desc(y, preds, x)
             return grad_desc_weights
 
-        results = {}
-        futures = {self.executor.submit(lambda c: c._XP(iterate, x_ones[c], y[c], self.weights, batch_size)):
-                       c for c in x_ones.tabular_datas}
-        for future in as_completed(futures):
-            results[futures[future]] = future.result()
-
-        x_ones = DistTabularData(self.executor, results, x.dbc)
+        for i in range(iterations):
+            futures = {self.executor.submit(lambda c: c._XP(iterate, x_ones[c], y[c], self.weights, batch_size)):
+                           c for c in x_ones.tabular_datas}
+            for future in as_completed(futures):
+                result = future.result()
+                self.update_params(result)
 
     def predict(self, x):
-        pass
+        return x @ weights.T
 
     def update_params(self, delta_params):
         self.lock.acquire()
+        self.weights = self.weights - (self.lr * delta_params)
+        self.lock.release()
 
+    @staticmethod
+    def score(y_pred, y):
+        rss = np.sum((y_pred - y) ** 2)
+        tss = np.sum((y - y.mean()) ** 2)
+
+        r2 = 1 - (rss / tss)
+        return r2
 
     def get_params(self):
         return self.params

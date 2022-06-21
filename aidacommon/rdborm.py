@@ -137,6 +137,10 @@ class ModelStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def get_params(self): pass;
 
+    @staticmethod
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def score(y_preds, y): pass;
+
 class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def filter(self, *selcols): pass;
