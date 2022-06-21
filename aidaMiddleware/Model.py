@@ -1,6 +1,8 @@
 from aidacommon.dborm import Model
 import numpy as np
 import threading
+from aidaMiddleware.distTabularData import DistTabularData
+from concurrent.futures import as_completed
 
 class LinearRegressionModel(Model):
     def __init__(self, executor, db, learning_rate):
@@ -9,22 +11,45 @@ class LinearRegressionModel(Model):
         self.db = db
         self.lr = learning_rate
         self.weights = None
-        self.bias = 0
         self.lock = threading.Lock()
 
     def fit(self, x, y, iterations, batch_size=1):
+        # send gradient descent function to remote
+        def grad_desc(actual_y, predicted_y, batch_x):
+            return 2 * (((predicted_y - actual_y).T @ batch_x) / y.shape[0])
+
+        for con in x.tabular_datas:
+            con.grad_desc = grad_desc
+
+        # initialize weights if not already initialized
         if self.weights is None:
-            self.weights = np.random.rand(x.shape[1])
+            self.weights = np.random.rand(x.shape[1] + 1)
         else:
-            if self.weights.shape[0] != x.shape[1]:
+            if self.weights.shape[0] + 1 != x.shape[1]:
                 raise ValueError("Model weights are not the same dimension as input.")
 
-        def iterate(db, table, weights, bias, batch_size):
-            batch = np.random.choice(table.size[0], batch_size, replace=False)
-            preds = table[batch] @ weights.T + bias
+        # add 1s column to x for bias value
+        results = {}
+        futures = {self.executor.submit(lambda con, table: con._ones(table.shape[0]).hstack(table),
+                                        c, x.tabular_datas[c]): c for c in x.tabular_datas}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
 
+        x_ones = DistTabularData(self.executor, results, x.dbc)
 
-        pass
+        def iterate(db, x, y, weights, batch_size):
+            batch = np.random.choice(x.size[0], batch_size, replace=False)
+            preds = x[batch] @ weights.T
+            grad_desc_weights = db.grad_desc(y, preds, x)
+            return grad_desc_weights
+
+        results = {}
+        futures = {self.executor.submit(lambda c: c._XP(iterate, x_ones[c], y[c], self.weights, batch_size)):
+                       c for c in x_ones.tabular_datas}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+
+        x_ones = DistTabularData(self.executor, results, x.dbc)
 
     def predict(self, x):
         pass
