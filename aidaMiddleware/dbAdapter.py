@@ -13,10 +13,14 @@ from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
 from aidaMiddleware.distTabularData import DistTabularData;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
+from aidaMiddleware.Model import LinearRegressionModel;
 
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
+    def _LinearRegression(self, learning_rate):
+        return LinearRegressionModel(self._executor, self.__monetConnection, learning_rate)
+
     def _toTable(self, tblrData, tableName=None):
         pass
 

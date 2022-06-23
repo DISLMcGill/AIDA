@@ -52,7 +52,7 @@ class LinearRegressionModel(Model):
                 self.update_params(result)
 
     def predict(self, x):
-        return x @ weights.T
+        return x @ self.weights.T
 
     def update_params(self, delta_params):
         self.lock.acquire()
@@ -68,4 +68,4 @@ class LinearRegressionModel(Model):
         return r2
 
     def get_params(self):
-        return self.params
+        return self.weights
