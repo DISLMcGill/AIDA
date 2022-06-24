@@ -17,7 +17,7 @@ class LinearRegressionModel(Model):
     def fit(self, x, y, iterations, batch_size=1):
         # send gradient descent function to remote
         def grad_desc(actual_y, predicted_y, batch_x):
-            return 2 * (((predicted_y - actual_y).T @ batch_x) / y.shape[0])
+            return 2 * (((predicted_y - actual_y).T @ batch_x) / predicted_y.shape[0])
 
         for con in x.tabular_datas:
             con.grad_desc = grad_desc
@@ -45,8 +45,7 @@ class LinearRegressionModel(Model):
             return grad_desc_weights
 
         for i in range(iterations):
-            futures = {self.executor.submit(lambda c: c._XP(iterate, x_ones[c], y[c], self.weights, batch_size)):
-                           c for c in x_ones.tabular_datas}
+            futures = [self.executor.submit(lambda con: con._XP(iterate, x_ones[con], y[con], self.weights, batch_size), c) for c in x_ones.tabular_datas]
             for future in as_completed(futures):
                 result = future.result()
                 self.update_params(result)

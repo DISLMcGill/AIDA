@@ -191,7 +191,15 @@ class DistTabularData(TabularData):
 
     @property
     def shape(self):
-        pass
+        futures = []
+        for t in self.tabular_datas.values():
+            futures.append(self.executor.submit(lambda: t.shape))
+        results = []
+
+        for f in as_completed(futures):
+            results.append(f.result())
+
+        return (results[0][0], sum([r[1] for r in results]))
 
     def vstack(self, othersrclist):
         pass
@@ -242,7 +250,7 @@ class DistTabularData(TabularData):
         for f in as_completed(futures):
             results.append(f.result())
 
-        if isinstance(results[0], int):
+        if isinstance(results[0], int) or isinstance(results[0], np.int64):
             return reduce(lambda a, b: a + b, results)
         else:
             def reducer(accumulator, element):
