@@ -1,4 +1,5 @@
 from aidacommon.dborm import Model
+from aidacommon.rdborm import ModelRemoteStub
 import numpy as np
 import threading
 from aidaMiddleware.distTabularData import DistTabularData
@@ -68,3 +69,5 @@ class LinearRegressionModel(Model):
 
     def get_params(self):
         return self.weights
+
+copyreg.pickle(LinearRegressionModel, ModelRemoteStub.serializeObj)
