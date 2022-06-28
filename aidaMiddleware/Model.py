@@ -4,6 +4,7 @@ import numpy as np
 import threading
 from aidaMiddleware.distTabularData import DistTabularData
 from concurrent.futures import as_completed
+import copyreg
 
 
 class LinearRegressionModel(Model):
@@ -70,4 +71,8 @@ class LinearRegressionModel(Model):
     def get_params(self):
         return self.weights
 
-copyreg.pickle(LinearRegressionModel, ModelRemoteStub.serializeObj)
+class LinearRegressionModelRemoteStub(ModelRemoteStub):
+    pass
+
+copyreg.pickle(LinearRegressionModel, LinearRegressionModelRemoteStub.serializeObj)
+copyreg.pickle(LinearRegressionModelRemoteStub, LinearRegressionModelRemoteStub.serializeObj)

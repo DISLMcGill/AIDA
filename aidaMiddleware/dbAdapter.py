@@ -13,7 +13,7 @@ from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
 from aidaMiddleware.distTabularData import DistTabularData;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
-from aidaMiddleware.Model import LinearRegressionModel;
+from aidaMiddleware.Model import *;
 
 DBC._dataFrameClass_ = DataFrame;
 
