@@ -199,7 +199,7 @@ class DistTabularData(TabularData):
         for f in as_completed(futures):
             results.append(f.result())
 
-        return (results[0][0], sum([r[1] for r in results]))
+        return (sum([r[0] for r in results]), results[0][1])
 
     def vstack(self, othersrclist):
         pass

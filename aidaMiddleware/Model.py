@@ -8,25 +8,13 @@ import copyreg
 
 
 class LinearRegressionModel(Model):
-    def __init__(self, executor, db, learning_rate):
-        super().__init__()
-        self.executor = executor
-        self.db = db
-        self.lr = learning_rate
-        self.weights = None
-        self.lock = threading.Lock()
+    def __init__(self, executor, db, learning_rate, sync=True):
+        super().__init__(executor, db, learning_rate, sync)
 
     def fit(self, x, y, iterations, batch_size=1):
-        # send gradient descent function to remote
-        def grad_desc(actual_y, predicted_y, batch_x):
-            return 2 * (((predicted_y - actual_y).T @ batch_x) / predicted_y.shape[0])
-
-        for con in x.tabular_datas:
-            con.grad_desc = grad_desc
-
         # initialize weights if not already initialized
         if self.weights is None:
-            self.weights = np.random.rand(x.shape[1] + 1)
+            self.weights = self.db._ones((1,x.shape[1]+1))
         else:
             if self.weights.shape[0] + 1 != x.shape[1]:
                 raise ValueError("Model weights are not the same dimension as input.")
@@ -41,13 +29,18 @@ class LinearRegressionModel(Model):
         x_ones = DistTabularData(self.executor, results, x.dbc)
 
         def iterate(db, x, y, weights, batch_size):
-            batch = np.random.choice(x.size[0], batch_size, replace=False)
-            preds = x[batch] @ weights.T
-            grad_desc_weights = db.grad_desc(y, preds, x)
+            db.weights = DataFrame._loadExtData_(lambda: weights, db)
+            batch = np.random.choice(x.shape[0], batch_size, replace=False)
+            batch_x = x[batch,:]
+            batch_y = y[batch,:]
+            preds = batch_x @ db.weights.T
+            grad_desc_weights = 2 * (((preds - batch_y).T @ batch_x) / preds.shape[0])
             return grad_desc_weights
 
         for i in range(iterations):
-            futures = [self.executor.submit(lambda con: con._XP(iterate, x_ones[con], y[con], self.weights, batch_size), c) for c in x_ones.tabular_datas]
+            futures = [self.executor.submit(lambda con: con._XP(iterate, x_ones.tabular_datas[con],
+                                            y.tabular_datas[con], self.weights.cdata, batch_size),
+                                            c) for c in x_ones.tabular_datas]
             for future in as_completed(futures):
                 result = future.result()
                 self.update_params(result)
@@ -71,8 +64,4 @@ class LinearRegressionModel(Model):
     def get_params(self):
         return self.weights
 
-class LinearRegressionModelRemoteStub(ModelRemoteStub):
-    pass
-
-copyreg.pickle(LinearRegressionModel, LinearRegressionModelRemoteStub.serializeObj)
-copyreg.pickle(LinearRegressionModelRemoteStub, LinearRegressionModelRemoteStub.serializeObj)
+copyreg.pickle(LinearRegressionModel, ModelRemoteStub.serializeObj)

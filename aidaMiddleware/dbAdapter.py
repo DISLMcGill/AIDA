@@ -91,7 +91,9 @@ class DBCMiddleware(DBC):
         return d
 
 class DBCMiddlewareStub(DBCRemoteStub):
-    pass;
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _LinearRegression(self, learning_rate):
+        pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);
 copyreg.pickle(DBCMiddlewareStub, DBCMiddlewareStub.serializeObj);

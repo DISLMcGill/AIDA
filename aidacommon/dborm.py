@@ -358,8 +358,45 @@ class CASE(F):
         return expr;
 
 class Model(metaclass=ABCMeta):
-    @abstractmethod
-    def fit(self, x, y, iterations): pass;
+    def __init__(self, executor, db, learning_rate, sync=True):
+        self.executor = executor
+        self.db = db
+        self.lr = learning_rate
+        self.weights = None
+        self.lock = threading.Lock()
+        self.preprocessing = None
+        self.iterate = None
+        self.sync = sync
+        self.aggregate = None
+        self.predict = None
+
+    def fit(self, x, y, iterations, batch_size=1):
+        if self.preprocessing is not None:
+            x, y = self.preprocessing(x,y)
+
+        if self.sync:
+            for i in range(iterations):
+                futures = [self.executor.submit(lambda con: con._XP(iterate, x.tabular_datas[con],
+                                                                    y.tabular_datas[con], self.weights.cdata,
+                                                                    batch_size),
+                                                c) for c in x.tabular_datas]
+                results = []
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+                self.aggregate(results)
+        else:
+            def thread(con):
+                for i in range(iterations):
+                    result = con._XP(iterate, x.tabular_datas[con],
+                            y.tabular_datas[con], self.weights.cdata,
+                            batch_size)
+                    self.lock.acquire()
+                    self.aggregate(result)
+                    self.lock.release()
+            futures = [self.executor.submit(lambda con: thread(con)) for c in x.tabular_datas]
+            for future in as_completed(futures):
+                result = future.result()
 
     @abstractmethod
     def predict(self, x): pass;
