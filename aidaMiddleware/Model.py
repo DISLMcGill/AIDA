@@ -5,7 +5,7 @@ import threading
 from aidaMiddleware.distTabularData import DistTabularData
 from concurrent.futures import as_completed
 import copyreg
-
+import logging
 
 class LinearRegressionModel(Model):
     def __init__(self, executor, db, learning_rate, sync=True):
@@ -20,6 +20,7 @@ class LinearRegressionModel(Model):
                 raise ValueError("Model weights are not the same dimension as input.")
 
         # add 1s column to x for bias value
+        logging.warning("made weights")
         results = {}
         futures = {self.executor.submit(lambda con, table: con._ones(table.shape[0]).hstack(table),
                                         c, x.tabular_datas[c]): c for c in x.tabular_datas}
@@ -27,7 +28,7 @@ class LinearRegressionModel(Model):
             results[futures[future]] = future.result()
 
         x_ones = DistTabularData(self.executor, results, x.dbc)
-
+        logging.warning("added bias")
         def iterate(db, x, y, weights, batch_size):
             db.weights = DataFrame._loadExtData_(lambda: weights, db)
             batch = np.random.choice(x.shape[0], batch_size, replace=False)
@@ -65,3 +66,8 @@ class LinearRegressionModel(Model):
         return self.weights
 
 copyreg.pickle(LinearRegressionModel, ModelRemoteStub.serializeObj)
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes
