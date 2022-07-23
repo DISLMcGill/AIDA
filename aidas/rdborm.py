@@ -4,4 +4,4 @@ from aidacommon.rdborm import *;
 
 copyreg.pickle(DBTable, TabularDataRemoteStub.serializeObj);
 copyreg.pickle(DataFrame, TabularDataRemoteStub.serializeObj);
-copyreg.pickle(Model, ModelRemoteStub.serializeObj);
+copyreg.pickle(ModelService, ModelServiceRemoteStub.serializeObj);

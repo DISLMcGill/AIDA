@@ -127,7 +127,21 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
-class ModelRemoteStub(aidacommon.rop.RObjStub, Model):
+class ModelServiceRemoteStub(aidacommon.rop.RObjStub, Model):
+    def initialize(self, x, y):
+        pass
+
+    def aggregate(self, results):
+        pass
+
+    @staticmethod
+    def preprocess(db, x, y):
+        pass
+
+    @staticmethod
+    def iterate(db, x, y, weights, batch_size):
+        pass
+
     @aidacommon.rop.RObjStub.RemoteMethod()
     def fit(self, x, y, iterations): pass;
 

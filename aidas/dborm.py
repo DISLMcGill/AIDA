@@ -1828,3 +1828,77 @@ class DataFrame(TabularData):
             del self.__matrix__;
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
+
+class ModelService(Model):
+    def get_params(self):
+        pass
+
+    def initialize(self, x, y):
+        pass
+
+    def aggregate(self, results):
+        pass
+
+    @staticmethod
+    def preprocess(db, x, y):
+        pass
+
+    @staticmethod
+    def score(y_preds, y):
+        pass
+
+    @staticmethod
+    def iterate(db, x, y, weights, batch_size):
+        pass
+
+    def predict(self, x):
+        pass
+
+    def __init__(self, model):
+        self.__model__ = model
+
+    def __getattribute__(self, item):
+        try:
+            return super().__getattribute__(item)
+        except:
+            pass
+
+        return self.__model__.__getattribute__(item)
+
+    def fit(self, x, y, iterations, batch_size=1):
+        x_preprocessed = {}
+        y_preprocessed = {}
+        futures = {self.executor.submit(lambda con: self.preprocess(c, x, y)): c for c in x.tabular_datas}
+        for future in as_completed(futures):
+            x_result, y_result = future.result()
+            x_preprocessed[futures[future]] = x_result
+            y_preprocessed[futures[future]] = y_result
+        x = DistTabularData(self.executor, x_preprocessed, x.dbc)
+        y = DistTabularData(self.executor, y_preprocessed, y.dbc)
+
+        self.initialize(x, y)
+
+        if self.sync:
+            for i in range(iterations):
+                futures = [self.executor.submit(lambda con: con._XP(iterate, x.tabular_datas[con],
+                                                                    y.tabular_datas[con], self.weights.cdata,
+                                                                    batch_size),
+                                                c) for c in x.tabular_datas]
+                results = []
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+                self.aggregate(results)
+        else:
+            def thread(con):
+                for i in range(iterations):
+                    result = con._XP(iterate, x.tabular_datas[con],
+                            y.tabular_datas[con], self.weights.cdata,
+                            batch_size)
+                    self.lock.acquire()
+                    self.aggregate(result)
+                    self.lock.release()
+            futures = [self.executor.submit(lambda con: thread(con)) for c in x.tabular_datas]
+            for future in as_completed(futures):
+                result = future.result()
+

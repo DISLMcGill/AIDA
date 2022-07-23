@@ -7,7 +7,7 @@ import datetime;
 
 from aidacommon.dbAdapter import *;
 from aidas.rdborm import *;
-from aidas.dborm import DBTable, DataFrame;
+from aidas.dborm import DBTable, DataFrame, ModelService;
 from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
@@ -18,8 +18,13 @@ from aidaMiddleware.Model import *;
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
-    def _LinearRegression(self, learning_rate):
-        return LinearRegressionModel(self._executor, self.__monetConnection, learning_rate)
+    def _RegisterModel(self, model, learning_rate=0.0001):
+        m = model(self._executor, self.__monetConnection, learning_rate)
+        return ModelService(m)
+
+    def _LinearRegression(self, learning_rate=0.0001, sync=True):
+        m = LinearRegressionModel(self._executor, self.__monetConnection, learning_rate, sync)
+        return ModelService(m)
 
     def _toTable(self, tblrData, tableName=None):
         pass
@@ -93,6 +98,10 @@ class DBCMiddleware(DBC):
 class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _LinearRegression(self, learning_rate):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _RegisterModel(self):
         pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);

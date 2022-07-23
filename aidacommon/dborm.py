@@ -1,6 +1,7 @@
 import logging;
 from enum import Enum;
 from abc import ABCMeta, abstractmethod, abstractproperty;
+from aidaMiddleware.distTabularData import DistTabularData
 
 import datetime;
 
@@ -357,6 +358,24 @@ class CASE(F):
         expr += ' ELSE ' + ( F.__formatval__(self._deflt_) if(self._deflt_) else 'NULL' ) + ' END ';
         return expr;
 
+class ParameterServer():
+    def __init__(self, num_params):
+        self.lock = threading.Lock()
+        self.params = {}
+        for i in range(num_params):
+            self.params[i] = 0
+        self.updates = []
+
+    def pull(self, param_ids):
+        return np.asarray([self.params[id] for id in param_ids])
+
+    # updates should be
+    def push(self, updates):
+        self.lock.acquire()
+        for i in range(param_ids):
+            self.params[param_ids[i]] = self.params[param_ids[i]] + updates[i]
+        self.lock.release()
+
 class Model(metaclass=ABCMeta):
     def __init__(self, executor, db, learning_rate, sync=True):
         self.executor = executor
@@ -364,39 +383,8 @@ class Model(metaclass=ABCMeta):
         self.lr = learning_rate
         self.weights = None
         self.lock = threading.Lock()
-        self.preprocessing = None
-        self.iterate = None
         self.sync = sync
         self.aggregate = None
-        self.predict = None
-
-    def fit(self, x, y, iterations, batch_size=1):
-        if self.preprocessing is not None:
-            x, y = self.preprocessing(x,y)
-
-        if self.sync:
-            for i in range(iterations):
-                futures = [self.executor.submit(lambda con: con._XP(iterate, x.tabular_datas[con],
-                                                                    y.tabular_datas[con], self.weights.cdata,
-                                                                    batch_size),
-                                                c) for c in x.tabular_datas]
-                results = []
-                for future in as_completed(futures):
-                    result = future.result()
-                    results.append(result)
-                self.aggregate(results)
-        else:
-            def thread(con):
-                for i in range(iterations):
-                    result = con._XP(iterate, x.tabular_datas[con],
-                            y.tabular_datas[con], self.weights.cdata,
-                            batch_size)
-                    self.lock.acquire()
-                    self.aggregate(result)
-                    self.lock.release()
-            futures = [self.executor.submit(lambda con: thread(con)) for c in x.tabular_datas]
-            for future in as_completed(futures):
-                result = future.result()
 
     @abstractmethod
     def predict(self, x): pass;
@@ -404,9 +392,23 @@ class Model(metaclass=ABCMeta):
     @abstractmethod
     def get_params(self): pass;
 
+    @abstractmethod
+    def initialize(self, x, y): pass;
+
+    @abstractmethod
+    def aggregate(self, results): pass;
+
+    @staticmethod
+    @abstractmethod
+    def preprocess(db, x, y): pass;
+
     @staticmethod
     @abstractmethod
     def score(y_preds, y): pass;
+
+    @staticmethod
+    @abstractmethod
+    def iterate(db, x, y, weights, batch_size): pass;
 
 
 class TabularData(metaclass=ABCMeta):
