@@ -28,7 +28,7 @@ class LogisticRegressionModel(Model):
             fn = np.asarray([(1 / 1 + np.exp(n)) for n in c])
             return {cn: fn}
         preds = batch_x @ db.weights.T
-        grad_desc_weights = (1 / preds.shape[0]) * (batch_x.T @ (preds._U(sigmoid) - batch_x))
+        grad_desc_weights = (1 / preds.shape[0]) * (batch_x.T @ (preds._U(sigmoid) - batch_y))
         return grad_desc_weights
 
     def aggregate(self, results):
