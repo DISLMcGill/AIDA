@@ -1,7 +1,6 @@
 import logging;
 from enum import Enum;
 from abc import ABCMeta, abstractmethod, abstractproperty;
-from aidaMiddleware.distTabularData import DistTabularData
 
 import datetime;
 

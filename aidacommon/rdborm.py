@@ -155,7 +155,7 @@ class ModelServiceRemoteStub(aidacommon.rop.RObjStub, Model):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def score(y_preds, y): pass;
 
-copyreg.pickle(ModelRemoteStub, ModelRemoteStub.serializeObj)
+copyreg.pickle(ModelServiceRemoteStub, ModelServiceRemoteStub.serializeObj)
 
 class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
