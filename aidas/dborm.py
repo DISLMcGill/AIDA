@@ -14,7 +14,7 @@ from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
 from aidacommon.utils import VirtualOrderedColumnsDict;
-from concurrent.futures import ThreadPoolExecutor;
+from concurrent.futures import ThreadPoolExecutor, as_completed;
 
 #Simple wrapper class to encapsulate a query string.
 class SQLQuery:
@@ -1829,15 +1829,18 @@ class DataFrame(TabularData):
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
 
+class ModelServiceFactory():
+    def __init__(self):
+
 class ModelService(Model):
     def get_params(self):
-        pass
+        return self.__model__.get_params()
 
     def initialize(self, x, y):
-        pass
+        return self.__model__.initialize(x, y)
 
     def aggregate(self, results):
-        pass
+        return self.__model__.aggregate(results)
 
     @staticmethod
     def preprocess(db, x, y):
@@ -1868,7 +1871,7 @@ class ModelService(Model):
     def fit(self, x, y, iterations, batch_size=1):
         x_preprocessed = {}
         y_preprocessed = {}
-        futures = {self.executor.submit(lambda con: self.preprocess(c, x, y)): c for c in x.tabular_datas}
+        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, x, y)): c for c in x.tabular_datas}
         for future in as_completed(futures):
             x_result, y_result = future.result()
             x_preprocessed[futures[future]] = x_result
@@ -1880,7 +1883,7 @@ class ModelService(Model):
 
         if self.sync:
             for i in range(iterations):
-                futures = [self.executor.submit(lambda con: con._XP(iterate, x.tabular_datas[con],
+                futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, x.tabular_datas[con],
                                                                     y.tabular_datas[con], self.weights.cdata,
                                                                     batch_size),
                                                 c) for c in x.tabular_datas]
@@ -1892,7 +1895,7 @@ class ModelService(Model):
         else:
             def thread(con):
                 for i in range(iterations):
-                    result = con._XP(iterate, x.tabular_datas[con],
+                    result = con._XP(self.__model__.iterate, x.tabular_datas[con],
                             y.tabular_datas[con], self.weights.cdata,
                             batch_size)
                     self.lock.acquire()
