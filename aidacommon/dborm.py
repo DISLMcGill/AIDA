@@ -396,7 +396,7 @@ class Model(metaclass=ABCMeta):
     def initialize(self, x, y): pass;
 
     @abstractmethod
-    def aggregate(self, results): pass;
+    def agg(self, results): pass;
 
     @staticmethod
     @abstractmethod

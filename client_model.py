@@ -31,8 +31,8 @@ class LogisticRegressionModel(Model):
         grad_desc_weights = (1 / preds.shape[0]) * (batch_x.T @ (preds._U(sigmoid) - batch_y))
         return grad_desc_weights
 
-    def aggregate(self, results):
-        if (self.sync):
+    def agg(self, results):
+        if self.sync:
             n = len(results)
             for i in range(n):
                 self.weights = self.weights - (self.lr * delta_params / n)

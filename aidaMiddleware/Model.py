@@ -12,6 +12,7 @@ class LinearRegressionModel(Model):
 
     @staticmethod
     def iterate(db, x, y, weights, batch_size):
+        from aidas.dborm import DataFrame
         db.weights = DataFrame._loadExtData_(lambda: weights, db)
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :]
@@ -28,18 +29,18 @@ class LinearRegressionModel(Model):
     def initialize(self, x, y):
         # initialize weights if not already initialized
         if self.weights is None:
-            self.weights = self.db._ones((1,x.shape[1]+1))
+            self.weights = self.db._ones((1,x.shape[1]))
         else:
             if self.weights.shape[0] + 1 != x.shape[1]:
                 raise ValueError("Model weights are not the same dimension as input.")
 
-    def aggregate(self, results):
-        if (self.sync):
+    def agg(self, results):
+        if self.sync:
             n = len(results)
             for i in range(n):
-                self.weights = self.weights - (self.lr * delta_params / n)
+                self.weights = self.weights - (self.lr * results[i] / n)
         else:
-            self.weights = self.weights - (self.lr * delta_params)
+            self.weights = self.weights - (self.lr * results)
 
     def predict(self, x):
         return x @ self.weights.T

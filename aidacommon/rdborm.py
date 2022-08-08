@@ -131,7 +131,7 @@ class ModelServiceRemoteStub(aidacommon.rop.RObjStub, Model):
     def initialize(self, x, y):
         pass
 
-    def aggregate(self, results):
+    def agg(self, results):
         pass
 
     @staticmethod

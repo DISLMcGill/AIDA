@@ -13,6 +13,7 @@ import pandas as pd;
 from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
+from aidaMiddleware.distTabularData import DistTabularData;
 from aidacommon.utils import VirtualOrderedColumnsDict;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
 
@@ -1829,9 +1830,6 @@ class DataFrame(TabularData):
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
 
-class ModelServiceFactory():
-    def __init__(self):
-
 class ModelService(Model):
     def get_params(self):
         return self.__model__.get_params()
@@ -1839,8 +1837,8 @@ class ModelService(Model):
     def initialize(self, x, y):
         return self.__model__.initialize(x, y)
 
-    def aggregate(self, results):
-        return self.__model__.aggregate(results)
+    def agg(self, results):
+        return self.__model__.agg(results)
 
     @staticmethod
     def preprocess(db, x, y):
@@ -1871,7 +1869,7 @@ class ModelService(Model):
     def fit(self, x, y, iterations, batch_size=1):
         x_preprocessed = {}
         y_preprocessed = {}
-        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, x, y)): c for c in x.tabular_datas}
+        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, x.tabular_datas[c], y.tabular_datas[c])): c for c in x.tabular_datas}
         for future in as_completed(futures):
             x_result, y_result = future.result()
             x_preprocessed[futures[future]] = x_result
@@ -1891,7 +1889,7 @@ class ModelService(Model):
                 for future in as_completed(futures):
                     result = future.result()
                     results.append(result)
-                self.aggregate(results)
+                self.agg(results)
         else:
             def thread(con):
                 for i in range(iterations):
@@ -1899,7 +1897,7 @@ class ModelService(Model):
                             y.tabular_datas[con], self.weights.cdata,
                             batch_size)
                     self.lock.acquire()
-                    self.aggregate(result)
+                    self.agg(result)
                     self.lock.release()
             futures = [self.executor.submit(lambda con: thread(con)) for c in x.tabular_datas]
             for future in as_completed(futures):
