@@ -34,7 +34,7 @@ class LinearRegressionModel(Model):
             if self.weights.shape[0] + 1 != x.shape[1]:
                 raise ValueError("Model weights are not the same dimension as input.")
 
-    def agg(self, results):
+    def aggregate(self, results):
         if self.sync:
             n = len(results)
             for i in range(n):

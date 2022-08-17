@@ -384,7 +384,6 @@ class Model(metaclass=ABCMeta):
         self.weights = None
         self.lock = threading.Lock()
         self.sync = sync
-        self.aggregate = None
 
     @abstractmethod
     def predict(self, x): pass;
@@ -396,7 +395,7 @@ class Model(metaclass=ABCMeta):
     def initialize(self, x, y): pass;
 
     @abstractmethod
-    def agg(self, results): pass;
+    def aggregate(self, results): pass;
 
     @staticmethod
     @abstractmethod

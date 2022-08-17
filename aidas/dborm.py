@@ -1837,8 +1837,8 @@ class ModelService(Model):
     def initialize(self, x, y):
         return self.__model__.initialize(x, y)
 
-    def agg(self, results):
-        return self.__model__.agg(results)
+    def aggregate(self, results):
+        return self.__model__.aggregate(results)
 
     @staticmethod
     def preprocess(db, x, y):
@@ -1889,7 +1889,7 @@ class ModelService(Model):
                 for future in as_completed(futures):
                     result = future.result()
                     results.append(result)
-                self.agg(results)
+                self.aggregate(results)
         else:
             def thread(con):
                 for i in range(iterations):
@@ -1897,7 +1897,7 @@ class ModelService(Model):
                             y.tabular_datas[con], self.weights.cdata,
                             batch_size)
                     self.lock.acquire()
-                    self.agg(result)
+                    self.aggregate(result)
                     self.lock.release()
             futures = [self.executor.submit(lambda con: thread(con)) for c in x.tabular_datas]
             for future in as_completed(futures):
