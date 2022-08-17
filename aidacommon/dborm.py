@@ -377,13 +377,17 @@ class ParameterServer():
         self.lock.release()
 
 class Model(metaclass=ABCMeta):
-    def __init__(self, executor, db, learning_rate, sync=True):
-        self.executor = executor
-        self.db = db
+    def __init__(self, learning_rate, sync=True):
+        self.executor = None
+        self.db = None
         self.lr = learning_rate
         self.weights = None
         self.lock = threading.Lock()
         self.sync = sync
+
+    def server_init(self, executor, db):
+        self.executor = executor
+        self.db = db
 
     @abstractmethod
     def predict(self, x): pass;

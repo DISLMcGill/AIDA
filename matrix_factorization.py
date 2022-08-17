@@ -1,7 +1,7 @@
 from aida.aida import *
 from collections import Counter
 
-con = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi')
+dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 
 class MatrixFactorization(Model):
     def __init__(self, executor, db, learning_rate, sync):

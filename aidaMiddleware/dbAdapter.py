@@ -18,12 +18,13 @@ from aidaMiddleware.Model import *;
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
-    def _RegisterModel(self, model, learning_rate=0.0001):
-        m = model(self._executor, self.__monetConnection, learning_rate)
+    def _RegisterModel(self, model):
+        model.server_init(self._executor, self.__monetConnection)
         return ModelService(m)
 
     def _LinearRegression(self, learning_rate=0.0001, sync=True):
-        m = LinearRegressionModel(self._executor, self.__monetConnection, learning_rate, sync)
+        m = LinearRegressionModel(learning_rate, sync)
+        m.server_init(self.executor, self.__monetConnection)
         return ModelService(m)
 
     def _toTable(self, tblrData, tableName=None):
@@ -101,7 +102,7 @@ class DBCMiddlewareStub(DBCRemoteStub):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _RegisterModel(self):
+    def _RegisterModel(self, model):
         pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);
