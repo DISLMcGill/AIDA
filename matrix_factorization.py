@@ -3,10 +3,12 @@ from collections import Counter
 
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 
-class MatrixFactorization(Model):
-    def __init__(self, executor, db, learning_rate, sync):
-        super().__init__(executor, db, learning_rate, sync)
+class MatrixFactorization:
+    def __init__(self, learning_rate, sync):
         self.info = []
+        self.learning_rate = learning_rate
+        self.sync = sync
+        self.weights = None
 
     @staticmethod
     def preprocess(db, x, y):
@@ -73,11 +75,11 @@ class MatrixFactorization(Model):
         return 0
 
 print("Sending model...")
-m = dw._RegisterModel(MatrixFactorization)
+m = dw._RegisterModel(MatrixFactorization(0.0001, True))
 
 print("Fitting model")
 x = dw.mf_data
-m.fit(x, None, 1000, batch_size=25)
+m.fit(x, x, 1000, batch_size=25)
 
 print("Model parameters: ")
 print(m.get_params())

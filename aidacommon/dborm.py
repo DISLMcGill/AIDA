@@ -385,10 +385,6 @@ class Model(metaclass=ABCMeta):
         self.lock = threading.Lock()
         self.sync = sync
 
-    def server_init(self, executor, db):
-        self.executor = executor
-        self.db = db
-
     @abstractmethod
     def predict(self, x): pass;
 

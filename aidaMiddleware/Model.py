@@ -1,7 +1,7 @@
 from aidacommon.dborm import Model
 import numpy as np
 import threading
-from aidaMiddleware.distTabularData import DistTabularData
+from aidas.dborm import DistTabularData
 from concurrent.futures import as_completed
 import copyreg
 import logging

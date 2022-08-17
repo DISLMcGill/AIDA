@@ -11,7 +11,7 @@ from aidas.dborm import DBTable, DataFrame, ModelService;
 from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
-from aidaMiddleware.distTabularData import DistTabularData;
+from aidas.dborm import DistTabularData;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
 from aidaMiddleware.Model import *;
 
@@ -19,8 +19,9 @@ DBC._dataFrameClass_ = DataFrame;
 
 class DBCMiddleware(DBC):
     def _RegisterModel(self, model):
-        model.server_init(self._executor, self.__monetConnection)
-        return ModelService(m)
+        m = ModelService(model)
+        m.server_init(self._executor, self.__monetConnection)
+        return m
 
     def _LinearRegression(self, learning_rate=0.0001, sync=True):
         m = LinearRegressionModel(learning_rate, sync)
