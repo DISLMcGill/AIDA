@@ -1885,7 +1885,7 @@ class ModelService(Model):
         if self.sync:
             for i in range(iterations):
                 futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, x.tabular_datas[con],
-                                                                    y.tabular_datas[con], self.weights.cdata,
+                                                                    y.tabular_datas[con], self.weights,
                                                                     batch_size),
                                                 c) for c in x.tabular_datas]
                 results = []

@@ -15,15 +15,13 @@ class MatrixFactorization:
         return (x, y)
 
     def initialize(self, x, y):
+        import numpy as np
         if self.weights is None:
             self.info['users'] = list(x.project('user_id').distinct().order('user_id').cdata['user_id'])
             self.info['movies'] = list(x.project('movie_id').distinct().order('movie_id').cdata['movie_id'])
             users_matrix = dict.from_keys(self.info['users'], np.random.rand(3))
             movies_matrix = dict.from_keys(self.info['movies'], np.random.rand(3))
             self.weights = (users_matrix, movies_matrix)
-            for db in x:
-                db.users = self.info['users']
-                db.movies = self.info['movies']
 
     @staticmethod
     def iterate(db, x, y, weights, batch_size):
@@ -33,8 +31,8 @@ class MatrixFactorization:
         users_update = {}
         movies_update = {}
         for p in range(batch_x['movie_id'].shape[0]):
-            user = db.users.index(batch_x['user_id'][p])
-            movie = db.movies.index(batch_x['movie_id'][p])
+            user = batch_x['user_id'][p]
+            movie = batch_x['movie_id'][p]
             e = batch_x['rating'][p] - np.dot(weights[0][user], weights[1][movie])
             for i in range(3):
                 users_update[user] = users_update[user] + (2 * e * weights[1][movie] - 0.02 * weights[0][user])
@@ -61,7 +59,7 @@ class MatrixFactorization:
         else:
             for u in results[0]:
                 self.weights[0][u] = self.weights[0][u] + results[0][u]
-            for m in results[m]:
+            for m in results[1]:
                 self.weights[1][m] = self.weights[1][m] + results[1][m]
 
     def predict(self, x):

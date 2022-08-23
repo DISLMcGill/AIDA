@@ -13,7 +13,7 @@ class LinearRegressionModel(Model):
     @staticmethod
     def iterate(db, x, y, weights, batch_size):
         from aidas.dborm import DataFrame
-        db.weights = DataFrame._loadExtData_(lambda: weights, db)
+        db.weights = DataFrame._loadExtData_(lambda: weights.cdata, db)
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :]
         batch_y = y[batch, :]
