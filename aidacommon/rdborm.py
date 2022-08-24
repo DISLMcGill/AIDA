@@ -157,6 +157,17 @@ class ModelServiceRemoteStub(aidacommon.rop.RObjStub, Model):
 
 copyreg.pickle(ModelServiceRemoteStub, ModelServiceRemoteStub.serializeObj)
 
+class ParameterServerRemoteStub(aidacommon.rop.RObjStub):
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def pull(self, param_ids):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def push(self, update):
+        pass
+
+copyreg.pickle(ParameterServerRemoteStub, ParameterServerRemoteStub.serializeObj)
+
 class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def filter(self, *selcols): pass;

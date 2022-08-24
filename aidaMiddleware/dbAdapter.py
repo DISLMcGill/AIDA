@@ -23,6 +23,11 @@ class DBCMiddleware(DBC):
         m.server_init(self._executor, self.__monetConnection)
         return m
 
+    def _RegisterPSModel(self, model):
+        m = PSModelService(model)
+        m.server_init(self._executor, self.__monetConnection)
+        return m
+
     def _LinearRegression(self, learning_rate=0.0001, sync=True):
         m = LinearRegressionModel(learning_rate, sync)
         m.server_init(self.executor, self.__monetConnection)
@@ -105,6 +110,11 @@ class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.ModelCheck()
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _RegisterModel(self, model):
+        pass;
+
+    @aidacommon.rop.RObjStub.ModelCheck(isPS=True)
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _RegisterPSModel(self, model):
         pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);

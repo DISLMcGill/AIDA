@@ -358,24 +358,6 @@ class CASE(F):
         expr += ' ELSE ' + ( F.__formatval__(self._deflt_) if(self._deflt_) else 'NULL' ) + ' END ';
         return expr;
 
-class ParameterServer():
-    def __init__(self, num_params):
-        self.lock = threading.Lock()
-        self.params = {}
-        for i in range(num_params):
-            self.params[i] = 0
-        self.updates = []
-
-    def pull(self, param_ids):
-        return np.asarray([self.params[id] for id in param_ids])
-
-    # updates should be
-    def push(self, updates):
-        self.lock.acquire()
-        for i in range(param_ids):
-            self.params[param_ids[i]] = self.params[param_ids[i]] + updates[i]
-        self.lock.release()
-
 class Model(metaclass=ABCMeta):
     def __init__(self, learning_rate, sync=True):
         self.executor = None

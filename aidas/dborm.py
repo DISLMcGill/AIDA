@@ -1830,6 +1830,107 @@ class DataFrame(TabularData):
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
 
+class ParameterServer:
+    # if time == True, updates happen every %schedule% seconds
+    # if time == False, updates happen every %schedule% updates
+    def __init__(self, schedule=5, time=True):
+        self.lock = threading.Lock()
+        self.params = {}
+        self.updates = []
+        self.schedule = schedule
+        self.time = time
+        self.running_thread = None
+
+    def update_thread(self):
+        t = threading.currentThread()
+        if time:
+            while t.do_run:
+                update()
+                time.sleep(self.schedule)
+        else:
+            while t.do_run:
+                if len(self.updates) >= self.schedule:
+                    update()
+
+    def start_server(self):
+        if self.running_thread is None:
+            self.running_thread = Thread(target=update_thread, args=(self,))
+            self.running_thread.do_run = True
+            self.running_thread.start()
+        else:
+            logging.warning("Parameter server is already started!")
+
+    def stop_server(self):
+        if self.running_thread is not None:
+            self.running_thread.do_run = False
+            self.running_thread.join()
+            self.running_thread = None
+        else:
+            logging.warning("Parameter server has not started.")
+
+    def pull(self, param_ids):
+        return {k: self.params[k] for k in param_ids}
+
+    def push(self, update):
+        self.lock.acquire()
+        for i in range(param_ids):
+            self.updates.append(update)
+        self.lock.release()
+
+    def update(self):
+        self.lock.acquire()
+        for results in self.updates:
+            for key in results:
+                self.params[key] = self.params[key] + results[key]
+        self.updates = []
+        self.lock.release()
+
+class PSModelService():
+    def __getattribute__(self, item):
+        try:
+            return super().__getattribute__(item)
+        except:
+            pass
+
+        return self.__model__.__getattribute__(item)
+
+    def server_init(self, executor, db):
+        self.executor = executor
+        self.db = db
+        self.lock = threading.Lock()
+
+    def __init__(self, model):
+        self.__model__ = model
+        self.__ps__ = ParameterServer()
+
+    def fit(self, x, y, iterations, batch_size=1):
+        x_preprocessed = {}
+        y_preprocessed = {}
+        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, x.tabular_datas[c], y.tabular_datas[c])): c for c in x.tabular_datas}
+        for future in as_completed(futures):
+            x_result, y_result = future.result()
+            x_preprocessed[futures[future]] = x_result
+            y_preprocessed[futures[future]] = y_result
+        x = DistTabularData(self.executor, x_preprocessed, x.dbc)
+        y = DistTabularData(self.executor, y_preprocessed, y.dbc)
+
+        self.__model__.initialize(x, y)
+        self.__ps__.params = self.__model__.weights
+        self.__ps__.start_server()
+
+        def thread(con):
+            result = con._XP(self.__model__.iterate, self.__ps__, x.tabular_datas[con],
+                            y.tabular_datas[con], batch_size)
+
+        futures = [self.executor.submit(lambda con: thread(con), c) for c in x.tabular_datas]
+        for future in as_completed(futures):
+            result = future.result()
+
+        self.__ps__.stop_server()
+
+    def get_params(self):
+        return self.__ps__.params
+
 class ModelService(Model):
     def server_init(self, executor, db):
         self.executor = executor
