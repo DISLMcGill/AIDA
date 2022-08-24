@@ -15,6 +15,7 @@ from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
 from aidacommon.utils import VirtualOrderedColumnsDict;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
+from functools import reduce
 
 #Simple wrapper class to encapsulate a query string.
 class SQLQuery:
@@ -1833,6 +1834,7 @@ class ModelService(Model):
     def server_init(self, executor, db):
         self.executor = executor
         self.db = db
+        self.lock = threading.Lock()
 
     def get_params(self):
         return self.__model__.get_params()
@@ -1897,12 +1899,12 @@ class ModelService(Model):
             def thread(con):
                 for i in range(iterations):
                     result = con._XP(self.__model__.iterate, x.tabular_datas[con],
-                            y.tabular_datas[con], self.weights.cdata,
+                            y.tabular_datas[con], self.weights,
                             batch_size)
                     self.lock.acquire()
                     self.aggregate(result)
                     self.lock.release()
-            futures = [self.executor.submit(lambda con: thread(con)) for c in x.tabular_datas]
+            futures = [self.executor.submit(lambda con: thread(con), c) for c in x.tabular_datas]
             for future in as_completed(futures):
                 result = future.result()
 

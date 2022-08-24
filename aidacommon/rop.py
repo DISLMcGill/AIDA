@@ -446,6 +446,22 @@ class RObjStub (metaclass=ABCMeta):
     #def __del__(self):
         #logging.debug("Removing remote obj stub ({},{},{})".format(self._objName, self._host, self._port));
 
+    class ModelCheck:
+        """Decorator for checking that the first argument contains all necessary model methods"""
+        Methods = ['initialize', 'iterate', 'aggregate', 'preprocess']
+
+        def __call__(self, rmfunc):
+            if (not hasattr(rmfunc, '__call__')):
+                raise TypeError("Argument rmfunc should be callable, {} does not satisfy this.".format(type(rmfunc)));
+
+            @functools.wraps(rmfunc)
+            def wrap(that, *args, **kwargs):
+                model = args[0]
+                if all(hasattr(that, m) for m in ModelCheck.Methods) and all(callable(getattr(that, m)) for m in ModelCheck.Methods):
+                    return rmfunc
+                else:
+                    raise TypeError("First argument does not have required methods.")
+
     class RemoteMethod:
         """Decorator for all methods that needs to be executed remotely."""
 

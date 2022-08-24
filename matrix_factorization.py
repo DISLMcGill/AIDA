@@ -5,7 +5,7 @@ dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 
 class MatrixFactorization:
     def __init__(self, learning_rate, sync):
-        self.info = []
+        self.info = {}
         self.learning_rate = learning_rate
         self.sync = sync
         self.weights = None
@@ -19,8 +19,8 @@ class MatrixFactorization:
         if self.weights is None:
             self.info['users'] = list(x.project('user_id').distinct().order('user_id').cdata['user_id'])
             self.info['movies'] = list(x.project('movie_id').distinct().order('movie_id').cdata['movie_id'])
-            users_matrix = dict.from_keys(self.info['users'], np.random.rand(3))
-            movies_matrix = dict.from_keys(self.info['movies'], np.random.rand(3))
+            users_matrix = dict.fromkeys(self.info['users'], np.random.rand(3))
+            movies_matrix = dict.fromkeys(self.info['movies'], np.random.rand(3))
             self.weights = (users_matrix, movies_matrix)
 
     @staticmethod
@@ -35,16 +35,17 @@ class MatrixFactorization:
             movie = batch_x['movie_id'][p]
             e = batch_x['rating'][p] - np.dot(weights[0][user], weights[1][movie])
             for i in range(3):
-                users_update[user] = users_update[user] + (2 * e * weights[1][movie] - 0.02 * weights[0][user])
-                movies_update[movie] = movies_update[movie] + (2 * e * weights[0][user] - 0.02 * weights[1][movie])
+                users_update[user] = users_update.get(user, 0) + 0.0002 * (2 * e * weights[1][movie] - 0.02 * weights[0][user])
+                movies_update[movie] = movies_update.get(movie, 0) + 0.0002 * (2 * e * weights[0][user] - 0.02 * weights[1][movie])
         return (users_update, movies_update)
 
     def aggregate(self, results):
+        from collections import Counter
         if self.sync:
             user_sums = Counter()
             user_counters = Counter()
             movie_sums = Counter()
-            movie_counters = Counter
+            movie_counters = Counter()
             for update in results:
                 user_sums.update(update[0])
                 user_counters.update(update[0].keys())
@@ -80,5 +81,13 @@ x = dw.mf_data
 m.fit(x, x, 1000, batch_size=25)
 
 print("Model parameters: ")
-print(m.get_params())
+p = m.get_params()
+print(p)
+
+print("Result array: ")
+users = np.array(tuple(p[0].values()))
+movies = np.array(tuple(p[1].values()))
+
+print(users @ movies.T)
+
 

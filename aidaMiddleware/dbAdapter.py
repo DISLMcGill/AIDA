@@ -102,6 +102,7 @@ class DBCMiddlewareStub(DBCRemoteStub):
     def _LinearRegression(self, learning_rate):
         pass;
 
+    @aidacommon.rop.RObjStub.ModelCheck()
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _RegisterModel(self, model):
         pass;
