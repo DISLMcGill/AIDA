@@ -385,10 +385,6 @@ class Model(metaclass=ABCMeta):
 
     @staticmethod
     @abstractmethod
-    def score(y_preds, y): pass;
-
-    @staticmethod
-    @abstractmethod
     def iterate(db, x, y, weights, batch_size): pass;
 
 

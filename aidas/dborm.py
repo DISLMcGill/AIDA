@@ -1845,16 +1845,17 @@ class ParameterServer:
         t = threading.currentThread()
         if time:
             while t.do_run:
-                update()
+                self.update()
                 time.sleep(self.schedule)
         else:
             while t.do_run:
                 if len(self.updates) >= self.schedule:
-                    update()
+                    self.update()
+        self.update()
 
     def start_server(self):
         if self.running_thread is None:
-            self.running_thread = Thread(target=update_thread, args=(self,))
+            self.running_thread = threading.Thread(target=self.update_thread)
             self.running_thread.do_run = True
             self.running_thread.start()
         else:
@@ -1872,18 +1873,13 @@ class ParameterServer:
         return {k: self.params[k] for k in param_ids}
 
     def push(self, update):
-        self.lock.acquire()
-        for i in range(param_ids):
-            self.updates.append(update)
-        self.lock.release()
+        self.updates.append(update)
 
     def update(self):
-        self.lock.acquire()
-        for results in self.updates:
-            for key in results:
-                self.params[key] = self.params[key] + results[key]
-        self.updates = []
-        self.lock.release()
+        while len(self.updates) > 0:
+            update = self.updates.pop(0)
+            for key in update:
+                self.params[key] = self.params[key] + update[key]
 
 class PSModelService():
     def __getattribute__(self, item):
@@ -1931,7 +1927,10 @@ class PSModelService():
     def get_params(self):
         return self.__ps__.params
 
-class ModelService(Model):
+    def score(self, *args, **kwargs):
+        return self.__model__.score(ps, *args, **kwargs)
+
+class ModelService:
     def server_init(self, executor, db):
         self.executor = executor
         self.db = db
@@ -1950,9 +1949,8 @@ class ModelService(Model):
     def preprocess(db, x, y):
         pass
 
-    @staticmethod
-    def score(y_preds, y):
-        pass
+    def score(self, *args, **kwargs):
+        return self.__model__.score(*args, **kwargs)
 
     @staticmethod
     def iterate(db, x, y, weights, batch_size):
@@ -1963,6 +1961,9 @@ class ModelService(Model):
 
     def __init__(self, model):
         self.__model__ = model
+        self.executor = None
+        self.db = None
+        self.lock = None
 
     def __getattribute__(self, item):
         try:

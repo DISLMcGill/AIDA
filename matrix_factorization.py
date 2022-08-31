@@ -34,9 +34,8 @@ class MatrixFactorization:
             user = batch_x['user_id'][p]
             movie = batch_x['movie_id'][p]
             e = batch_x['rating'][p] - np.dot(weights[0][user], weights[1][movie])
-            for i in range(3):
-                users_update[user] = users_update.get(user, 0) + 0.0002 * (2 * e * weights[1][movie] - 0.02 * weights[0][user])
-                movies_update[movie] = movies_update.get(movie, 0) + 0.0002 * (2 * e * weights[0][user] - 0.02 * weights[1][movie])
+            users_update[user] = users_update.get(user, 0) + 0.0002 * (2 * e * weights[1][movie] - 0.02 * weights[0][user])
+            movies_update[movie] = movies_update.get(movie, 0) + 0.0002 * (2 * e * weights[0][user] - 0.02 * weights[1][movie])
         return (users_update, movies_update)
 
     def aggregate(self, results):
@@ -69,25 +68,32 @@ class MatrixFactorization:
     def get_params(self):
         return (self.weights[0], self.weights[1].T)
 
-    @staticmethod
-    def score(y_preds, y):
-        return 0
+    def score(self, x):
+        y = x.cdata
+        e = 0
+        for p in range(y['movie_id'].shape[0]):
+            user = y['user_id'][p]
+            movie = y['movie_id'][p]
+            e = e + pow(y['rating'][p] - np.dot(self.weights[0][user], self.weights[1][movie]), 2)
+            e = e + 0.01 * (np.sum(np.power(self.weights[0][user], 2)) + np.sum(np.power(self.weights[1][movie], 2)))
+        return e
 
-print("Sending model...")
-m = dw._RegisterModel(MatrixFactorization(0.0001, True))
 
-print("Fitting model")
-x = dw.mf_data
-m.fit(x, x, 1000, batch_size=25)
+print("Central model")
+for i in range(5):
+    print(f'iteration {i}')
+    print("Sending model...")
+    m = dw._RegisterPSModel(MatrixFactorization(0.0001, True))
 
-print("Model parameters: ")
-p = m.get_params()
-print(p)
+    print("Fitting model...")
+    x = dw.mf_data
 
-print("Result array: ")
-users = np.array(tuple(p[0].values()))
-movies = np.array(tuple(p[1].values()))
+    start = time.perf_counter()
+    m.fit(x, x, 1000, batch_size=25)
+    end = time.perf_counter()
 
-print(users @ movies.T)
+    print(f"Fitting time: {end - start}")
+    score = m.score(x)
+    print(f"Model score: {score}")
 
 
