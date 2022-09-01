@@ -1831,26 +1831,18 @@ class DataFrame(TabularData):
             del self.__rowNames__;
 
 class ParameterServer:
-    # if time == True, updates happen every %schedule% seconds
-    # if time == False, updates happen every %schedule% updates
-    def __init__(self, schedule=5, time=True):
+    def __init__(self, schedule=0.1):
         self.lock = threading.Lock()
         self.params = {}
         self.updates = []
         self.schedule = schedule
-        self.time = time
         self.running_thread = None
 
     def update_thread(self):
         t = threading.currentThread()
-        if time:
-            while t.do_run:
-                self.update()
-                time.sleep(self.schedule)
-        else:
-            while t.do_run:
-                if len(self.updates) >= self.schedule:
-                    self.update()
+        while t.do_run:
+            self.update()
+            time.sleep(self.schedule)
         self.update()
 
     def start_server(self):
@@ -1881,7 +1873,7 @@ class ParameterServer:
             for key in update:
                 self.params[key] = self.params[key] + update[key]
 
-class PSModelService():
+class PSModelService:
     def __getattribute__(self, item):
         try:
             return super().__getattribute__(item)
@@ -1895,30 +1887,27 @@ class PSModelService():
         self.db = db
         self.lock = threading.Lock()
 
-    def __init__(self, model):
+    def __init__(self, model, schedule=0.1):
         self.__model__ = model
-        self.__ps__ = ParameterServer()
+        self.__ps__ = ParameterServer(schedule)
 
-    def fit(self, x, y, iterations, batch_size=1):
+    def fit(self, x, batch_size=1):
         x_preprocessed = {}
-        y_preprocessed = {}
-        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, x.tabular_datas[c], y.tabular_datas[c])): c for c in x.tabular_datas}
+        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, [t.tabular_datas[c] for t in x])): c for c
+                   in x[0].tabular_datas}
         for future in as_completed(futures):
-            x_result, y_result = future.result()
+            x_result = future.result()
             x_preprocessed[futures[future]] = x_result
-            y_preprocessed[futures[future]] = y_result
-        x = DistTabularData(self.executor, x_preprocessed, x.dbc)
-        y = DistTabularData(self.executor, y_preprocessed, y.dbc)
+        x = [DistTabularData(self.executor, t, x.dbc) for t in x_preprocessed]
 
         self.__model__.initialize(x, y)
         self.__ps__.params = self.__model__.weights
         self.__ps__.start_server()
 
         def thread(con):
-            result = con._XP(self.__model__.iterate, self.__ps__, x.tabular_datas[con],
-                            y.tabular_datas[con], batch_size)
+            result = con._XP(self.__model__.iterate, self.__ps__, [t.tabular_datas[con] for t in x], batch_size)
 
-        futures = [self.executor.submit(lambda con: thread(con), c) for c in x.tabular_datas]
+        futures = [self.executor.submit(lambda con: thread(con), c) for c in x[0].tabular_datas]
         for future in as_completed(futures):
             result = future.result()
 
@@ -1928,7 +1917,7 @@ class PSModelService():
         return self.__ps__.params
 
     def score(self, *args, **kwargs):
-        return self.__model__.score(ps, *args, **kwargs)
+        return self.__model__.score(self.__ps__, *args, **kwargs)
 
 class ModelService:
     def server_init(self, executor, db):
@@ -1939,25 +1928,8 @@ class ModelService:
     def get_params(self):
         return self.__model__.get_params()
 
-    def initialize(self, x, y):
-        return self.__model__.initialize(x, y)
-
-    def aggregate(self, results):
-        return self.__model__.aggregate(results)
-
-    @staticmethod
-    def preprocess(db, x, y):
-        pass
-
     def score(self, *args, **kwargs):
         return self.__model__.score(*args, **kwargs)
-
-    @staticmethod
-    def iterate(db, x, y, weights, batch_size):
-        pass
-
-    def predict(self, x):
-        pass
 
     def __init__(self, model):
         self.__model__ = model
@@ -1973,25 +1945,20 @@ class ModelService:
 
         return self.__model__.__getattribute__(item)
 
-    def fit(self, x, y, iterations, batch_size=1):
+    def fit(self, x, iterations, batch_size=1, sync=False):
         x_preprocessed = {}
-        y_preprocessed = {}
-        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, x.tabular_datas[c], y.tabular_datas[c])): c for c in x.tabular_datas}
+        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, [t.tabular_datas[c] for t in x])): c for c in x[0].tabular_datas}
         for future in as_completed(futures):
-            x_result, y_result = future.result()
+            x_result = future.result()
             x_preprocessed[futures[future]] = x_result
-            y_preprocessed[futures[future]] = y_result
-        x = DistTabularData(self.executor, x_preprocessed, x.dbc)
-        y = DistTabularData(self.executor, y_preprocessed, y.dbc)
+        x = [DistTabularData(self.executor, t, x.dbc) for t in x_preprocessed]
 
         self.initialize(x, y)
 
-        if self.sync:
+        if sync:
             for i in range(iterations):
-                futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, x.tabular_datas[con],
-                                                                    y.tabular_datas[con], self.weights,
-                                                                    batch_size),
-                                                c) for c in x.tabular_datas]
+                futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, [t.tabular_datas[c] for t in x],
+                                                                    self.weights, batch_size), c) for c in x[0].tabular_datas]
                 results = []
                 for future in as_completed(futures):
                     result = future.result()
@@ -2000,13 +1967,12 @@ class ModelService:
         else:
             def thread(con):
                 for i in range(iterations):
-                    result = con._XP(self.__model__.iterate, x.tabular_datas[con],
-                            y.tabular_datas[con], self.weights,
-                            batch_size)
+                    result = con._XP(self.__model__.iterate, [t.tabular_datas[con] for t in x],
+                            self.weights, batch_size)
                     self.lock.acquire()
                     self.aggregate(result)
                     self.lock.release()
-            futures = [self.executor.submit(lambda con: thread(con), c) for c in x.tabular_datas]
+            futures = [self.executor.submit(lambda con: thread(con), c) for c in x[0].tabular_datas]
             for future in as_completed(futures):
                 result = future.result()
 
@@ -2286,12 +2252,12 @@ class DistTabularData(TabularData):
 
     @property
     def cdata(self):
-        futures = []
-        for t in self.tabular_datas.values():
-            futures.append(self.executor.submit(lambda: t.cdata))
-        results = []
-        for f in as_completed(futures):
-            results.append(f.result())
+        #futures = []
+        #for t in self.tabular_datas.values():
+        #    futures.append(self.executor.submit(lambda: t.cdata))
+        results = [t.cdata for t in self.tabular_datas.values()]
+        #for f in as_completed(futures):
+        #    results.append(f.result())
         if len(results) == 1:
             return results[0]
         result = collections.OrderedDict(

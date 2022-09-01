@@ -5,10 +5,8 @@ from collections import Counter
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 
 class MatrixFactorization:
-    def __init__(self, learning_rate, sync):
+    def __init__(self):
         self.info = {}
-        self.learning_rate = learning_rate
-        self.sync = sync
         self.weights = None
 
     @staticmethod
@@ -52,6 +50,7 @@ class MatrixFactorization:
         ps.push(movies_params)
 
     def score(self, ps, x):
+        import numpy as np
         y = x.cdata
         e = 0
         weights = ps.pull(self.weights.keys())
@@ -63,21 +62,20 @@ class MatrixFactorization:
         return e
 
 print("PS model")
-for i in range(5):
-    print(f'iteration {i}')
-    print("Sending model...")
-    m = dw._RegisterPSModel(MatrixFactorization(0.0001, True))
 
-    print("Fitting model...")
-    x = dw.mf_data
+print("Sending model...")
+m = dw._RegisterPSModel(MatrixFactorization())
 
-    start = time.perf_counter()
-    m.fit(x, x, 1000, batch_size=25)
-    end = time.perf_counter()
+print("Fitting model...")
+x = dw.mf_data
 
-    print(f"Fitting time: {end-start}")
-    score = m.score(x)
-    print(f"Model score: {score}")
+start = time.perf_counter()
+m.fit(x, 1000, batch_size=25)
+end = time.perf_counter()
+
+print(f"Fitting time: {end-start}")
+score = m.score(x)
+print(f"Model score: {score}")
 
 
 

@@ -1,20 +1,19 @@
 from aida.aida import *
+from aida.model import Model
 from collections import Counter
 
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 
 class MatrixFactorization:
-    def __init__(self, learning_rate, sync):
+    def __init__(self):
         self.info = {}
-        self.learning_rate = learning_rate
-        self.sync = sync
         self.weights = None
 
     @staticmethod
-    def preprocess(db, x, y):
-        return (x, y)
+    def preprocess(db, x):
+        return x
 
-    def initialize(self, x, y):
+    def initialize(self, x):
         import numpy as np
         if self.weights is None:
             self.info['users'] = list(x.project('user_id').distinct().order('user_id').cdata['user_id'])
@@ -24,7 +23,7 @@ class MatrixFactorization:
             self.weights = (users_matrix, movies_matrix)
 
     @staticmethod
-    def iterate(db, x, y, weights, batch_size):
+    def iterate(db, x, weights, batch_size):
         import numpy as np
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :].cdata
@@ -62,9 +61,6 @@ class MatrixFactorization:
             for m in results[1]:
                 self.weights[1][m] = self.weights[1][m] + results[1][m]
 
-    def predict(self, x):
-        return (self.weights[0], self.weights[1].T)
-
     def get_params(self):
         return (self.weights[0], self.weights[1].T)
 
@@ -79,21 +75,21 @@ class MatrixFactorization:
         return e
 
 
-print("Central model")
-for i in range(5):
-    print(f'iteration {i}')
-    print("Sending model...")
-    m = dw._RegisterPSModel(MatrixFactorization(0.0001, True))
+print("Sync Central model")
 
-    print("Fitting model...")
-    x = dw.mf_data
+print(f'iteration {i}')
+print("Sending model...")
+m = (dw._RegisterModel(MatrixFactorization()))
 
-    start = time.perf_counter()
-    m.fit(x, x, 1000, batch_size=25)
-    end = time.perf_counter()
+print("Fitting model...")
+x = dw.mf_data
 
-    print(f"Fitting time: {end - start}")
-    score = m.score(x)
-    print(f"Model score: {score}")
+start = time.perf_counter()
+m.fit(x, 10000, batch_size=25)
+end = time.perf_counter()
+
+print(f"Fitting time: {end - start}")
+score = m.score(x)
+print(f"Model score: {score}")
 
 

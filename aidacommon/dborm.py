@@ -358,36 +358,6 @@ class CASE(F):
         expr += ' ELSE ' + ( F.__formatval__(self._deflt_) if(self._deflt_) else 'NULL' ) + ' END ';
         return expr;
 
-class Model(metaclass=ABCMeta):
-    def __init__(self, learning_rate, sync=True):
-        self.executor = None
-        self.db = None
-        self.lr = learning_rate
-        self.weights = None
-        self.lock = threading.Lock()
-        self.sync = sync
-
-    @abstractmethod
-    def predict(self, x): pass;
-
-    @abstractmethod
-    def get_params(self): pass;
-
-    @abstractmethod
-    def initialize(self, x, y): pass;
-
-    @abstractmethod
-    def aggregate(self, results): pass;
-
-    @staticmethod
-    @abstractmethod
-    def preprocess(db, x, y): pass;
-
-    @staticmethod
-    @abstractmethod
-    def iterate(db, x, y, weights, batch_size): pass;
-
-
 class TabularData(metaclass=ABCMeta):
     @abstractmethod
     def filter(self, *selcols): pass;

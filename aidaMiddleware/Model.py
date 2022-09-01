@@ -1,4 +1,4 @@
-from aidacommon.dborm import Model
+
 import numpy as np
 import threading
 from aidas.dborm import DistTabularData
@@ -6,7 +6,7 @@ from concurrent.futures import as_completed
 import copyreg
 import logging
 
-class LinearRegressionModel(Model):
+class LinearRegressionModel:
     def __init__(self, executor, db, learning_rate, sync=True):
         super().__init__(executor, db, learning_rate, sync)
 
