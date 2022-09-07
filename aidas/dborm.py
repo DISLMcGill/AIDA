@@ -1898,9 +1898,14 @@ class PSModelService:
         for future in as_completed(futures):
             x_result = future.result()
             x_preprocessed[futures[future]] = x_result
-        x = [DistTabularData(self.executor, t, x.dbc) for t in x_preprocessed]
+        d = [dict.fromkeys(x_preprocessed.keys()) for i in range(len(x))]
+        for c in x_preprocessed:
+            for i in range(len(d)):
+                d[i][c] = x_preprocessed[c][i]
 
-        self.__model__.initialize(x, y)
+        x = [DistTabularData(self.executor, t, self.db) for t in d]
+
+        self.__model__.initialize(x)
         self.__ps__.params = self.__model__.weights
         self.__ps__.start_server()
 

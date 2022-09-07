@@ -11,8 +11,10 @@ class LinearRegressionModel:
         super().__init__(executor, db, learning_rate, sync)
 
     @staticmethod
-    def iterate(db, x, y, weights, batch_size):
+    def iterate(db, data, weights, batch_size):
         from aidas.dborm import DataFrame
+        x = data[0]
+        y = data[1]
         db.weights = DataFrame._loadExtData_(lambda: weights.cdata, db)
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :]
@@ -22,11 +24,14 @@ class LinearRegressionModel:
         return grad_desc_weights
 
     @staticmethod
-    def preprocess(db, x, y):
+    def preprocess(db, data):
+        x = data[0]
+        y = data[1]
         x_bias = db._ones(x.shape[0]).hstack(x)
         return (x_bias, y)
 
-    def initialize(self, x, y):
+    def initialize(self, data):
+        x = data[0]
         # initialize weights if not already initialized
         if self.weights is None:
             self.weights = self.db._ones((1,x.shape[1]))

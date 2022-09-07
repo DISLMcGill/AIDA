@@ -25,6 +25,7 @@ class MatrixFactorization:
     @staticmethod
     def iterate(db, ps, x, batch_size):
         import numpy as np
+        x = x[0]
         # movie keys local -- updated all at the end
         movies = x.project('movie_id').distinct().cdata['movie_id']
         movies_params = dict.fromkeys([f'movie_{m}' for m in movies], np.random.rand(3))

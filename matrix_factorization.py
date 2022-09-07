@@ -25,6 +25,7 @@ class MatrixFactorization:
     @staticmethod
     def iterate(db, x, weights, batch_size):
         import numpy as np
+        x = x[0]
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :].cdata
         users_update = {}
