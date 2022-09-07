@@ -1,5 +1,5 @@
 from aida.aida import *
-from aida.model import Model
+import time
 from collections import Counter
 
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
@@ -16,8 +16,8 @@ class MatrixFactorization:
     def initialize(self, x):
         import numpy as np
         if self.weights is None:
-            self.info['users'] = list(x.project('user_id').distinct().order('user_id').cdata['user_id'])
-            self.info['movies'] = list(x.project('movie_id').distinct().order('movie_id').cdata['movie_id'])
+            self.info['users'] = list(x[0].project('user_id').distinct().order('user_id').cdata['user_id'])
+            self.info['movies'] = list(x[0].project('movie_id').distinct().order('movie_id').cdata['movie_id'])
             users_matrix = dict.fromkeys(self.info['users'], np.random.rand(3))
             movies_matrix = dict.fromkeys(self.info['movies'], np.random.rand(3))
             self.weights = (users_matrix, movies_matrix)
@@ -65,6 +65,7 @@ class MatrixFactorization:
         return (self.weights[0], self.weights[1].T)
 
     def score(self, x):
+        import numpy as np
         y = x.cdata
         e = 0
         for p in range(y['movie_id'].shape[0]):
@@ -77,7 +78,6 @@ class MatrixFactorization:
 
 print("Sync Central model")
 
-print(f'iteration {i}')
 print("Sending model...")
 m = (dw._RegisterModel(MatrixFactorization()))
 
@@ -85,7 +85,7 @@ print("Fitting model...")
 x = dw.mf_data
 
 start = time.perf_counter()
-m.fit(x, 10000, batch_size=25)
+m.fit([x], 10000, batch_size=25)
 end = time.perf_counter()
 
 print(f"Fitting time: {end - start}")

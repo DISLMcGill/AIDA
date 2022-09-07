@@ -1946,14 +1946,20 @@ class ModelService:
         return self.__model__.__getattribute__(item)
 
     def fit(self, x, iterations, batch_size=1, sync=False):
+        self.__model__.sync = sync
         x_preprocessed = {}
         futures = {self.executor.submit(lambda: self.__model__.preprocess(c, [t.tabular_datas[c] for t in x])): c for c in x[0].tabular_datas}
         for future in as_completed(futures):
             x_result = future.result()
             x_preprocessed[futures[future]] = x_result
-        x = [DistTabularData(self.executor, t, x.dbc) for t in x_preprocessed]
+        d = [dict.fromkeys(x_preprocessed.keys()) for i in range(len(x))]
+        for c in x_preprocessed:
+            for i in range(len(d)):
+                d[i][c] = x_preprocessed[c][i]
 
-        self.initialize(x, y)
+        x = [DistTabularData(self.executor, t, self.db) for t in d]
+
+        self.initialize(x)
 
         if sync:
             for i in range(iterations):

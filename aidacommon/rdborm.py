@@ -127,7 +127,7 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
 
 copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
-class ModelServiceRemoteStub(aidacommon.rop.RObjStub, Model):
+class ModelServiceRemoteStub(aidacommon.rop.RObjStub):
     def initialize(self, x, y):
         pass
 
