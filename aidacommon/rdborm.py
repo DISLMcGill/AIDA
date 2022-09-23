@@ -152,7 +152,7 @@ class ModelServiceRemoteStub(aidacommon.rop.RObjStub):
     def get_params(self): pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def score(self, *args, **kwargs): pass;
+    def score(self, x, *args, **kwargs): pass;
 
 copyreg.pickle(ModelServiceRemoteStub, ModelServiceRemoteStub.serializeObj)
 

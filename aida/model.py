@@ -17,8 +17,9 @@ class Model(ABCMeta):
     @abstractmethod
     def aggregate(self, results): pass;
 
+    @staticmethod
     @abstractmethod
-    def score(self, *args, **kwargs): pass;
+    def score(db, x, weights): pass;
 
     @staticmethod
     @abstractmethod

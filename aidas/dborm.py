@@ -1921,8 +1921,14 @@ class PSModelService:
     def get_params(self):
         return self.__ps__.params
 
-    def score(self, *args, **kwargs):
-        return self.__model__.score(self.__ps__, *args, **kwargs)
+    def score(self, x, *args, **kwargs):
+        futures = [self.executor.submit(lambda con: con._XP(self.__model__.score, [t.tabular_datas[c] for t in x],
+                                                            *args, **kwargs), c) for c in x[0].tabular_datas]
+        results = []
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+        return sum(results)
 
 class ModelService:
     def server_init(self, executor, db):
@@ -1986,6 +1992,15 @@ class ModelService:
             futures = [self.executor.submit(lambda con: thread(con), c) for c in x[0].tabular_datas]
             for future in as_completed(futures):
                 result = future.result()
+
+    def score(self, x, *args, **kwargs):
+        futures = [self.executor.submit(lambda con: con._XP(self.__model__.score, [t.tabular_datas[c] for t in x],
+                                                            *args, **kwargs), c) for c in x[0].tabular_datas]
+        results = []
+        for future in as_completed(futures):
+            result = future.result()
+            results.append(result)
+        return sum(results)
 
 class DistTabularData(TabularData):
     def join(self, otherTable, src1joincols, src2joincols, cols1=COL.NONE, cols2=COL.NONE, join=JOIN.INNER, hash_join=False):
