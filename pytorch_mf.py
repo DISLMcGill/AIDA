@@ -6,9 +6,14 @@ import time
 num_epochs = 10000
 
 dfr = pd.read_csv('movie_data_unified.csv')
-dfr.columns = ['user_id', 'movie_id', 'Rating']
+dfr.columns = ['user_id', 'movie_id', 'rating']
+n_users = dfr['user_id'].nunique()
+users = dfr['user_id'].unique()
+n_movies = dfr['movie_id'].nunique()
+movies = dfr['movie_id'].unique()
 
-print((n_users, n_movies))
+u_map = dict(zip(users, range(n_users)))
+m_map = dict(zip(movies, range(n_movies)))
 
 class MatrixFactorization(torch.nn.Module):
     def __init__(self, n_users, n_items, n_factors=3):
@@ -47,5 +52,5 @@ def iter(row, col, rating):
 for epoch in range(num_epochs):
     start = time.perf_counter()
     batch = dfr.sample(25)
-    [iter(row[0], row[1], row[2]) for row in batch[['user', 'movie', 'rating']].to_numpy()]
+    [iter(u_map(row[0]), m_map(row[1]), row[2]) for row in batch[['user_id', 'movie_id', 'rating']].to_numpy()]
     print(f'iteration {epoch} time: {time.perf_counter() - start}')

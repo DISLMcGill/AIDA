@@ -16,9 +16,11 @@ def run_mf(db, x, iterations, batch_size):
         batch_x = x[batch, :].cdata
         users_update = {}
         movies_update = {}
+        batch_movies = []
+        batch_users = []
         for p in range(batch_x['movie_id'].shape[0]):
-            user = batch_x['user_id'][p]
-            movie = batch_x['movie_id'][p]
+            batch_users.append(batch_x['user_id'][p])
+            batch_movies.append(batch_x['movie_id'][p])
             e = batch_x['rating'][p] - np.dot(weights[0][user], weights[1][movie])
             users_update[user] = users_update.get(user, 0) + 0.0002 * (2 * e * weights[1][movie] - 0.02 * weights[0][user])
             movies_update[movie] = movies_update.get(movie, 0) + 0.0002 * (2 * e * weights[0][user] - 0.02 * weights[1][movie])
