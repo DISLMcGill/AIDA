@@ -10,6 +10,16 @@ import logging;
 import numpy as np;
 import pandas as pd;
 
+import torch
+import torch.distributed.autograd as dist_autograd
+import torch.distributed.rpc as rpc
+import torch.multiprocessing as mp
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import optim
+from torch.distributed.optim import DistributedOptimizer
+from torchvision import datasets, transforms
+
 from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
 from aidacommon.dbAdapter import DBC;
@@ -1829,6 +1839,88 @@ class DataFrame(TabularData):
             del self.__matrix__;
         if(self.__rowNames__ is not None):
             del self.__rowNames__;
+
+def call_method(method, rref, *args, **kwargs):
+    return method(rref.local_value(), *args, **kwargs)
+
+def remote_method(method, rref, *args, **kwargs):
+    args = [method, rref] + list(args)
+    return rpc.rpc_sync(rref.owner(), call_method, args=args, kwargs=kwargs)
+
+class TorchServer(nn.Module):
+    def __init__(self, model):
+        self.net = model
+        self.rref = RRef(self)
+        self.input_device = torch.device(
+            "cuda:0" if torch.cuda.is_available() and num_gpus > 0 else "cpu")
+
+    def forward(self, inp):
+        inp = inp.to(self.input_device)
+        out = self.model(inp)
+        out = out.to("cpu")
+        return out
+
+    def get_dist_gradients(self, cid):
+        grads = dist_autograd.get_gradients(cid)
+        cpu_grads = {}
+        for k, v in grads.items():
+            k_cpu, v_cpu = k.to("cpu"), v.to("cpu")
+            cpu_grads[k_cpu] = v_cpu
+        return cpu_grads
+
+    def get_param_rrefs(self):
+        param_rrefs = [rpc.RRef(param) for param in self.model.parameters()]
+        return param_rrefs
+
+class WorkerNet(nn.Module):
+    def __init__(self, param_server):
+        self.param_server_rref = param_server
+
+    def get_global_param_rrefs(self):
+        remote_params = remote_method(
+            TorchServer.get_param_rrefs,
+            self.param_server_rref)
+        return remote_params
+
+class TorchService:
+    def server_init(self, executor, db):
+        self.executor = executor
+        self.db = db
+
+    def __init__(self, model):
+        self.__model__ = model
+        self.db = None
+        self.executor = None
+        self.server = TorchServer(self.__model__)
+
+    def fit(self, x, iterations):
+        def run_training_loop(rank, iter):
+            net = WorkerNet()
+            # Build DistributedOptimizer.
+            param_rrefs = net.get_global_param_rrefs()
+            opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=0.03)
+            for i in range(iter):
+                with dist_autograd.context() as cid:
+                    model_output = net(data)
+                    target = target.to(model_output.device)
+                    loss = F.nll_loss(model_output, target)
+                    if i % 5 == 0:
+                        print(f"Rank {rank} training batch {i} loss {loss.item()}")
+                    dist_autograd.backward(cid, [loss])
+                    # Ensure that dist autograd ran successfully and gradients were
+                    # returned.
+                    assert remote_method(
+                        ParameterServer.get_dist_gradients,
+                        net.param_server_rref,
+                        cid) != {}
+                    opt.step(cid)
+
+            get_accuracy(test_loader, net)
+
+        rank = 0
+        world_size = len(x[0].tabular_datas)
+        rpc.init_rpc(name="parameter_server", rank=rank, world_size=world_size)
+        rpc.shutdown()
 
 class ParameterServer:
     def __init__(self, schedule=0.1):
