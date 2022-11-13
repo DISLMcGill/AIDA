@@ -17,6 +17,8 @@ from aidacommon.dbAdapter import *;
 from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 
+import queue;
+
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMonetDB(DBC):
@@ -106,6 +108,8 @@ class DBCMonetDB(DBC):
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         self._extDBCcon = None;
+        self.requestQueue = queue.Queue;
+        self.responseQueue = queue.Queue;
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -153,6 +157,27 @@ class DBCMonetDB(DBC):
         self.__connection= con;
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
+        self.requestQueue.put((self._jobName, (sql, resultFormat, sqlType)));
+        result = self.responseQueue.get();
+        self.responseQueue.task_done()
+        if (sqlType == DBC.SQLTYPE.SELECT):
+            if (resultFormat == 'column'):
+                # get some columns
+                c_tmp = result[list(result.keys())[0]]
+                # Find the length of the array (or masked array) that is the number of rows
+                rows = len(c_tmp.data if hasattr(c_tmp, 'data') else c_tmp);
+                # rows = None;
+
+                # for col in result:
+                # logging.debug("_executeQry col {} size {}  references {}".format(col, sys.getsizeof(result[col]), sys.getrefcount(result[col])));
+                # for c in result:
+                #    logging.debug("Result column {} type {}".format(c, result[c].dtype));
+
+                return (result, rows);
+            elif (resultFormat == 'row'):
+                pass;
+
+    def _execution(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
         #TODO: either support row format results or throw an exception for not supported.
         #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));

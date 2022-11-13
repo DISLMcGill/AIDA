@@ -15,6 +15,14 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
   coMgr = aidas.aidas.ConnectionManager.getConnectionManager();
   dbcObj = coMgr.get(jobname);
   dbcObj._setConnection(_conn);
+
+  requestQueue = dbcObj.requestQueue;
+  responseQueue = dbcObj.responseQueue;
+  while True:
+      request = requestQueue.get();
+      result = _conn.execute(request);
+      responseQueue.put(result);
+      requestQueue.task_done();
   logging.debug('aidas_setdbccon called for {}'.format(jobname));
   return 'OK';
 };
