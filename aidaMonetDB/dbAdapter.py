@@ -108,8 +108,9 @@ class DBCMonetDB(DBC):
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
         self._extDBCcon = None;
-        self.requestQueue = queue.Queue;
-        self.responseQueue = queue.Queue;
+        self._con_thread = None;
+        self._requestQueue = queue.Queue;
+        self._responseQueue = queue.Queue;
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -125,7 +126,9 @@ class DBCMonetDB(DBC):
         ##data = cursor.fetchall();
         #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
         ##cursor.close();
-        con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
+
+        self._con_thread = threading.Thread(target=con.execute, args=('select status from aidas_setdbccon(\'{}\');'.format(self._jobName),));
+        self._con_thread.start()
         self.__extDBCcon = con;
 
     def _tables(self):
@@ -157,9 +160,9 @@ class DBCMonetDB(DBC):
         self.__connection= con;
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
-        self.requestQueue.put((self._jobName, (sql, resultFormat, sqlType)));
-        result = self.responseQueue.get();
-        self.responseQueue.task_done()
+        self._requestQueue.put((self._jobName, (sql, resultFormat, sqlType)));
+        result = self._responseQueue.get();
+        self._responseQueue.task_done()
         if (sqlType == DBC.SQLTYPE.SELECT):
             if (resultFormat == 'column'):
                 # get some columns

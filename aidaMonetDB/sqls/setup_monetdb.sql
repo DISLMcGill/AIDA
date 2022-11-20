@@ -1,6 +1,9 @@
 DROP FUNCTION aidas_bootstrap;
 CREATE FUNCTION aidas_bootstrap() RETURNS TABLE(module STRING) LANGUAGE PYTHON
 {
+  import sys;
+  sys.path.append('/home/db/yhe54/AIDA')
+  sys.path.append('/home/db/yhe54/.local/lib/python3.10/site-packages');
   import aidas.bootstrap;
   aidas.bootstrap.bootstrap();
   return 'OK';
@@ -16,8 +19,8 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
   dbcObj = coMgr.get(jobname);
   dbcObj._setConnection(_conn);
 
-  requestQueue = dbcObj.requestQueue;
-  responseQueue = dbcObj.responseQueue;
+  requestQueue = dbcObj._requestQueue;
+  responseQueue = dbcObj._responseQueue;
   while True:
       request = requestQueue.get();
       result = _conn.execute(request);
