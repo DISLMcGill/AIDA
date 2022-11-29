@@ -4,6 +4,7 @@ import collections;
 import re;
 import copy;
 import uuid;
+import os;
 
 import logging;
 
@@ -1873,8 +1874,9 @@ class TorchServer(nn.Module):
         return param_rrefs
 
 class WorkerNet(nn.Module):
-    def __init__(self, param_server):
-        self.param_server_rref = param_server
+    def __init__(self, get_parameter_server):
+        self.param_server_rref = rpc.remote(
+            "parameter_server", get_parameter_server)
 
     def get_global_param_rrefs(self):
         remote_params = remote_method(
@@ -1882,44 +1884,40 @@ class WorkerNet(nn.Module):
             self.param_server_rref)
         return remote_params
 
+    def forward(self, x):
+        model_output = remote_method(
+            TorchServer.forward, self.param_server_rref, x)
+        return model_output
+
 class TorchService:
-    def server_init(self, executor, db):
+    def server_init(self, executor, db, port):
         self.executor = executor
         self.db = db
+        self.port = port
 
     def __init__(self, model):
         self.__model__ = model
         self.db = None
         self.executor = None
         self.server = TorchServer(self.__model__)
+        self.port = None
 
-    def fit(self, x, iterations):
-        def run_training_loop(rank, iter):
-            net = WorkerNet()
-            # Build DistributedOptimizer.
-            param_rrefs = net.get_global_param_rrefs()
-            opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=0.03)
-            for i in range(iter):
-                with dist_autograd.context() as cid:
-                    model_output = net(data)
-                    target = target.to(model_output.device)
-                    loss = F.nll_loss(model_output, target)
-                    if i % 5 == 0:
-                        print(f"Rank {rank} training batch {i} loss {loss.item()}")
-                    dist_autograd.backward(cid, [loss])
-                    # Ensure that dist autograd ran successfully and gradients were
-                    # returned.
-                    assert remote_method(
-                        ParameterServer.get_dist_gradients,
-                        net.param_server_rref,
-                        cid) != {}
-                    opt.step(cid)
+    def get_param_server(self):
+        return self.server
 
-            get_accuracy(test_loader, net)
-
+    def fit(self, x, preprocess, iterations, batch_size=25, lr=0.01):
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ["MASTER_PORT"] = self.port
         rank = 0
-        world_size = len(x[0].tabular_datas)
+        world_size = len(x[0].tabular_datas) + 1
         rpc.init_rpc(name="parameter_server", rank=rank, world_size=world_size)
+        r = 1
+        futures = []
+        for c in x[0].tabular_datas:
+            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d[c] for d in x], preprocess,
+                                                                                 self.server, batch_size, lr=lr, port=self.port,
+                                                                                 host=os.uname()[1]), c))
+            r+=1
         rpc.shutdown()
 
 class ParameterServer:

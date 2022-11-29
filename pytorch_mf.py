@@ -28,8 +28,6 @@ model = MatrixFactorization(n_users, n_movies)
 loss_func = torch.nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=1e-6)
 
-users, movies = rating_matrix.nonzero()
-
 def iter(row, col, rating):
     # Set gradients to zero
     optimizer.zero_grad()

@@ -33,6 +33,11 @@ class DBCMiddleware(DBC):
         m.server_init(self.executor, self.__monetConnection)
         return ModelService(m)
 
+    def _RegisterTorchPSModel(self, model, port=29500):
+        m = TorchService(model)
+        m.server_init(self.executor, self.__monetConnection, port)
+        return m
+
     def _toTable(self, tblrData, tableName=None):
         pass
 
@@ -115,6 +120,10 @@ class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.ModelCheck(isPS=True)
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _RegisterPSModel(self, model):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _RegisterTorchPSModel(self, model, port):
         pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);
