@@ -1,4 +1,5 @@
 import sys;
+import os;
 import threading;
 
 import collections;
@@ -15,7 +16,13 @@ from aidacommon.aidaConfig import AConfig, UDFTYPE;
 
 from aidacommon.dbAdapter import *;
 from aidas.rdborm import *;
-from aidas.dborm import DBTable, DataFrame;
+from aidas.dborm import DBTable, DataFrame, WorkerNet;
+
+import torch;
+import torch.distributed.autograd as dist_autograd;
+import torch.nn.functional as F
+from torch import optim
+from torch.distributed.optim import DistributedOptimizer
 
 import queue;
 
@@ -485,8 +492,39 @@ class DBCMonetDB(DBC):
             self.__extDBCcon.close();
             self.__extDBCcon = None;
 
+    # Preprocess is a function that takes tabularData object and returns it as a Pytorch Dataset
+    def _runPSTorchTrain(self, rank, world_size, data, preprocess,
+                         epochs, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
+        os.environ['MASTER_ADDR'] = host
+        os.environ["MASTER_PORT"] = port
+        logging.debug(f"Worker rank {rank} initializing Pytorch RPC")
+        rpc.init_rpc(
+            name=f"trainer_{rank}",
+            rank=rank,
+            world_size=world_size)
+
+        net = WorkerNet()
+        param_rrefs = net.get_global_param_rrefs()
+        opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=lr)
+        x = torch.utils.data.DataLoader(preprocess(data), batch_size=batch_size, shuffle=True)
+
+        for i in range(epochs):
+            for j, (data, target) in enumerate(x):
+                with dist_autograd.context() as cid:
+                    model_output = net(data)
+                    loss = F.mse_loss(model_output, target)
+                    dist_autograd.backward(cid, [loss])
+                    opt.step(cid)
+
+        rpc.shutdown()
+
+
+
 class DBCMonetDBStub(DBCRemoteStub):
-    pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _runPSTorchTrain(self, param_server, iterations):
+        pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);
 copyreg.pickle(DBCMonetDBStub, DBCMonetDBStub.serializeObj);
