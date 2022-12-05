@@ -30,6 +30,6 @@ n_users = dw.mf_data.project('user_id').distinct().count()
 n_movies = dw.mf_data.project('movie_id').distinct().count()
 
 print('Register Service')
-service = dw._RegisterTorchPSModel(MatrixFactorization(n_users, n_movies))
+service = dw._RegisterTorchPSModel(MatrixFactorization, n_users, n_movies)
 print('fit')
 service.fit([dw.mf_data], preprocess, 5000)
