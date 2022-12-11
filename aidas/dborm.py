@@ -1848,15 +1848,21 @@ def remote_method(method, rref, *args, **kwargs):
     args = [method, rref] + list(args)
     return rpc.rpc_sync(rref.owner(), call_method, args=args, kwargs=kwargs)
 
+class MatrixFactorization(torch.nn.Module):
+    def __init__(self, n_users, n_items, n_factors=3):
+        super().__init__()
+        self.user_factors = torch.nn.Embedding(n_users, n_factors, sparse=True)
+        self.item_factors = torch.nn.Embedding(n_items, n_factors, sparse=True)
+
+    def forward(self, user, item):
+        return (self.user_factors(user) * self.item_factors(item)).sum(1)
+
 class TorchServer(nn.Module):
     def __init__(self, model):
         self.net = model
-        self.rref = RRef(self)
-        self.input_device = torch.device(
-            "cuda:0" if torch.cuda.is_available() and num_gpus > 0 else "cpu")
 
     def forward(self, inp):
-        inp = inp.to(self.input_device)
+        inp = inp.to("cpu")
         out = self.model(inp)
         out = out.to("cpu")
         return out

@@ -12,6 +12,7 @@ class MatrixFactorization(torch.nn.Module):
         return (self.user_factors(data[0]) * self.item_factors(data[1])).sum(1)
 
 def preprocess(x):
+    from torch.utils.data import Dataset
     class CustomDataset(Dataset):
         def __init__(self, data):
             self.data = data.cdata
@@ -30,6 +31,6 @@ n_users = dw.mf_data.project('user_id').distinct().count()
 n_movies = dw.mf_data.project('movie_id').distinct().count()
 
 print('Register Service')
-service = dw._RegisterTorchPSModel(MatrixFactorization, n_users, n_movies)
+service = dw._MatrixFactorizationPSModel(n_users, n_movies, 3)
 print('fit')
 service.fit([dw.mf_data], preprocess, 5000)
