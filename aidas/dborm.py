@@ -1921,8 +1921,8 @@ class TorchService:
         r = 1
         futures = []
         for c in x[0].tabular_datas:
-            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d[c] for d in x], preprocess,
-                                                                                 self.server, batch_size, lr=lr, port=self.port,
+            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d[c] for d in x], preprocess, iterations,
+                                                                                 batch_size, lr=lr, port=self.port,
                                                                                  host=os.uname()[1]), c))
             r+=1
         rpc.shutdown()

@@ -23,6 +23,7 @@ import torch.distributed.autograd as dist_autograd;
 import torch.nn.functional as F
 from torch import optim
 from torch.distributed.optim import DistributedOptimizer
+import torch.distributed.rpc as rpc
 
 import queue;
 
@@ -523,7 +524,8 @@ class DBCMonetDB(DBC):
 class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _runPSTorchTrain(self, param_server, iterations):
+    def _runPSTorchTrain(self, rank, world_size, data, preprocess,
+                         epochs, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);
