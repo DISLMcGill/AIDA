@@ -1859,6 +1859,7 @@ class MatrixFactorization(torch.nn.Module):
 
 class TorchServer(nn.Module):
     def __init__(self, model):
+        super().__init__()
         self.net = model
 
     def forward(self, inp):

@@ -30,13 +30,13 @@ class DBCMiddleware(DBC):
 
     def _LinearRegression(self, learning_rate=0.0001, sync=True):
         m = LinearRegressionModel(learning_rate, sync)
-        m.server_init(self.executor, self.__monetConnection)
+        m.server_init(self._executor, self.__monetConnection)
         return ModelService(m)
 
-    def _MatrixFactorizationPSModel(self, dim_1, dim_2, k, port=29500, *args):
-        m = model(*args)
+    def _MatrixFactorizationPSModel(self, dim_1, dim_2, k, port="29500"):
+        m = MatrixFactorization(dim_1, dim_2, k)
         s = TorchService(m)
-        s.server_init(self.executor, self.__monetConnection, port)
+        s.server_init(self._executor, self.__monetConnection, port)
         return s
 
     def _toTable(self, tblrData, tableName=None):
