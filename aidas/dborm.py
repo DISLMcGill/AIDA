@@ -1897,6 +1897,11 @@ class WorkerNet(nn.Module):
         return model_output
 
 class TorchService:
+    servers = None
+    @staticmethod
+    def get_server():
+        return TorchService.servers
+
     def server_init(self, executor, db, port):
         self.executor = executor
         self.db = db
@@ -1907,6 +1912,7 @@ class TorchService:
         self.db = None
         self.executor = None
         self.server = TorchServer(self.__model__)
+        TorchService.servers = self.server
         self.port = None
 
     def get_param_server(self):
@@ -1917,7 +1923,6 @@ class TorchService:
         os.environ["MASTER_PORT"] = self.port
         rank = 0
         world_size = len(x[0].tabular_datas) + 1
-        rpc.init_rpc(name="parameter_server", rank=rank, world_size=world_size)
         r = 1
         futures = []
         for c in x[0].tabular_datas:
@@ -1925,6 +1930,7 @@ class TorchService:
                                                                                  batch_size, lr=lr, port=self.port,
                                                                                  host=os.uname()[1]), c))
             r+=1
+        rpc.init_rpc(name="parameter_server", rank=rank, world_size=world_size)
         rpc.shutdown()
 
 class ParameterServer:

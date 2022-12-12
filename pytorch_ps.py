@@ -24,7 +24,7 @@ def preprocess(x):
             return (torch.LongTensor(self.data['user_id'][idx]), torch.LongTensor(self.data['movie_id'][idx])), torch.FloatTensor(
                 self.data['rating_id'][idx])
 
-    return CustomDataset(x)
+    return CustomDataset(x[0])
 
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 n_users = dw.mf_data.project('user_id').distinct().count()

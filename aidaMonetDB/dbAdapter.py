@@ -117,8 +117,8 @@ class DBCMonetDB(DBC):
         self._username = username; self._password = password;
         self._extDBCcon = None;
         self._con_thread = None;
-        self._requestQueue = queue.Queue;
-        self._responseQueue = queue.Queue;
+        self._requestQueue = queue.Queue();
+        self._responseQueue = queue.Queue();
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -168,7 +168,7 @@ class DBCMonetDB(DBC):
         self.__connection= con;
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
-        self._requestQueue.put((self._jobName, (sql, resultFormat, sqlType)));
+        self._requestQueue.put(sql);
         result = self._responseQueue.get();
         self._responseQueue.task_done()
         if (sqlType == DBC.SQLTYPE.SELECT):
@@ -504,7 +504,7 @@ class DBCMonetDB(DBC):
             rank=rank,
             world_size=world_size)
 
-        net = WorkerNet()
+        net = WorkerNet(TorchService.get_server)
         param_rrefs = net.get_global_param_rrefs()
         opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=lr)
         x = torch.utils.data.DataLoader(preprocess(data), batch_size=batch_size, shuffle=True)
