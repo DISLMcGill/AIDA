@@ -494,26 +494,27 @@ class DBCMonetDB(DBC):
             self.__extDBCcon = None;
 
     # Preprocess is a function that takes tabularData object and returns it as a Pytorch Dataset
-    def _runPSTorchTrain(self, rank, world_size, data, preprocess,
-                         epochs, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
+    def _runPSTorchTrain(self, rank, world_size, data, split,
+                         epochs, job_name, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
         os.environ['MASTER_ADDR'] = host
         os.environ["MASTER_PORT"] = port
         logging.debug(f"Worker rank {rank} initializing Pytorch RPC")
         rpc.init_rpc(
-            name=f"trainer_{rank}",
+            name=f"{job_name}_trainer_{rank}",
             rank=rank,
             world_size=world_size)
 
-        net = WorkerNet(TorchService.get_server)
+        net = WorkerNet(job_name)
         param_rrefs = net.get_global_param_rrefs()
         opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=lr)
-        x = torch.utils.data.DataLoader(preprocess(data), batch_size=batch_size, shuffle=True)
+        loss_fn = torch.nn.MSELoss()
+        x = torch.utils.data.DataLoader(preprocess_data(data, split), batch_size=batch_size, shuffle=True)
 
         for i in range(epochs):
             for j, (data, target) in enumerate(x):
                 with dist_autograd.context() as cid:
                     model_output = net(data)
-                    loss = F.mse_loss(model_output, target)
+                    loss = loss_fn(model_output, target)
                     dist_autograd.backward(cid, [loss])
                     opt.step(cid)
 
@@ -525,7 +526,7 @@ class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _runPSTorchTrain(self, rank, world_size, data, preprocess,
-                         epochs, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
+                         epochs, job_name, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);

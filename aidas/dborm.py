@@ -14,12 +14,9 @@ import pandas as pd;
 import torch
 import torch.distributed.autograd as dist_autograd
 import torch.distributed.rpc as rpc
-import torch.multiprocessing as mp
+from torch.utils.data import Dataset
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import optim
-from torch.distributed.optim import DistributedOptimizer
-from torchvision import datasets, transforms
 
 from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dborm import *;
@@ -1848,13 +1845,30 @@ def remote_method(method, rref, *args, **kwargs):
     args = [method, rref] + list(args)
     return rpc.rpc_sync(rref.owner(), call_method, args=args, kwargs=kwargs)
 
+def preprocess_data(x, split):
+    class CustomDataset(Dataset):
+        def __init__(self, data):
+            self.data = data.cdata
+
+        def __len__(self):
+            return len(self.data['user_id'])
+
+        def __getitem__(self, idx):
+            x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
+            y = [torch.tensor([self.data[column][idx]]) for column in split[1]]
+            return x, y
+
+    return CustomDataset(x)
+
 class MatrixFactorization(torch.nn.Module):
     def __init__(self, n_users, n_items, n_factors=3):
         super().__init__()
         self.user_factors = torch.nn.Embedding(n_users, n_factors, sparse=True)
         self.item_factors = torch.nn.Embedding(n_items, n_factors, sparse=True)
 
-    def forward(self, user, item):
+    def forward(self, data):
+        user = data[0]
+        item = data[1]
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
 
 class TorchServer(nn.Module):
@@ -1863,27 +1877,25 @@ class TorchServer(nn.Module):
         self.net = model
 
     def forward(self, inp):
-        inp = inp.to("cpu")
-        out = self.model(inp)
-        out = out.to("cpu")
+        out = self.net(inp)
         return out
 
     def get_dist_gradients(self, cid):
         grads = dist_autograd.get_gradients(cid)
         cpu_grads = {}
         for k, v in grads.items():
-            k_cpu, v_cpu = k.to("cpu"), v.to("cpu")
-            cpu_grads[k_cpu] = v_cpu
+            cpu_grads[k] = v
         return cpu_grads
 
     def get_param_rrefs(self):
-        param_rrefs = [rpc.RRef(param) for param in self.model.parameters()]
+        param_rrefs = [rpc.RRef(param) for param in self.net.parameters()]
         return param_rrefs
 
 class WorkerNet(nn.Module):
-    def __init__(self, get_parameter_server):
+    def __init__(self, job_name):
+        super().__init__()
         self.param_server_rref = rpc.remote(
-            "parameter_server", get_parameter_server)
+            f"{job_name}_parameter_server", TorchService.get_server, args=(job_name,))
 
     def get_global_param_rrefs(self):
         remote_params = remote_method(
@@ -1897,28 +1909,29 @@ class WorkerNet(nn.Module):
         return model_output
 
 class TorchService:
-    servers = None
+    servers = {}
     @staticmethod
-    def get_server():
-        return TorchService.servers
+    def get_server(job_name):
+        return TorchService.servers[job_name]
 
-    def server_init(self, executor, db, port):
+    def server_init(self, executor, db, port, job):
         self.executor = executor
         self.db = db
         self.port = port
+        self.job_name = job
+        TorchService.servers[self.job_name] = self.server
 
     def __init__(self, model):
         self.__model__ = model
         self.db = None
         self.executor = None
         self.server = TorchServer(self.__model__)
-        TorchService.servers = self.server
         self.port = None
 
     def get_param_server(self):
         return self.server
 
-    def fit(self, x, preprocess, iterations, batch_size=25, lr=0.01):
+    def fit(self, x, split, iterations, batch_size=25, lr=0.01):
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ["MASTER_PORT"] = self.port
         rank = 0
@@ -1926,11 +1939,11 @@ class TorchService:
         r = 1
         futures = []
         for c in x[0].tabular_datas:
-            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d[c] for d in x], preprocess, iterations,
-                                                                                 batch_size, lr=lr, port=self.port,
+            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d.tabular_datas[c] for d in x], split, iterations,
+                                                                                 batch_size, self.job_name, lr=lr, port=self.port,
                                                                                  host=os.uname()[1]), c))
             r+=1
-        rpc.init_rpc(name="parameter_server", rank=rank, world_size=world_size)
+        rpc.init_rpc(name=f"{self.job_name}_parameter_server", rank=rank, world_size=world_size)
         rpc.shutdown()
 
 class ParameterServer:
