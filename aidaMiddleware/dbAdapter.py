@@ -36,7 +36,7 @@ class DBCMiddleware(DBC):
     def _MatrixFactorizationPSModel(self, dim_1, dim_2, k, port="29500"):
         m = MatrixFactorization(dim_1, dim_2, k)
         s = TorchService(m)
-        s.server_init(self._executor, self.__monetConnection, port)
+        s.server_init(self._executor, self.__monetConnection, port, self._jobName)
         return s
 
     def _toTable(self, tblrData, tableName=None):
@@ -88,7 +88,7 @@ class DBCMiddleware(DBC):
         self.__qryLock__ = threading.Lock();
         self.__monetConnection = DBCMonetDB(dbname,username,password,jobName,dbcRepoMgr,serverIPAddr)
         #To setup things at the repository
-        super().__init__(dbcRepoMgr, jobName + "_middleware", dbname, serverIPAddr);
+        super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
         self.__setDBC__();
 

@@ -520,12 +520,10 @@ class DBCMonetDB(DBC):
 
         rpc.shutdown()
 
-
-
 class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _runPSTorchTrain(self, rank, world_size, data, preprocess,
+    def _runPSTorchTrain(self, rank, world_size, data, split,
                          epochs, job_name, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
         pass
 

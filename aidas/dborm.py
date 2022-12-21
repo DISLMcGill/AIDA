@@ -1851,7 +1851,7 @@ def preprocess_data(x, split):
             self.data = data.cdata
 
         def __len__(self):
-            return len(self.data['user_id'])
+            return len(self.data[list(self.data.keys())[0]])
 
         def __getitem__(self, idx):
             x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
@@ -1940,7 +1940,7 @@ class TorchService:
         futures = []
         for c in x[0].tabular_datas:
             futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d.tabular_datas[c] for d in x], split, iterations,
-                                                                                 batch_size, self.job_name, lr=lr, port=self.port,
+                                                                                 self.job_name, batch_size, lr=lr, port=self.port,
                                                                                  host=os.uname()[1]), c))
             r+=1
         rpc.init_rpc(name=f"{self.job_name}_parameter_server", rank=rank, world_size=world_size)
