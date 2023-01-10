@@ -1855,7 +1855,7 @@ def preprocess_data(x, split):
 
         def __getitem__(self, idx):
             x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
-            y = [torch.tensor([self.data[column][idx]]) for column in split[1]]
+            y = torch.tensor([self.data[split[1]][idx]])
             return x, y
 
     return CustomDataset(x)
@@ -1870,6 +1870,10 @@ class MatrixFactorization(torch.nn.Module):
         user = data[0]
         item = data[1]
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
+
+    @staticmethod
+    def predict(data):
+        return (data[0] * data[1]).sum(1)
 
 class TorchServer(nn.Module):
     def __init__(self, model):
@@ -1890,6 +1894,9 @@ class TorchServer(nn.Module):
     def get_param_rrefs(self):
         param_rrefs = [rpc.RRef(param) for param in self.net.parameters()]
         return param_rrefs
+
+    def get_prediction_function(self):
+        return self.net.predict
 
 class WorkerNet(nn.Module):
     def __init__(self, job_name):
@@ -1935,16 +1942,94 @@ class TorchService:
         os.environ['MASTER_ADDR'] = 'localhost'
         os.environ["MASTER_PORT"] = self.port
         rank = 0
-        world_size = len(x[0].tabular_datas) + 1
+        world_size = len(x.tabular_datas) + 1
         r = 1
         futures = []
-        for c in x[0].tabular_datas:
-            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, [d.tabular_datas[c] for d in x], split, iterations,
+        for c in x.tabular_datas:
+            futures.append(self.executor.submit(lambda con: con._runPSTorchTrain(r, world_size, x.tabular_datas[c], split, iterations,
                                                                                  self.job_name, batch_size, lr=lr, port=self.port,
                                                                                  host=os.uname()[1]), c))
             r+=1
         rpc.init_rpc(name=f"{self.job_name}_parameter_server", rank=rank, world_size=world_size)
         rpc.shutdown()
+
+class TorchRMIServer:
+    def __init__(self, model, schedule):
+        self.__model__ = model
+        self.updates = []
+        self.running_thread = None
+        self.optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+        self.loss = torch.nn.MSELoss()
+        self.schedule = schedule
+
+    # param_ids a tuple (a, b) where a is a tensor containing user ids, b is a tensor containing movie ids
+    # returns list (x, y) of tensors of users and movies corresponding to those ids
+    def pull(self, param_ids):
+        result = []
+        i = 0
+        for p in self.__model__.parameters():
+            result.append(p(param_ids[i]))
+            i+=1
+        return result
+
+    # update is list (a,b) of gradient tensors same size as model
+    # a, b are model parameters
+    def push(self, update):
+        self.updates.append(update)
+
+    def update(self):
+        while len(self.updates) > 0:
+            update = self.updates.pop()
+            i = 0
+            self.optimizer.zero_grad()
+            for p in self.__model__.parameters():
+                p.grad = update[i]
+                i += 1
+            self.optimizer.step()
+
+    def update_thread(self):
+        t = threading.currentThread()
+        while t.do_run:
+            self.update()
+            time.sleep(self.schedule)
+        self.update()
+
+    def start_server(self):
+        if self.running_thread is None:
+            self.running_thread = threading.Thread(target=self.update_thread)
+            self.running_thread.do_run = True
+            self.running_thread.start()
+        else:
+            logging.warning("Parameter server is already started!")
+
+    def stop_server(self):
+        if self.running_thread is not None:
+            self.running_thread.do_run = False
+            self.running_thread.join()
+            self.running_thread = None
+        else:
+            logging.warning("Parameter server has not started.")
+
+class TorchRMIService:
+    def server_init(self, executor, db):
+        self.executor = executor
+        self.db = db
+
+    def __init__(self, model, schedule=0.1):
+        self.__ps__ = TorchRMIServer(model, schedule)
+
+    def fit(self, x, split, iterations, batch_size=25, lr=0.01):
+        futures = []
+        results = []
+        size = []
+        for p in self.__ps__.__model__.parameters():
+            size.append(p.size())
+        self.__ps__.start_server()
+        for c in x.tabular_datas:
+            futures.append(self.executor.submit(lambda con: con._runTorchTain(self.__ps__, x.tabular_datas[c], split, iterations, size, batch_size), c))
+        for f in as_completed(futures):
+            results.append(f.result())
+        self.__ps__.stop_server()
 
 class ParameterServer:
     def __init__(self, schedule=0.1):

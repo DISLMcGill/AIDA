@@ -129,7 +129,7 @@ copyreg.pickle(TabularDataRemoteStub, TabularDataRemoteStub.serializeObj);
 
 class TorchServiceRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def fit(self, x, preprocess, iterations, batch_size=25, lr=0.01):
+    def fit(self, x, split, iterations, batch_size=25, lr=0.01):
         pass;
 
 class ModelServiceRemoteStub(aidacommon.rop.RObjStub):
@@ -168,6 +168,10 @@ class ParameterServerRemoteStub(aidacommon.rop.RObjStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def push(self, update):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def get_prediction_function(self):
         pass
 
 copyreg.pickle(ParameterServerRemoteStub, ParameterServerRemoteStub.serializeObj)

@@ -520,11 +520,40 @@ class DBCMonetDB(DBC):
 
         rpc.shutdown()
 
+    # ps is remote reference to parameter server
+    # data is TabularData of data
+    # split is (x, y) split of columns where x is list of input columns and y is output column
+    # epochs is number of epochs to run
+    # factor_size is size of embedding parameters in model
+    # batch size self explanatory
+    def _runPSTorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
+        x = torch.utils.data.DataLoader(preprocess_data(data, split), batch_size=batch_size, shuffle=True)
+        loss_fun = torch.nn.MSELoss()
+        prediction_function = ps.get_prediction_function()
+        for i in range(epochs):
+            for j, (data, target) in enumerate(x):
+                ids = []
+                for d in data:
+                    ids.append(d)
+                factors = ps.pull(ids)
+                preds = prediction_function(factors)
+                loss = loss_fun(preds, target)
+                loss.backwards()
+                grads = []
+                for f in factors:
+                    grads.append(torch.sparse_coo_tensor(ids[0], f.grad, factor_size[0]))
+                ps.push(grads)
+
+
 class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _runPSTorchTrain(self, rank, world_size, data, split,
                          epochs, job_name, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _runPSTorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);

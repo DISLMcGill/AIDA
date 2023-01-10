@@ -39,6 +39,12 @@ class DBCMiddleware(DBC):
         s.server_init(self._executor, self.__monetConnection, port, self._jobName)
         return s
 
+    def _MatrixFactorizationTorchRMI(self, dim_1, dim_2, k):
+        m = MatrixFactorization(dim_1, dim_2, k)
+        s = TorchRMIService(m)
+        s.server_init(self._executor, self.__monetConnection)
+        return s
+
     def _toTable(self, tblrData, tableName=None):
         pass
 
