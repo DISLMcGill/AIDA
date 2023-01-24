@@ -1855,7 +1855,7 @@ def preprocess_data(x, split):
 
         def __getitem__(self, idx):
             x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
-            y = torch.tensor([self.data[split[1]][idx]])
+            y = torch.FloatTensor([self.data[split[1]][idx]])
             return x, y
 
     return CustomDataset(x)
@@ -1870,6 +1870,9 @@ class MatrixFactorization(torch.nn.Module):
         user = data[0]
         item = data[1]
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
+
+    def get_data(self, params):
+        return [self.user_factors(params[0]), self.item_factors(params[1])]
 
     @staticmethod
     def predict(data):
@@ -1965,11 +1968,7 @@ class TorchRMIServer:
     # param_ids a tuple (a, b) where a is a tensor containing user ids, b is a tensor containing movie ids
     # returns list (x, y) of tensors of users and movies corresponding to those ids
     def pull(self, param_ids):
-        result = []
-        i = 0
-        for p in self.__model__.parameters():
-            result.append(p(param_ids[i]))
-            i+=1
+        result = self.__model__.get_data(param_ids)
         return result
 
     # update is list (a,b) of gradient tensors same size as model
@@ -2009,6 +2008,8 @@ class TorchRMIServer:
             self.running_thread = None
         else:
             logging.warning("Parameter server has not started.")
+    def get_prediction_function(self):
+        return self.__model__.predict
 
 class TorchRMIService:
     def server_init(self, executor, db):
@@ -2018,7 +2019,7 @@ class TorchRMIService:
     def __init__(self, model, schedule=0.1):
         self.__ps__ = TorchRMIServer(model, schedule)
 
-    def fit(self, x, split, iterations, batch_size=25, lr=0.01):
+    def fit(self, x, split, iterations, batch_size=None, lr=0.01):
         futures = []
         results = []
         size = []
@@ -2026,7 +2027,7 @@ class TorchRMIService:
             size.append(p.size())
         self.__ps__.start_server()
         for c in x.tabular_datas:
-            futures.append(self.executor.submit(lambda con: con._runTorchTain(self.__ps__, x.tabular_datas[c], split, iterations, size, batch_size), c))
+            futures.append(self.executor.submit(lambda con: con._runRMITorchTain(self.__ps__, x.tabular_datas[c], split, iterations, size, batch_size), c))
         for f in as_completed(futures):
             results.append(f.result())
         self.__ps__.stop_server()

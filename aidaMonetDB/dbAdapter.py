@@ -20,7 +20,6 @@ from aidas.dborm import DBTable, DataFrame, WorkerNet;
 
 import torch;
 import torch.distributed.autograd as dist_autograd;
-import torch.nn.functional as F
 from torch import optim
 from torch.distributed.optim import DistributedOptimizer
 import torch.distributed.rpc as rpc
@@ -526,22 +525,27 @@ class DBCMonetDB(DBC):
     # epochs is number of epochs to run
     # factor_size is size of embedding parameters in model
     # batch size self explanatory
-    def _runPSTorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
-        x = torch.utils.data.DataLoader(preprocess_data(data, split), batch_size=batch_size, shuffle=True)
+    def _runRMITorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
+        dataset = preprocess_data(data, split)
+        if batch_size is None:
+            batch_size = len(dataset)
+        x = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
         loss_fun = torch.nn.MSELoss()
         prediction_function = ps.get_prediction_function()
         for i in range(epochs):
             for j, (data, target) in enumerate(x):
                 ids = []
                 for d in data:
-                    ids.append(d)
+                    ids.append(torch.squeeze(d))
                 factors = ps.pull(ids)
                 preds = prediction_function(factors)
                 loss = loss_fun(preds, target)
-                loss.backwards()
+                loss.backward()
                 grads = []
+                i = 0
                 for f in factors:
-                    grads.append(torch.sparse_coo_tensor(ids[0], f.grad, factor_size[0]))
+                    grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[i], dim=0), f.grad, factor_size[i]))
+                    i+=1
                 ps.push(grads)
 
 
@@ -553,7 +557,7 @@ class DBCMonetDBStub(DBCRemoteStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _runPSTorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
+    def _runRMITorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);
