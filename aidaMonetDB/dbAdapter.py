@@ -23,6 +23,7 @@ import torch.distributed.autograd as dist_autograd;
 from torch import optim
 from torch.distributed.optim import DistributedOptimizer
 import torch.distributed.rpc as rpc
+from itertools import cycle
 
 import queue;
 
@@ -494,7 +495,7 @@ class DBCMonetDB(DBC):
 
     # Preprocess is a function that takes tabularData object and returns it as a Pytorch Dataset
     def _runPSTorchTrain(self, rank, world_size, data, split,
-                         epochs, job_name, batch_size=25, lr=0.01, port=29500, host='whe_middleware'):
+                         epochs, job_name, batch_size=25, lr=0.0002, port=29500, host='whe_middleware'):
         os.environ['MASTER_ADDR'] = host
         os.environ["MASTER_PORT"] = port
         logging.debug(f"Worker rank {rank} initializing Pytorch RPC")
@@ -505,17 +506,20 @@ class DBCMonetDB(DBC):
 
         net = WorkerNet(job_name)
         param_rrefs = net.get_global_param_rrefs()
-        opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=lr)
+        opt = DistributedOptimizer(optim.SGD, param_rrefs, lr=lr, weight_decay=0.02)
         loss_fn = torch.nn.MSELoss()
         x = torch.utils.data.DataLoader(preprocess_data(data, split), batch_size=batch_size, shuffle=True)
 
-        for i in range(epochs):
-            for j, (data, target) in enumerate(x):
-                with dist_autograd.context() as cid:
-                    model_output = net(data)
-                    loss = loss_fn(model_output, target)
-                    dist_autograd.backward(cid, [loss])
-                    opt.step(cid)
+        i = 0
+        for j, (data, target) in cycle(enumerate(x)):
+            if i >= epochs:
+                break
+            with dist_autograd.context() as cid:
+                model_output = net(data)
+                loss = loss_fn(model_output, torch.squeeze(target))
+                dist_autograd.backward(cid, [loss])
+                opt.step(cid)
+            i += 1
 
         rpc.shutdown()
 
@@ -532,22 +536,82 @@ class DBCMonetDB(DBC):
         x = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
         loss_fun = torch.nn.MSELoss()
         prediction_function = ps.get_prediction_function()
-        for i in range(epochs):
-            for j, (data, target) in enumerate(x):
-                ids = []
-                for d in data:
-                    ids.append(torch.squeeze(d))
-                factors = ps.pull(ids)
-                preds = prediction_function(factors)
-                loss = loss_fun(preds, target)
-                loss.backward()
-                grads = []
-                i = 0
-                for f in factors:
-                    grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[i], dim=0), f.grad, factor_size[i]))
-                    i+=1
-                ps.push(grads)
+        i = 0
+        for j, (data, target) in cycle(enumerate(x)):
+            if i >= epochs:
+                break
+            ids = []
+            for d in data:
+                ids.append(torch.squeeze(d))
+            factors = ps.pull(ids)
+            preds = prediction_function(factors)
+            loss = loss_fun(preds, torch.squeeze(target))
+            loss.backward()
+            grads = []
+            i = 0
+            for f in factors:
+                grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[i], dim=0), f.grad, factor_size[i]))
+                i+=1
+            ps.push(grads)
+            i+=1
 
+    def _PerformanceTest(self, iterations = 500, batch_size = 20000):
+        import numpy as np
+        data = self.mf_data
+        user_factors = np.zeros((1500,3))
+        movie_factors = np.zeros((2000,3))
+        model = MatrixFactorization(1500,2000)
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.0002, weight_decay=0.02)
+        loss_fun = torch.nn.MSELoss()
+
+        torch_data = preprocess_data(data, (['user_id', 'movie_id'], 'rating'))
+        x = torch.utils.data.DataLoader(torch_data, batch_size=batch_size, shuffle=True)
+        start = time.perf_counter()
+        i = 0
+        logging.info('start torch iterations')
+        for j, (data, target) in cycle(enumerate(x)):
+            if i >= iterations:
+                break
+            optimizer.zero_grad()
+            ids = []
+            for d in data:
+                ids.append(torch.squeeze(d))
+            preds = model(ids)
+            target = torch.squeeze(target)
+            loss = loss_fun(preds, target)
+            loss.backward()
+            optimizer.step()
+            i+=1
+        end = time.perf_counter()
+        logging.info(f'torch time: {(end-start)/iterations} per iteration')
+        logging.info('start numpy iterations')
+        data_len = self.mf_data.shape[0]
+        randomize = np.random.choice(data_len, data_len, replace=False)
+        data = self.mf_data[randomize, : ]
+        start = time.perf_counter()
+        for i in range(iterations):
+            a = i * batch_size % data_len
+            b = (i+1) * batch_size % data_len
+            if a < b:
+                batch_x = data[a:b].cdata
+            else:
+                batch_x = (data[a:].vstack(data[:b])).cdata
+            # pull user keys from ps, user params updated every iteration
+            users_update = {}
+            items_update = {}
+            for p in range(batch_x['movie_id'].shape[0]):
+                user = batch_x['user_id'][p]
+                movie = batch_x['movie_id'][p]
+                e = batch_x['rating'][p] - np.dot(user_factors[user], movie_factors[movie])
+                users_update[user] = users_update.get(user, 0) + 0.0002 * ((2 * e * movie_factors[movie] / batch_size) - 0.02 * user_factors[user])
+                # movie updates are not batched -- to be fixed
+                items_update[movie] = items_update.get(movie, 0) + 0.0002 * ((2 * e * user_factors[user] / batch_size) - 0.02 * movie_factors[movie])
+            for user, update in users_update.items():
+                user_factors[user] -= update
+            for item, update in items_update.items():
+                movie_factors[item] -= update
+        end = time.perf_counter()
+        logging.info(f'numpy time: {(end-start)/iterations} per iteration')
 
 class DBCMonetDBStub(DBCRemoteStub):
 
@@ -558,6 +622,10 @@ class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _runRMITorchTrain(self, ps, data, split, epochs, factor_size, batch_size):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _PerformanceTest(self, iterations = 500, batch_size = 20000):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);

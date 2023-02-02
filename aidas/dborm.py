@@ -1961,7 +1961,7 @@ class TorchRMIServer:
         self.__model__ = model
         self.updates = []
         self.running_thread = None
-        self.optimizer = torch.optim.SGD(model.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.SGD(model.parameters(), lr=0.0002, weight_decay=0.02)
         self.loss = torch.nn.MSELoss()
         self.schedule = schedule
 
@@ -1987,7 +1987,7 @@ class TorchRMIServer:
             self.optimizer.step()
 
     def update_thread(self):
-        t = threading.currentThread()
+        t = threading.current_thread()
         while t.do_run:
             self.update()
             time.sleep(self.schedule)

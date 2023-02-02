@@ -25,28 +25,40 @@ class MatrixFactorization:
     @staticmethod
     def iterate(db, ps, x, batch_size):
         import numpy as np
+        import logging
+        import time
         x = x[0]
         # movie keys local -- updated all at the end
         movies = x.project('movie_id').distinct().cdata['movie_id']
         movies_params = dict.fromkeys([f'movie_{m}' for m in movies], np.random.rand(3))
-        for i in range(10000):
-            batch = np.random.choice(x.shape[0], batch_size, replace=False)
-            batch_x = x[batch, :].cdata
+        data_len = x.shape[0]
+        randomize = np.random.choice(data_len, data_len, replace=False)
+        data = x[randomize, : ]
+        start = time.perf_counter()
+        for i in range(1000):
+            logging.info(f'iteration time: {time.perf_counter() - start}')
+            a = i * batch_size % data_len
+            b = (i+1) * batch_size % data_len
+            if a < b:
+                batch_x = data[a:b].cdata
+            else:
+                batch_x = (data[a:].vstack(data[:b])).cdata
 
             # pull user keys from ps, user params updated every iteration
             keys_to_pull = set()
             for user in batch_x['user_id']:
                 keys_to_pull.add(f'user_{user}')
             update_keys = ps.pull(keys_to_pull)
+            comp = time.perf_counter()
             users_update = {}
             for p in range(batch_x['movie_id'].shape[0]):
                 user = 'user_{}'.format(batch_x['user_id'][p])
                 movie = 'movie_{}'.format(batch_x['movie_id'][p])
                 e = batch_x['rating'][p] - np.dot(update_keys[user], movies_params[movie])
-                for i in range(3):
-                    users_update[user] = users_update.get(user, 0) + 0.0002 * (2 * e * movies_params[movie] - 0.02 * update_keys[user])
-                    # movie updates are not batched -- to be fixed
-                    movies_params[movie] = movies_params.get(movie, 0) + 0.0002 * (2 * e * update_keys[user] - 0.02 * movies_params[movie])
+                users_update[user] = users_update.get(user, 0) + 0.0002 * ((2 * e * movies_params[movie] / batch_size) - 0.02 * update_keys[user])
+                # movie updates are not batched -- to be fixed
+                movies_params[movie] = movies_params.get(movie, 0) + 0.0002 * ((2 * e * update_keys[user] / batch_size) - 0.02 * movies_params[movie])
+            logging.info(f'computation time: {time.perf_counter() - comp}')
             ps.push(users_update)
         ps.push(movies_params)
 
@@ -71,7 +83,7 @@ print("Fitting model...")
 x = dw.mf_data
 
 start = time.perf_counter()
-m.fit([x], batch_size=25)
+m.fit([x], batch_size=20000)
 end = time.perf_counter()
 
 print(f"Fitting time: {end-start}")
