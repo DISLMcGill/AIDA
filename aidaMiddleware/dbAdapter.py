@@ -23,6 +23,11 @@ class DBCMiddleware(DBC):
         m.server_init(self._executor, self.__monetConnection)
         return m
 
+    def _RegisterPytorchModel(self, model):
+        m = TorchModelService(model)
+        m.server_init(self._executor, self.__monetConnection)
+        return m
+
     def _RegisterPSModel(self, model):
         m = PSModelService(model)
         m.server_init(self._executor, self.__monetConnection)
@@ -131,6 +136,10 @@ class DBCMiddlewareStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _MatrixFactorizationPSModel(self, dim_1, dim_2, k, port, *args):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _RegisterPytorchModel(self, model):
         pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);

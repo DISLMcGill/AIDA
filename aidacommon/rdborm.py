@@ -30,6 +30,12 @@ class TabularDataRemoteStub(aidacommon.rop.RObjStub, TabularData):
     def loadData(self, matrix=False): pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def makeLoader(self, split, batch): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def getLoader(self): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def __add__(self, other): pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()

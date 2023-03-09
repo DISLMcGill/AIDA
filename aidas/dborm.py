@@ -1021,6 +1021,21 @@ class ColumnDataGenerator:
     def get(self, colno):
         return self.__matrixData__[colno];
 
+def preprocess_data(x, split):
+    class CustomDataset(Dataset):
+        def __init__(self, data):
+            self.data = data.cdata
+
+        def __len__(self):
+            return len(self.data[list(self.data.keys())[0]])
+
+        def __getitem__(self, idx):
+            x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
+            y = torch.FloatTensor([self.data[split[1]][idx]])
+            return x, y
+
+    return CustomDataset(x)
+
 class DBTable(TabularData):
 
     class Column:
@@ -1081,6 +1096,7 @@ class DBTable(TabularData):
         self.__rowNames__ = None;
         self.__numRows__ = None;
         self.__shape__ = None;
+        self.__dataLoader__ = None;
 
     @property
     def schemaName(self): return self.__schemaName__;
@@ -1168,6 +1184,13 @@ class DBTable(TabularData):
     @property
     def cdata(self):
         return self.rows;
+
+    def makeLoader(self, split, batch):
+        data = preprocess_data(self, split)
+        self.__dataLoader__ = torch.utils.data.DataLoader(data, batch_size=batch, shuffle=True)
+
+    def getLoader(self):
+        return self.__dataLoader__;
 
     def loadData(self, matrix=False):
         """Forces materialization of this Table"""
@@ -1579,6 +1602,13 @@ class DataFrame(TabularData):
     def cdata(self):
         return self.rows;
 
+    def makeLoader(self, split, batch):
+        data = preprocess_data(self, split)
+        self.__dataLoader__ = torch.utils.data.DataLoader(data, batch_size=batch, shuffle=True)
+
+    def getLoader(self):
+        return self.__dataLoader__;
+
     def loadData(self, matrix=False):
         """Forces materialization of this Data Frame"""
         self.rows;
@@ -1845,21 +1875,6 @@ def remote_method(method, rref, *args, **kwargs):
     args = [method, rref] + list(args)
     return rpc.rpc_sync(rref.owner(), call_method, args=args, kwargs=kwargs)
 
-def preprocess_data(x, split):
-    class CustomDataset(Dataset):
-        def __init__(self, data):
-            self.data = data.cdata
-
-        def __len__(self):
-            return len(self.data[list(self.data.keys())[0]])
-
-        def __getitem__(self, idx):
-            x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
-            y = torch.FloatTensor([self.data[split[1]][idx]])
-            return x, y
-
-    return CustomDataset(x)
-
 class MatrixFactorization(torch.nn.Module):
     def __init__(self, n_users, n_items, n_factors=3):
         super().__init__()
@@ -2041,7 +2056,7 @@ class ParameterServer:
         self.running_thread = None
 
     def update_thread(self):
-        t = threading.currentThread()
+        t = threading.current_thread()
         while t.do_run:
             self.update()
             time.sleep(self.schedule)
@@ -2131,6 +2146,70 @@ class PSModelService:
             result = future.result()
             results.append(result)
         return sum(results)
+
+class TorchModelService:
+    def server_init(self, executor, db):
+        self.executor = executor
+        self.db = db
+        self.lock = threading.Lock()
+
+    def __init__(self, model):
+        self.__model__ = model
+        self.executor = None
+        self.db = None
+        self.lock = None
+        self.optimizer = torch.optim.SGD(self.__model__.parameters(), lr=1e-3)
+
+    def __getattribute__(self, item):
+        try:
+            return super().__getattribute__(item)
+        except:
+            pass
+
+        return self.__model__.__getattribute__(item)
+
+    def aggregate(self, results):
+        i = 0
+        self.optimizer.zero_grad()
+        for p in self.__model__.parameters():
+            p.grad = results[i]
+            i += 1
+        self.optimizer.step()
+
+    # x should be tuple of (distTabularData, split)
+    def fit(self, x, iterations, batch_size=1, sync=False):
+        data = x[0]
+        split = x[1]
+        data.makeLoader(split, batch_size)
+        if sync:
+            start = time.perf_counter()
+            for i in range(iterations):
+                futures = [self.executor.submit(lambda con: con._PytorchIteration(data.tabular_datas[con],
+                                                                                  self.__model__), c) for c in
+                           data.tabular_datas]
+                results = []
+                for future in as_completed(futures):
+                    result = future.result()
+                    results.append(result)
+                for r in results:
+                    self.aggregate(r)
+                if (i % 100 == 0):
+                    logging.info(f'iteration {i} time: {time.perf_counter() - start}')
+                    start = time.perf_counter()
+        else:
+            def thread(con):
+                start = time.perf_counter()
+                for i in range(iterations):
+                    result = con._PytorchIteration(data.tabular_datas[con], self.__model__)
+                    self.lock.acquire()
+                    self.aggregate(result)
+                    self.lock.release()
+                    if (i % 100 == 0):
+                        logging.info(f'{con} iteration {i} time: {time.perf_counter()-start}')
+                        start = time.perf_counter()
+            futures = [self.executor.submit(lambda con: thread(con), c) for c in x[0].tabular_datas]
+            for future in as_completed(futures):
+                result = future.result()
 
 class ModelService:
     def server_init(self, executor, db):
@@ -2505,3 +2584,13 @@ class DistTabularData(TabularData):
             results[futures[future]] = future.result()
 
         return DistTabularData(self.executor, results, self.dbc)
+
+    def makeLoader(self, split, batch):
+        results = {}
+        futures = {self.executor.submit(lambda: self.tabular_datas[con].makeLoader(split,batch)):
+                   con for con in self.tabular_datas.keys()}
+        for future in as_completed(futures):
+            results[futures[future]] = future.result()
+
+    def getLoader(self):
+        return {con: self.tabular_datas[con].getLoader() for con in self.tabular_datas.keys()}

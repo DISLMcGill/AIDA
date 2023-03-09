@@ -555,6 +555,18 @@ class DBCMonetDB(DBC):
             ps.push(grads)
             i+=1
 
+    def _PytorchIteration(self, x, model):
+        dataloader = x.getLoader()
+        loss_fun = torch.nn.MSELoss()
+        data, target = next(iter(dataloader))
+        output = model(data)
+        loss = loss_fun(output, target)
+        loss.backward()
+        grads = []
+        for p in model.parameters():
+            grads.append(p.weight.grad)
+        return grads
+
     def _PerformanceTest(self, iterations = 500, batch_size = 20000):
         import numpy as np
         data = self.mf_data
@@ -626,6 +638,10 @@ class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _PerformanceTest(self, iterations = 500, batch_size = 20000):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _PytorchIteration(self, x, model):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);

@@ -381,6 +381,12 @@ class TabularData(metaclass=ABCMeta):
     def loadData(self, matrix=False): pass;
 
     @abstractmethod
+    def makeLoader(self, split, batch): pass;
+
+    @abstractmethod
+    def getLoader(self): pass;
+
+    @abstractmethod
     def __add__(self, other): pass;
 
     @abstractmethod
