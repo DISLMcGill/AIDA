@@ -167,6 +167,11 @@ class ModelServiceRemoteStub(aidacommon.rop.RObjStub):
 
 copyreg.pickle(ModelServiceRemoteStub, ModelServiceRemoteStub.serializeObj)
 
+class TorchModelServiceRemoteStub(aidacommon.rop.RObjStub):
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def fit(self, x, iterations, batch_size=1, sync=False):
+        pass
+
 class ParameterServerRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def pull(self, param_ids):
