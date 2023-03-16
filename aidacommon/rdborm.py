@@ -215,6 +215,12 @@ class DistTabularDataRemoteStub(aidacommon.rop.RObjStub):
     @aidacommon.rop.RObjStub.RemoteMethod(compressResults=True)
     def cdata(self): pass;
 
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def makeLoader(self, split, batch): pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def getLoader(self): pass;
+
 copyreg.pickle(DistTabularDataRemoteStub, DistTabularDataRemoteStub.serializeObj);
 
 class DBCRemoteStub(aidacommon.rop.RObjStub):

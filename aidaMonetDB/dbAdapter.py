@@ -559,12 +559,13 @@ class DBCMonetDB(DBC):
         dataloader = x.getLoader()
         loss_fun = torch.nn.MSELoss()
         data, target = next(iter(dataloader))
-        output = model(data)
-        loss = loss_fun(output, target)
+        for layer in model:
+            x = layer(x)
+        loss = loss_fun(torch.squeeze(x), target)
         loss.backward()
         grads = []
-        for p in model.parameters():
-            grads.append(p.weight.grad)
+        for layer in model:
+            grads.append(layer.weight.grad)
         return grads
 
     def _PerformanceTest(self, iterations = 500, batch_size = 20000):

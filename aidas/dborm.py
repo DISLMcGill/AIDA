@@ -2158,21 +2158,13 @@ class TorchModelService:
         self.executor = None
         self.db = None
         self.lock = None
-        self.optimizer = torch.optim.SGD(self.__model__.parameters(), lr=1e-3)
-
-    def __getattribute__(self, item):
-        try:
-            return super().__getattribute__(item)
-        except:
-            pass
-
-        return self.__model__.__getattribute__(item)
+        self.optimizer = torch.optim.SGD([l.weight for l in model if hasattr(l, 'weight')], lr=1e-3)
 
     def aggregate(self, results):
         i = 0
         self.optimizer.zero_grad()
-        for p in self.__model__.parameters():
-            p.grad = results[i]
+        for layer in self.__model__:
+            layer.weight.grad = results[i]
             i += 1
         self.optimizer.step()
 

@@ -16,7 +16,7 @@ split = [('x1', 'x2', 'x3', 'x4', 'x5'), 'y']
 model = LinearRegression(5, 1)
 
 print('Sending model')
-service = dw._RegisterPytorchModel(model)
+service = dw._RegisterPytorchModel(model.children())
 
 print('training model')
 service.train((data, split), 10000, 25)
