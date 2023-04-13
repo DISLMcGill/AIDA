@@ -25,7 +25,6 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
       request = requestQueue.get();
       result = _conn.execute(request);
       responseQueue.put(result);
-      requestQueue.task_done();
   logging.debug('aidas_setdbccon called for {}'.format(jobname));
   return 'OK';
 };

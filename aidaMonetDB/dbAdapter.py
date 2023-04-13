@@ -170,7 +170,6 @@ class DBCMonetDB(DBC):
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         self._requestQueue.put(sql);
         result = self._responseQueue.get();
-        self._responseQueue.task_done()
         if (sqlType == DBC.SQLTYPE.SELECT):
             if (resultFormat == 'column'):
                 # get some columns
@@ -560,8 +559,8 @@ class DBCMonetDB(DBC):
         loss_fun = torch.nn.MSELoss()
         data, target = next(iter(dataloader))
         for layer in model:
-            x = layer(x)
-        loss = loss_fun(torch.squeeze(x), target)
+            data = layer(data)
+        loss = loss_fun(torch.squeeze(data), target)
         loss.backward()
         grads = []
         for layer in model:
