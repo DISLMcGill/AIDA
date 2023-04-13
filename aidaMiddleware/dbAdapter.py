@@ -124,7 +124,7 @@ class DBCMiddleware(DBC):
         for step in job:
             logging.info(f'Start work for step {step}')
             results = []
-            futures = [self._executor.submit(con._X, step.work, data[con], ctx) for con in data]
+            futures = [self._executor.submit(con._X, step.work, data.tabular_datas[con], ctx) for con in data.tabular_datas]
             for future in as_completed(futures):
                 results.append(future.result())
             logging.info(f'Start aggregate for step {step}')
@@ -156,7 +156,7 @@ class DBCMiddlewareStub(DBCRemoteStub):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _workAggregateJob(self, job, data, ctx=None):
+    def _workAggregateJob(self, job, data, ctx={}):
         pass;
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);
