@@ -34,7 +34,7 @@ class DBCMonetDB(DBC):
 
     #We will use this to map numpy data types to MonetDB compatible types.
     typeConverter = { np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
-                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'
+                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object_:'STRING', bytearray:'BLOB'
                     , 'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP' };
 
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
@@ -169,6 +169,7 @@ class DBCMonetDB(DBC):
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         self._requestQueue.put(sql);
+        time.sleep(0);
         result = self._responseQueue.get();
         if (sqlType == DBC.SQLTYPE.SELECT):
             if (resultFormat == 'column'):
@@ -625,6 +626,10 @@ class DBCMonetDB(DBC):
         end = time.perf_counter()
         logging.info(f'numpy time: {(end-start)/iterations} per iteration')
 
+    def _close(self):
+        self._requestQueue.put("close");
+        time.sleep(0);
+
 class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
@@ -642,6 +647,10 @@ class DBCMonetDBStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _PytorchIteration(self, x, model):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _close(self):
         pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);
