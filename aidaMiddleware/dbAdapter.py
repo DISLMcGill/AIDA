@@ -132,6 +132,12 @@ class DBCMiddleware(DBC):
             if r is not None:
                 ctx['previous'] = r
         return
+
+    def _close(self):
+        for server_name, connection in self._extDBCcon:
+            connection._close()
+
+
 class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _LinearRegression(self, learning_rate):
@@ -158,6 +164,10 @@ class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _workAggregateJob(self, job, data, ctx={}):
         pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _close(self):
+        pass
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);
 copyreg.pickle(DBCMiddlewareStub, DBCMiddlewareStub.serializeObj);

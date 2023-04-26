@@ -73,6 +73,6 @@ class SecondStep:
 
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'wa')
 print('starting work!')
-dw._workAggregateJob([FirstStep(), SecondStep(), dw.cluster_data])
+dw._workAggregateJob([FirstStep(), SecondStep()], dw.cluster_data)
 print('finished work!')
 print(dw.cluster_data.cdata)

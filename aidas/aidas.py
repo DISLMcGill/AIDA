@@ -12,6 +12,7 @@ from socketserver import ThreadingTCPServer, StreamRequestHandler;
 import logging;
 
 from aidacommon.aidaConfig import AConfig;
+from aidaMiddleware.dbAdapter import DBCMiddleware;
 
 class ConnectionManager(metaclass=ABCMeta):
     """Singleton class, there will be only one connection manager in the system"""
@@ -72,7 +73,10 @@ class ConnectionManager(metaclass=ABCMeta):
                 self.__srvrThread.start();
 
             def get(self, jobName):
-                return self.__class__.__DBCRepo[jobName];
+                dba = self.__class__.__DBCRepo[jobName]
+                if isinstance(dba, DBCMiddleware):
+                    return dba.__monetConnection
+                return dba;
 
             def add(self, jobName, dbc):
                 self.__class__.__DBCRepo[jobName] = dbc;

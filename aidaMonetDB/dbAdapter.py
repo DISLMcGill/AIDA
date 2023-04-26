@@ -171,6 +171,9 @@ class DBCMonetDB(DBC):
         self._requestQueue.put(sql);
         time.sleep(0);
         result = self._responseQueue.get();
+        if isinstance(result, Exception):
+            logging.error(f"MonetDB encountered error: {result}")
+            raise result
         if (sqlType == DBC.SQLTYPE.SELECT):
             if (resultFormat == 'column'):
                 # get some columns
