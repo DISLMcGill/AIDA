@@ -2229,7 +2229,7 @@ class ModelService:
 
         return self.__model__.__getattribute__(item)
 
-    def fit(self, x, iterations, batch_size=1, sync=False):
+    def fit(self, x, iterations, sync=False):
         self.__model__.sync = sync
         x_preprocessed = {}
         futures = {self.executor.submit(lambda: self.__model__.preprocess(c, [t.tabular_datas[c] for t in x])): c for c in x[0].tabular_datas}
@@ -2248,7 +2248,7 @@ class ModelService:
         if sync:
             for i in range(iterations):
                 futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, [t.tabular_datas[c] for t in x],
-                                                                    self.weights, batch_size), c) for c in x[0].tabular_datas]
+                                                                    self.weights), c) for c in x[0].tabular_datas]
                 results = []
                 for future in as_completed(futures):
                     result = future.result()
@@ -2258,7 +2258,7 @@ class ModelService:
             def thread(con):
                 for i in range(iterations):
                     result = con._XP(self.__model__.iterate, [t.tabular_datas[con] for t in x],
-                            self.weights, batch_size)
+                            self.weights)
                     self.lock.acquire()
                     self.aggregate(result)
                     self.lock.release()

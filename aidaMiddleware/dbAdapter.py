@@ -120,17 +120,25 @@ class DBCMiddleware(DBC):
         return d
 
     def _workAggregateJob(self, job, data, ctx = {}):
-        logging.info('Starting work-agg job')
-        for step in job:
-            logging.info(f'Start work for step {step}')
+        def run_step(s):
+            logging.info(f'Start work for step {s}')
             results = []
-            futures = [self._executor.submit(con._X, step.work, data.tabular_datas[con], ctx) for con in data.tabular_datas]
+            futures = [self._executor.submit(con._X, s.work, data.tabular_datas[con], ctx) for con in
+                       data.tabular_datas]
             for future in as_completed(futures):
                 results.append(future.result())
-            logging.info(f'Start aggregate for step {step}')
-            r = step.aggregate(self, results)
+            logging.info(f'Start aggregate for step {sp}')
+            r = s.aggregate(self, results)
             if r is not None:
                 ctx['previous'] = r
+
+        logging.info('Starting work-agg job')
+        for step in job:
+            if isinstance(step, tuple):
+                for i in range(step[1]):
+                    run_step(step[0])
+            else:
+                run_step(step)
         return
 
     def _close(self):

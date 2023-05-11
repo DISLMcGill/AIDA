@@ -2,7 +2,7 @@ from aida.aida import *
 
 con = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi')
 
-class LogisticRegressionModel(Model):
+class LogisticRegressionModel:
     @staticmethod
     def preprocess(db, x, y):
         x_bias = db._ones(x.shape[0]).hstack(x)
@@ -16,8 +16,9 @@ class LogisticRegressionModel(Model):
                 raise ValueError("Model weights are not the same dimension as input.")
 
     @staticmethod
-    def iterate(db, x, y, weights, batch_size):
+    def iterate(db, x, y, weights):
         import numpy as np
+        batch_size = 64
         db.weights = DataFrame._loadExtData_(lambda: weights, db)
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :]
