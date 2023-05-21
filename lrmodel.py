@@ -1,16 +1,20 @@
 from aida.aida import *
 
 class LinearRegressionModel:
-    import numpy as np
+    def __init__(self):
+        self.weights = None
+        self.lr = 0.0005
+
     @staticmethod
     def iterate(db, data, weights):
-        from aidas.dborm import DataFrame
-        x = data[0]
-        y = data[1]
+        import numpy as np
+
+        x = data[0].matrix.T
+        y = data[1].matrix
         batch_size = 64
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :]
-        batch_y = y[batch, :]
+        batch_y = y[batch]
         preds = batch_x @ weights.T
         grad_desc_weights = 2 * (((preds - batch_y).T @ batch_x) / preds.shape[0])
         return grad_desc_weights
@@ -18,11 +22,12 @@ class LinearRegressionModel:
     @staticmethod
     def preprocess(db, data):
         x = data.project(('x1','x2','x3','x4','x5'))
-        y = data.project(('y1'))
+        y = data.project(('y'))
         x_bias = db._ones(x.shape[0]).hstack(x)
         return (x_bias, y)
 
     def initialize(self, data):
+        import numpy as np
         x = data[0]
         # initialize weights if not already initialized
         if self.weights is None:

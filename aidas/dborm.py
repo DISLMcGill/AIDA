@@ -1030,7 +1030,7 @@ def preprocess_data(x, split):
             return len(self.data[list(self.data.keys())[0]])
 
         def __getitem__(self, idx):
-            x = [torch.tensor([self.data[column][idx]]) for column in split[0]]
+            x = torch.stack([torch.tensor([self.data[column][idx]]) for column in split[0]])
             y = torch.FloatTensor([self.data[split[1]][idx]])
             return x, y
 
@@ -2216,7 +2216,7 @@ class ModelService:
         return self.__model__.score(*args, **kwargs)
 
     def __init__(self, model):
-        self.__model__ = model
+        self.__model__ = model()
         self.executor = None
         self.db = None
         self.lock = None
@@ -2232,7 +2232,7 @@ class ModelService:
     def fit(self, x, iterations, sync=False):
         self.__model__.sync = sync
         x_preprocessed = {}
-        futures = {self.executor.submit(lambda: self.__model__.preprocess(c, [t.tabular_datas[c] for t in x])): c for c in x[0].tabular_datas}
+        futures = {self.executor.submit(lambda con: con._XP(self.__model__.preprocess, c, [t.tabular_datas[c] for t in x])): c for c in x.tabular_datas}
         for future in as_completed(futures):
             x_result = future.result()
             x_preprocessed[futures[future]] = x_result
@@ -2248,7 +2248,7 @@ class ModelService:
         if sync:
             for i in range(iterations):
                 futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, [t.tabular_datas[c] for t in x],
-                                                                    self.weights), c) for c in x[0].tabular_datas]
+                                                                    self.weights), c) for c in x.tabular_datas]
                 results = []
                 for future in as_completed(futures):
                     result = future.result()
@@ -2456,13 +2456,8 @@ class DistTabularData(TabularData):
 
     @property
     def shape(self):
-        futures = []
         for t in self.tabular_datas.values():
-            futures.append(self.executor.submit(lambda: t.shape))
-        results = []
-
-        for f in as_completed(futures):
-            results.append(f.result())
+            results.append(t.shape)
 
         return (sum([r[0] for r in results]), results[0][1])
 

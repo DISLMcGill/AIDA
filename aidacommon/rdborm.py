@@ -234,7 +234,7 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
-    def _getDBTable(self):
+    def _getDBTable(self, relName, dbName=None):
         pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
