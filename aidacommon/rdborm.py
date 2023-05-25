@@ -182,6 +182,10 @@ class ParameterServerRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def start_training(self, data):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def get_prediction_function(self):
         pass
 

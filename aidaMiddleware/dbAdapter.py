@@ -11,7 +11,7 @@ from aidas.dborm import DBTable, DataFrame, ModelService;
 from aida.aida import *;
 from aidaMonetDB.dbAdapter import DBCMonetDB;
 from aidaMiddleware.serverConfig import ServerConfig;
-from aidas.dborm import DistTabularData;
+from aidas.dborm import DistTabularData, CustomParameterServer;
 from concurrent.futures import ThreadPoolExecutor, as_completed;
 from aidaMiddleware.Model import *;
 
@@ -32,6 +32,9 @@ class DBCMiddleware(DBC):
         m = PSModelService(model)
         m.server_init(self._executor, self.__monetConnection)
         return m
+
+    def _MakeParamServer(self, model):
+        return CustomParameterServer(model)
 
     def _LinearRegression(self, learning_rate=0.0001, sync=True):
         m = LinearRegressionModel(learning_rate, sync)
@@ -128,7 +131,7 @@ class DBCMiddleware(DBC):
             for future in as_completed(futures):
                 results.append(future.result())
             logging.info(f'Start aggregate for step {sp}')
-            r = s.aggregate(self, results)
+            r = s.aggregate(self, results, ctx)
             if r is not None:
                 ctx['previous'] = r
 

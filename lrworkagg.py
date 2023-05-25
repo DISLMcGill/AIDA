@@ -42,7 +42,7 @@ class Iterate():
             dw.iterator = iter(data.getLoader())
             batch, target = next(dw.iterator)
 
-        preds = model(batch)
+        preds = model(torch.squeeze(batch).float())
         loss = dw.loss(torch.squeeze(preds), target)
         loss.backward()
         grads = []

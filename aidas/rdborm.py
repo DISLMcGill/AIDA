@@ -11,4 +11,5 @@ copyreg.pickle(TorchService, TorchServiceRemoteStub.serializeObj);
 copyreg.pickle(TorchRMIService, TorchServiceRemoteStub.serializeObj);
 copyreg.pickle(TorchRMIServer, ParameterServerRemoteStub.serializeObj);
 copyreg.pickle(ParameterServer, ParameterServerRemoteStub.serializeObj);
+copyreg.pickle(CustomParameterServer, ParameterServerRemoteStub.serializeObj)
 copyreg.pickle(DistTabularData, DistTabularDataRemoteStub.serializeObj);

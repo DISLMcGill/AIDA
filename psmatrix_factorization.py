@@ -77,7 +77,7 @@ class MatrixFactorization:
 print("PS model")
 
 print("Sending model...")
-m = dw._RegisterPSModel(MatrixFactorization())
+m = dw._RegisterPSModel(MatrixFactorization)
 
 print("Fitting model...")
 x = dw.mf_data

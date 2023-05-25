@@ -2047,6 +2047,55 @@ class TorchRMIService:
             results.append(f.result())
         self.__ps__.stop_server()
 
+class CustomParameterServer:
+    def __init__(self, server, schedule=0.1):
+        self.lock = threading.Lock()
+        self.server = server()
+        self.updates = []
+        self.schedule = schedule
+        self.running_thread = None
+
+    def update_thread(self):
+        t = threading.current_thread()
+        while t.do_run:
+            self.update()
+            time.sleep(self.schedule)
+        self.update()
+
+    def start_server(self):
+        if self.running_thread is None:
+            self.running_thread = threading.Thread(target=self.update_thread)
+            self.running_thread.do_run = True
+            self.running_thread.start()
+        else:
+            logging.warning("Parameter server is already started!")
+
+    def stop_server(self):
+        if self.running_thread is not None:
+            self.running_thread.do_run = False
+            self.running_thread.join()
+            self.running_thread = None
+        else:
+            logging.warning("Parameter server has not started.")
+
+    def pull(self, param_ids):
+        return self.server.pull(param_ids)
+
+    def push(self, update):
+        self.updates.append(update)
+
+    def update(self):
+        while len(self.updates) > 0:
+            u = self.updates.pop()
+            self.server.update(u)
+
+    def start_training(self, data):
+        futures = [self.executor.submit(lambda c: c._X(self.__model__, self, data.tabular_datas[c])) for c in data.tabular_datas]
+        for future in as_completed(futures):
+            r = future.result()
+        return
+
+
 class ParameterServer:
     def __init__(self, schedule=0.1):
         self.lock = threading.Lock()
@@ -2105,7 +2154,7 @@ class PSModelService:
         self.lock = threading.Lock()
 
     def __init__(self, model, schedule=0.1):
-        self.__model__ = model
+        self.__model__ = model()
         self.__ps__ = ParameterServer(schedule)
 
     def fit(self, x, batch_size=1):
