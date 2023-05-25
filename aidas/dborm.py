@@ -2054,6 +2054,10 @@ class CustomParameterServer:
         self.updates = []
         self.schedule = schedule
         self.running_thread = None
+        self.executor = None
+
+    def server_init(self, executor):
+        self.executor = executor
 
     def update_thread(self):
         t = threading.current_thread()
@@ -2090,9 +2094,11 @@ class CustomParameterServer:
             self.server.update(u)
 
     def start_training(self, data):
+        self.start_server()
         futures = [self.executor.submit(lambda c: c._X(self.__model__, self, data.tabular_datas[c])) for c in data.tabular_datas]
         for future in as_completed(futures):
             r = future.result()
+        self.stop_server()
         return
 
 

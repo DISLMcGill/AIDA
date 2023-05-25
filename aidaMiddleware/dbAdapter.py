@@ -34,7 +34,9 @@ class DBCMiddleware(DBC):
         return m
 
     def _MakeParamServer(self, model):
-        return CustomParameterServer(model)
+        m = CustomParameterServer(model)
+        m.server_init(self._executor)
+        return m
 
     def _LinearRegression(self, learning_rate=0.0001, sync=True):
         m = LinearRegressionModel(learning_rate, sync)
