@@ -33,8 +33,8 @@ class DBCMiddleware(DBC):
         m.server_init(self._executor, self.__monetConnection)
         return m
 
-    def _MakeParamServer(self, model):
-        m = CustomParameterServer(model)
+    def _MakeParamServer(self, model, server):
+        m = CustomParameterServer(model, server)
         m.server_init(self._executor)
         return m
 
@@ -159,6 +159,10 @@ class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.ModelCheck()
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _RegisterModel(self, model):
+        pass;
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _MakeParamServer(self, model, server):
         pass;
 
     @aidacommon.rop.RObjStub.ModelCheck(isPS=True)

@@ -2048,9 +2048,10 @@ class TorchRMIService:
         self.__ps__.stop_server()
 
 class CustomParameterServer:
-    def __init__(self, server, schedule=0.1):
+    def __init__(self, model, server, schedule=0.1):
         self.lock = threading.Lock()
-        self.server = server()
+        self.model = model()
+        self.server = server(self.model)
         self.updates = []
         self.schedule = schedule
         self.running_thread = None

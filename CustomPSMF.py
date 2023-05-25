@@ -1,19 +1,20 @@
 from aida.aida import *
 
-class CustomMF:
-    import torch
-    class MatrixFactorization(torch.nn.module):
-        def __init__(self):
-            super().__init__()
-            self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
-            self.item_factors = torch.nn.Embedding(2000, 3, sparse=True)
-
-        def forward(self, data):
-            user = data[0]
-            item = data[1]
-            return (self.user_factors(user) * self.item_factors(item)).sum(1)
+class MatrixFactorization(torch.nn.module):
     def __init__(self):
-        self.model = self.MatrixFactorization()
+        super().__init__()
+        self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
+        self.item_factors = torch.nn.Embedding(2000, 3, sparse=True)
+
+    def forward(self, data):
+        user = data[0]
+        item = data[1]
+        return (self.user_factors(user) * self.item_factors(item)).sum(1)
+
+class CustomMF:
+    def __init__(self, model):
+        import torch
+        self.model = model
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.0002, weight_decay=0.02)
 
     def pull(self, param_ids):
@@ -54,8 +55,8 @@ class CustomMF:
             ps.push(grads)
 
 dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
-data = dw.mf_data
 print('making parameter server')
-server = dw._MakeParamServer(CustomMF)
+server = dw._MakeParamServer(MatrixFactorization, CustomMF)
 print('fitting mf')
+data = dw.mf_data
 server.start_training(data)
