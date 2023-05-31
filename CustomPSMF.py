@@ -1,6 +1,8 @@
 from aida.aida import *
+import torch
+import time
 
-class MatrixFactorization(torch.nn.module):
+class MatrixFactorization(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
@@ -29,13 +31,11 @@ class CustomMF:
     @staticmethod
     def run_training(con, ps, data):
         import torch
-        import logging
         data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
         x = iter(data.getLoader())
         epochs = 5000
         loss_fun = torch.nn.MSELoss()
         for i in range(epochs):
-            logging.info(f'start epoch {i}')
             try:
                 data, rating = next(x)
             except StopIteration:
@@ -43,6 +43,7 @@ class CustomMF:
                 data, rating = next(x)
 
             ids = []
+            data = torch.squeeze(data.T)
             for d in data:
                 ids.append(torch.squeeze(d))
             factors = ps.pull(ids)
@@ -50,8 +51,8 @@ class CustomMF:
             loss = loss_fun(preds, torch.squeeze(rating))
             loss.backward()
             grads = []
-            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[0], dim=0), factors[0].grad, 1500))
-            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[1], dim=0), factors[1].grad, 2000))
+            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[0], dim=0), factors[0].grad, (1500,3)))
+            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[1], dim=0), factors[1].grad, (2000,3)))
             ps.push(grads)
 
 dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
@@ -59,4 +60,7 @@ print('making parameter server')
 server = dw._MakeParamServer(MatrixFactorization, CustomMF)
 print('fitting mf')
 data = dw.mf_data
+start = time.perf_counter()
 server.start_training(data)
+stop = time.perf_counter()
+print(f'execution time for custom param server: {stop - start}')

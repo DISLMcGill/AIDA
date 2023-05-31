@@ -2050,7 +2050,7 @@ class TorchRMIService:
 class CustomParameterServer:
     def __init__(self, model, server, schedule=0.1):
         self.lock = threading.Lock()
-        self.model = model()
+        self.model = model
         self.server = server(self.model)
         self.updates = []
         self.schedule = schedule
@@ -2096,7 +2096,7 @@ class CustomParameterServer:
 
     def start_training(self, data):
         self.start_server()
-        futures = [self.executor.submit(lambda c: c._X(self.__model__, self, data.tabular_datas[c])) for c in data.tabular_datas]
+        futures = [self.executor.submit(lambda c: c._X(self.server.run_training, self, data.tabular_datas[c]), c) for c in data.tabular_datas]
         for future in as_completed(futures):
             r = future.result()
         self.stop_server()

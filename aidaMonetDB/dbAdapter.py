@@ -479,6 +479,9 @@ class DBCMonetDB(DBC):
 
     def __del__(self):
         #logging.debug("__del__ called for {}".format(self._jobName));
+        self._close()
+        del self._requestQueue
+        del self._responseQueue
 
         #Where we using regular Table UDFs or Virtuable Tables ?
         dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';

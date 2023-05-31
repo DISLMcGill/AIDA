@@ -55,6 +55,32 @@ class DBCMiddleware(DBC):
         s.server_init(self._executor, self.__monetConnection)
         return s
 
+    def _workAggregateJob(self, job, data, ctx = {}):
+        def run_step(s):
+            logging.info(f'Start work for step {s}')
+            results = []
+            futures = [self._executor.submit(con._X, s.work, data.tabular_datas[con], ctx) for con in
+                       data.tabular_datas]
+            for future in as_completed(futures):
+                results.append(future.result())
+            logging.info(f'Start aggregate for step {sp}')
+            r = s.aggregate(self, results, ctx)
+            if r is not None:
+                ctx['previous'] = r
+
+        logging.info('Starting work-agg job')
+        for step in job:
+            if isinstance(step, tuple):
+                for i in range(step[1]):
+                    run_step(step[0])
+            else:
+                run_step(step)
+        return
+
+    def __del__(self):
+        self._close()
+        super().__del__()
+
     def _toTable(self, tblrData, tableName=None):
         pass
 
@@ -123,28 +149,6 @@ class DBCMiddleware(DBC):
             results[futures[future]] = future.result()
         d = DistTabularData(self._executor, results, self.__monetConnection)
         return d
-
-    def _workAggregateJob(self, job, data, ctx = {}):
-        def run_step(s):
-            logging.info(f'Start work for step {s}')
-            results = []
-            futures = [self._executor.submit(con._X, s.work, data.tabular_datas[con], ctx) for con in
-                       data.tabular_datas]
-            for future in as_completed(futures):
-                results.append(future.result())
-            logging.info(f'Start aggregate for step {sp}')
-            r = s.aggregate(self, results, ctx)
-            if r is not None:
-                ctx['previous'] = r
-
-        logging.info('Starting work-agg job')
-        for step in job:
-            if isinstance(step, tuple):
-                for i in range(step[1]):
-                    run_step(step[0])
-            else:
-                run_step(step)
-        return
 
     def _close(self):
         for server_name, connection in self._extDBCcon:
