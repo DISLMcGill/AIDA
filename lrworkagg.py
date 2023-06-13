@@ -1,4 +1,5 @@
 from aida.aida import *
+import time
 import torch
 
 class LinearRegression(torch.nn.Module):
@@ -66,4 +67,7 @@ dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi','bixi', 'lr')
 dw.lr_model = LinearRegression(5, 1)
 job = [FirstStep(), (Iterate(), 50000)]
 print('start work aggregate job')
-dw._workAggregateJob(job, dw.lr_data)
+start = time.perf_counter()
+dw._workAggregateJob(job, dw.lr_data, sync=False)
+stop = time.perf_counter()
+print(f'Work-aggregate LR completed in {stop-start}')
