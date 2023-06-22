@@ -4,6 +4,7 @@ from aida.aida import *
 
 class LinearRegression(torch.nn.Module):
     def __init__(self):
+        import torch
         super().__init__()
         self.linear = torch.nn.Linear(5, 1)
 
@@ -14,7 +15,7 @@ class LinearRegression(torch.nn.Module):
 class LRPS:
     def __init__(self, model):
         import torch
-        self.model = model
+        self.model = model()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
 
     def pull(self, param_ids):
@@ -58,3 +59,4 @@ start = time.perf_counter()
 server.start_training(data)
 stop = time.perf_counter()
 print(f'execution time for custom param server: {stop - start}')
+dw._close()

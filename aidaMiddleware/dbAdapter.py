@@ -70,10 +70,17 @@ class DBCMiddleware(DBC):
 
         def run_steps_async(con, steps):
             for s in steps:
-                r = con._X(s.work, data.tabular_datas[con], ctx)
-                r = s.aggregate(self, r, ctx)
-                if r is not None:
-                    ctx['previous'] = r
+                if isinstance(s, tuple):
+                    for i in range(s[1]):
+                        r = con._X(s.work, data.tabular_datas[con], ctx)
+                        r = s.aggregate(self, r, ctx)
+                        if r is not None:
+                            ctx['previous'] = r
+                else:
+                    r = con._X(s.work, data.tabular_datas[con], ctx)
+                    r = s.aggregate(self, r, ctx)
+                    if r is not None:
+                        ctx['previous'] = r
 
         logging.info('Starting work-agg job')
         if sync:

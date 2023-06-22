@@ -2288,22 +2288,18 @@ class ModelService:
     def fit(self, x, iterations, sync=False):
         self.__model__.sync = sync
         x_preprocessed = {}
-        futures = {self.executor.submit(lambda con: con._XP(self.__model__.preprocess, c, [t.tabular_datas[c] for t in x])): c for c in x.tabular_datas}
+        futures = {self.executor.submit(lambda con: con._XP(self.__model__.preprocess, x.tabular_datas[con]), c): c for c in x.tabular_datas}
         for future in as_completed(futures):
             x_result = future.result()
             x_preprocessed[futures[future]] = x_result
-        d = [dict.fromkeys(x_preprocessed.keys()) for i in range(len(x))]
-        for c in x_preprocessed:
-            for i in range(len(d)):
-                d[i][c] = x_preprocessed[c][i]
 
-        x = [DistTabularData(self.executor, t, self.db) for t in d]
+        x = DistTabularData(self.executor, x_preprocessed, self.db)
 
         self.initialize(x)
 
         if sync:
             for i in range(iterations):
-                futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, [t.tabular_datas[c] for t in x],
+                futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, x.tabular_datas[con],
                                                                     self.weights), c) for c in x.tabular_datas]
                 results = []
                 for future in as_completed(futures):
@@ -2313,18 +2309,18 @@ class ModelService:
         else:
             def thread(con):
                 for i in range(iterations):
-                    result = con._XP(self.__model__.iterate, [t.tabular_datas[con] for t in x],
+                    result = con._XP(self.__model__.iterate, x.tabular_datas[con],
                             self.weights)
                     self.lock.acquire()
                     self.aggregate(result)
                     self.lock.release()
-            futures = [self.executor.submit(lambda con: thread(con), c) for c in x[0].tabular_datas]
+            futures = [self.executor.submit(lambda con: thread(con), c) for c in x.tabular_datas]
             for future in as_completed(futures):
                 result = future.result()
 
     def score(self, x, *args, **kwargs):
-        futures = [self.executor.submit(lambda con: con._XP(self.__model__.score, [t.tabular_datas[c] for t in x],
-                                                            *args, **kwargs), c) for c in x[0].tabular_datas]
+        futures = [self.executor.submit(lambda con: con._XP(self.__model__.score, x.tabular_datas[con],
+                                                            *args, **kwargs), c) for c in x.tabular_datas]
         results = []
         for future in as_completed(futures):
             result = future.result()

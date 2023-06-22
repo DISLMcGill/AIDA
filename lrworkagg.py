@@ -22,7 +22,7 @@ class FirstStep():
         return
 
     @staticmethod
-    def aggregate(dw, results):
+    def aggregate(dw, results, cxt):
         import logging
         import torch
         logging.info('set up optimizer')
@@ -52,7 +52,7 @@ class Iterate():
         return grads
 
     @staticmethod
-    def aggregate(dw, results):
+    def aggregate(dw, results, cxt):
         import logging
 
         logging.info('running aggregation')
@@ -71,3 +71,4 @@ start = time.perf_counter()
 dw._workAggregateJob(job, dw.lr_data, sync=False)
 stop = time.perf_counter()
 print(f'Work-aggregate LR completed in {stop-start}')
+dw._close()
