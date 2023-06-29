@@ -5,9 +5,10 @@ from aida.aida import *
 
 class MatrixFactorization(torch.nn.Module):
     def __init__(self):
+        import torch
         super().__init__()
-        self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
-        self.item_factors = torch.nn.Embedding(2000, 3, sparse=True)
+        self.user_factors = torch.nn.Embedding(1500, 3)
+        self.item_factors = torch.nn.Embedding(2000, 3)
 
     def forward(self, data):
         user = data[0]
@@ -18,7 +19,7 @@ class Preprocess:
     @staticmethod
     def work(dw, data, cxt):
         import torch
-        data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
+        data.makeLoader([('user_id', 'movie_id'), 'rating'], 32)
         dw.x = iter(data.getLoader())
         dw.loss_fun = torch.nn.MSELoss()
 
@@ -34,26 +35,34 @@ class Iterate:
     def work(db, data, cxt):
         import torch
         try:
-            data, rating = next(db.x)
+            x, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
-            data, rating = next(db.x)
+            x, rating = next(db.x)
 
         ids = []
-        data = torch.squeeze(data.T)
-        for d in data:
+        x = torch.squeeze(x.T)
+        for d in x:
             ids.append(torch.squeeze(d))
         weights = cxt['previous']
         preds = weights(ids)
         loss = db.loss_fun(preds, torch.squeeze(rating))
         loss.backward()
-        grads = [torch.sparse_coo_tensor(torch.unsqueeze(ids[0], dim=0), weights.user_factors.grad, (1500, 3)),
-                 torch.sparse_coo_tensor(torch.unsqueeze(ids[1], dim=0), weights.item_factors.grad, (2000, 3))]
+        grads = [weights.user_factors.weight.grad,
+                 weights.item_factors.weight.grad]
         return grads
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi','bixi', 'lr')
+    @staticmethod
+    def aggregate(db, results, cxt):
+        db.optimizer.zero_grad()
+        db.weights.user_factors.weight.grad = results[0]
+        db.weights.item_factors.weight.grad = results[1]
+        db.optimizer.step()
+        return db.weights
+
+dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi','bixi', 'mf')
 dw.MatrixFactorization = MatrixFactorization
-job = [Preprocess(), (Iterate(), 50000)]
+job = [Preprocess(), (Iterate(), 15000)]
 print('start work aggregate job')
 start = time.perf_counter()
 dw._workAggregateJob(job, dw.mf_data, sync=False)

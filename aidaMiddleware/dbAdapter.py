@@ -72,8 +72,8 @@ class DBCMiddleware(DBC):
             for s in steps:
                 if isinstance(s, tuple):
                     for i in range(s[1]):
-                        r = con._X(s.work, data.tabular_datas[con], ctx)
-                        r = s.aggregate(self, r, ctx)
+                        r = con._X(s[0].work, data.tabular_datas[con], ctx)
+                        r = s[0].aggregate(self, r, ctx)
                         if r is not None:
                             ctx['previous'] = r
                 else:
@@ -172,7 +172,7 @@ class DBCMiddleware(DBC):
         return d
 
     def _close(self):
-        for server_name, connection in self._extDBCcon:
+        for server_name, connection in self._extDBCcon.items():
             connection._close()
 
 

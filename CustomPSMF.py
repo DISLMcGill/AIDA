@@ -16,7 +16,7 @@ class MatrixFactorization(torch.nn.Module):
 class CustomMF:
     def __init__(self, model):
         import torch
-        self.model = model
+        self.model = model()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.0002, weight_decay=0.02)
 
     def pull(self, param_ids):

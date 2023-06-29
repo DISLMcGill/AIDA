@@ -4,6 +4,7 @@ from aida.aida import *
 class MatrixFactorization:
     class MatrixFactorization(torch.nn.Module):
         def __init__(self):
+            import torch
             super().__init__()
             self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
             self.item_factors = torch.nn.Embedding(2000, 3, sparse=True)
@@ -19,8 +20,8 @@ class MatrixFactorization:
 
     def aggregate(self, update):
         self.optimizer.zero_grad()
-        self.weights.user_factors.grad = update[0]
-        self.weights.item_factors.grad = update[1]
+        self.weights.user_factors.weight.grad = update[0]
+        self.weights.item_factors.weight.grad = update[1]
         self.optimizer.step()
 
     def initialize(self, data):
@@ -29,31 +30,32 @@ class MatrixFactorization:
     @staticmethod
     def preprocess(db, data):
         import torch
-        data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
+        data.makeLoader([('user_id', 'movie_id'), 'rating'], 32)
         db.x = iter(data.getLoader())
         db.loss_fun = torch.nn.MSELoss()
+        return data
 
     @staticmethod
     def iterate(db, data, weights):
         import torch
         try:
-            data, rating = next(db.x)
+            x, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
-            data, rating = next(db.x)
+            x, rating = next(db.x)
 
         ids = []
-        data = torch.squeeze(data.T)
-        for d in data:
+        x = torch.squeeze(x.T)
+        for d in x:
             ids.append(torch.squeeze(d))
         preds = weights(ids)
         loss = db.loss_fun(preds, torch.squeeze(rating))
         loss.backward()
-        grads = [torch.sparse_coo_tensor(torch.unsqueeze(ids[0], dim=0), weights.user_factors.grad.grad, (1500, 3)),
-                 torch.sparse_coo_tensor(torch.unsqueeze(ids[1], dim=0), weights.item_factors.grad, (2000, 3))]
+        grads = [weights.user_factors.weight.grad,
+                 weights.item_factors.weight.grad]
         return grads
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi')
+dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 print('Registering model')
 service = dw._RegisterModel(MatrixFactorization)
 print('Fitting model')
