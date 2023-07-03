@@ -2,8 +2,6 @@ DROP FUNCTION aidas_bootstrap;
 CREATE FUNCTION aidas_bootstrap() RETURNS TABLE(module STRING) LANGUAGE PYTHON
 {
   import sys;
-  sys.path.append('/home/db/yhe54/AIDA')
-  sys.path.append('/home/db/yhe54/.local/lib/python3.10/site-packages');
   import aidas.bootstrap;
   aidas.bootstrap.bootstrap();
   return 'OK';

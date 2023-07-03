@@ -24,6 +24,7 @@ class MatrixFactorization(torch.nn.Module):
 
 class LinearRegression(torch.nn.Module):
     def __init__(self):
+        super().__init__()
         self.linear = torch.nn.Linear(5, 1)
 
     def forward(self, input):
@@ -123,11 +124,12 @@ class MFDataset(Dataset):
             reader = csv.reader(f)
             self.data = OrderedDict()
             for r in reader:
-                self.data.setdefault('user_id', []).append(float(r[0]))
-                self.data.setdefault('movie_id', []).append(float(r[1]))
+                self.data.setdefault('user_id', []).append(int(r[0]))
+                self.data.setdefault('movie_id', []).append(int(r[1]))
                 self.data.setdefault('rating', []).append(float(r[2]))
-            for x in self.data:
-                self.data[x] = torch.FloatTensor(self.data[x])
+            self.data['user_id'] = torch.IntTensor(self.data['user_id'])
+            self.data['movie_id'] = torch.IntTensor(self.data['movie_id'])
+            self.data['rating'] = torch.FloatTensor(self.data['rating'])
 
     def __len__(self):
         return len(self.data['user_id'])
@@ -241,4 +243,3 @@ if __name__ == '__main__':
         run_worker(args.rank, args.world_size, model, 5000, dataloader)
 
     print(f'Rank {args.rank} finished in {time.perf_counter() - start}')
-    

@@ -13,12 +13,11 @@ from torch.utils.data import Dataset, DataLoader
 from PytorchRPC import MatrixFactorization, LinearRegression, MFDataset, LRDataset
 
 def run_training_loop(rank, model, iterations, train_loader):
-    net = model()
-    param_rrefs = net.get_global_param_rrefs()
+    net = DDP(model())
     if model == MatrixFactorization:
-        opt = torch.optim.SGD(param_rrefs, lr=0.0002, weight_decay=0.02)
+        opt = torch.optim.SGD(net.params(), lr=0.0002, weight_decay=0.02)
     else:
-        opt = torch.optim.SGD(param_rrefs, lr=0.03)
+        opt = torch.optim.SGD(net.params(), lr=0.03)
 
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
@@ -33,7 +32,8 @@ def run_training_loop(rank, model, iterations, train_loader):
         loss = loss_fun(torch.squeeze(model_output), target)
         if i % 100 == 0:
             print(f"Rank {rank} training batch {i} loss {loss.item()}")
-        opt.backward()
+        loss.backward()
+        opt.step()
 
     print("Training complete!")
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     os.environ['MASTER_ADDR'] = args.master_addr
     os.environ["MASTER_PORT"] = args.master_port
 
-    dist.init_process_group(rank=args.rank, world_size=args.world_size)
+    dist.init_process_group("gloo", rank=args.rank, world_size=args.world_size)
 
     if args.dataset == "lr":
         dataloader = DataLoader(LRDataset(args.filename), batch_size=1000)
