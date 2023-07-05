@@ -17,7 +17,7 @@ def run_training_loop(rank, model, iterations, train_loader):
     if model == MatrixFactorization:
         opt = torch.optim.SGD(net.params(), lr=0.0002, weight_decay=0.02)
     else:
-        opt = torch.optim.SGD(net.params(), lr=0.03)
+        opt = torch.optim.SGD(net.params(), lr=0.0003)
 
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
@@ -74,6 +74,16 @@ if __name__ == '__main__':
         type=str,
         default="lr_data.csv",
         help="""Path to dataset file being used""")
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=1000,
+        help="""Batch size""")
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=5000,
+        help="""Number of iterations per worker""")
 
     args = parser.parse_args()
     assert args.rank is not None, "must provide rank argument."
@@ -83,14 +93,14 @@ if __name__ == '__main__':
     dist.init_process_group("gloo", rank=args.rank, world_size=args.world_size)
 
     if args.dataset == "lr":
-        dataloader = DataLoader(LRDataset(args.filename), batch_size=1000)
+        dataloader = DataLoader(LRDataset(args.filename), batch_size=args.batch_size)
         model = LinearRegression
     else:
-        dataloader = DataLoader(MFDataset(args.filename), batch_size=1000)
+        dataloader = DataLoader(MFDataset(args.filename), batch_size=args.batch_size)
         model = MatrixFactorization
 
     start = time.perf_counter()
-    run_training_loop(args.rank, model, 5000, dataloader)
+    run_training_loop(args.rank, model, args.iterations, dataloader)
     dist.destroy_process_group()
 
     print(f'Rank {args.rank} finished in {time.perf_counter() - start}')

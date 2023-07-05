@@ -72,8 +72,11 @@ def run_parameter_server(rank, world_size):
     print("PS master initializing RPC")
     rpc.init_rpc(name="parameter_server", rank=rank, world_size=world_size)
     print("RPC initialized! Running parameter server...")
+    start = time.perf_counter()
     rpc.shutdown()
+    stop = time.perf_counter()
     print("RPC shutdown on parameter server.")
+    print(f"Runtime = {stop-start}")
 
 class TrainerNet(torch.nn.Module):
     def __init__(self, m):
@@ -146,7 +149,7 @@ def run_training_loop(rank, model, iterations, train_loader):
     if model == MatrixFactorization:
         opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.0002, weight_decay=0.02)
     else:
-        opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.03)
+        opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.0003)
 
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
@@ -181,9 +184,12 @@ def run_worker(rank, world_size, model, iterations, train_loader):
         world_size=world_size)
 
     print(f"Worker {rank} done initializing RPC")
+    start = time.perf_counter()
 
     run_training_loop(rank, model, iterations, train_loader)
     rpc.shutdown()
+    stop = time.perf_counter()
+    print(f"Worker {rank} runtime = {stop-start}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -221,6 +227,16 @@ if __name__ == '__main__':
         type=str,
         default="lr_data.csv",
         help="""Path to dataset file being used""")
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=1000,
+        help="""Batch size""")
+    parser.add_argument(
+        "--iterations",
+        type=int,
+        default=5000,
+        help="""Number of iterations per worker""")
 
     args = parser.parse_args()
     assert args.rank is not None, "must provide rank argument."
@@ -229,17 +245,13 @@ if __name__ == '__main__':
 
 
     if args.rank == 0:
-        start = time.perf_counter()
         run_parameter_server(args.rank, args.world_size)
     else:
         if args.dataset == "lr":
-            dataloader = DataLoader(LRDataset(args.filename), batch_size=1000)
+            dataloader = DataLoader(LRDataset(args.filename), batch_size=args.batch_size)
             model = LinearRegression
         else:
-            dataloader = DataLoader(MFDataset(args.filename), batch_size=1000)
+            dataloader = DataLoader(MFDataset(args.filename), batch_size=args.batch_size)
             model = MatrixFactorization
 
-        start = time.perf_counter()
-        run_worker(args.rank, args.world_size, model, 5000, dataloader)
-
-    print(f'Rank {args.rank} finished in {time.perf_counter() - start}')
+        run_worker(args.rank, args.world_size, model, args.iterations, dataloader)
