@@ -129,7 +129,7 @@ class MFDataset(Dataset):
             for r in reader:
                 self.data.setdefault('user_id', []).append(int(r[0]))
                 self.data.setdefault('movie_id', []).append(int(r[1]))
-                self.data.setdefault('rating', []).append(float(r[2]))
+                self.data.setdefault('rating', []).append(float(r[2])*50)
             self.data['user_id'] = torch.IntTensor(self.data['user_id'])
             self.data['movie_id'] = torch.IntTensor(self.data['movie_id'])
             self.data['rating'] = torch.FloatTensor(self.data['rating'])
@@ -248,10 +248,10 @@ if __name__ == '__main__':
         run_parameter_server(args.rank, args.world_size)
     else:
         if args.dataset == "lr":
-            dataloader = DataLoader(LRDataset(args.filename), batch_size=args.batch_size)
+            dataloader = DataLoader(LRDataset(args.filename), batch_size=args.batch_size, shuffle=True)
             model = LinearRegression
         else:
-            dataloader = DataLoader(MFDataset(args.filename), batch_size=args.batch_size)
+            dataloader = DataLoader(MFDataset(args.filename), batch_size=args.batch_size, shuffle=True)
             model = MatrixFactorization
 
         run_worker(args.rank, args.world_size, model, args.iterations, dataloader)
