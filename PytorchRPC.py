@@ -114,7 +114,7 @@ class LRDataset(Dataset):
     def __getitem__(self, item):
         x = [self.data['x1'][item], self.data['x2'][item], self.data['x3'][item],
              self.data['x4'][item], self.data['x5'][item]]
-        x = torch.cat(x, dim=0)
+        x = torch.cat(x)
         y = self.data['y'][item]
         return x, y
 
@@ -136,7 +136,7 @@ class MFDataset(Dataset):
 
     def __getitem__(self, item):
         x = [self.data['user_id'][item], self.data['movie_id'][item]]
-        x = torch.cat(x, dim=0)
+        x = torch.cat(x)
         y = self.data['rating'][item]
         return x, y
 

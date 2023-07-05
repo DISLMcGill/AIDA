@@ -2,7 +2,14 @@ __pycache__/
 *.py[cod]
 
 *.log
+docker_copy.sh
 
 .idea/
 *.iml
 *.xml
+
+misc/
+aidaconfig.ini
+
+aidaMiddleware/
+servers.db
