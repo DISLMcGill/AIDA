@@ -15,7 +15,7 @@ from PytorchRPC import MatrixFactorization, LinearRegression, MFDataset, LRDatas
 def run_training_loop(rank, model, iterations, train_loader):
     net = DDP(model())
     if model == MatrixFactorization:
-        opt = torch.optim.SGD(net.parameters(), lr=0.0002, weight_decay=0.02)
+        opt = torch.optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.002)
     else:
         opt = torch.optim.SGD(net.parameters(), lr=0.0003)
 

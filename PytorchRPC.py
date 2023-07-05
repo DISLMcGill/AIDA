@@ -147,7 +147,7 @@ def run_training_loop(rank, model, iterations, train_loader):
     net = TrainerNet(model)
     param_rrefs = net.get_global_param_rrefs()
     if model == MatrixFactorization:
-        opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.0002, weight_decay=0.02)
+        opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.00001, weight_decay=0.002)
     else:
         opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.0003)
 
