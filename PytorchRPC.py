@@ -18,8 +18,8 @@ class MatrixFactorization(torch.nn.Module):
         self.item_factors = torch.nn.Embedding(2000, 3)
 
     def forward(self, data):
-        user = data[0]
-        item = data[1]
+        user = torch.squeeze(data[:, [0]])
+        item = torch.squeeze(data[:, [0]])
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
 
 class LinearRegression(torch.nn.Module):
