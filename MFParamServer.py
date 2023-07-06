@@ -68,7 +68,7 @@ class CustomMF:
         end = time.perf_counter()
         logging.info(f"total run time: {end-start} total calc time: {calc_time}")
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
+dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'mf')
 print('making parameter server')
 server = dw._MakeParamServer(MatrixFactorization, CustomMF)
 print('fitting mf')

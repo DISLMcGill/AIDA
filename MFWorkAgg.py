@@ -81,7 +81,7 @@ class Iterate:
         db.agg_time = time.pref_counter() - start
         return db.weights
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi','bixi', 'mf')
+dw = AIDA.connect('localhost', 'bixi', 'bixi','bixi', 'mf')
 dw.MatrixFactorization = MatrixFactorization
 job = [Preprocess(), (Iterate(), 5000)]
 print('start work aggregate job')

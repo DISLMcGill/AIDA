@@ -70,7 +70,7 @@ class MatrixFactorization:
             logging.info(f"calc time: {db.calc_time}")
         return grads
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
+dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'mf')
 print('Registering model')
 service = dw._RegisterModel(MatrixFactorization)
 print('Fitting model')

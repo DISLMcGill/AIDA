@@ -60,7 +60,7 @@ class LRPS:
         end = time.perf_counter()
         logging.info(f"Finished iterations in {end-start} calc_time {calc_time}")
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'lr')
+dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'lr')
 print('making parameter server')
 server = dw._MakeParamServer(LinearRegression, LRPS)
 print('fitting mf')

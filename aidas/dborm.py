@@ -2048,7 +2048,7 @@ class TorchRMIService:
         self.__ps__.stop_server()
 
 class CustomParameterServer:
-    def __init__(self, model, server, schedule=0.1):
+    def __init__(self, model, server, schedule=3):
         self.lock = threading.Lock()
         self.model = model
         self.server = server(self.model)
@@ -2064,7 +2064,7 @@ class CustomParameterServer:
         t = threading.current_thread()
         while t.do_run:
             self.update()
-            time.sleep(self.schedule)
+            time.sleep(0)
         self.update()
 
     def start_server(self):
@@ -2084,6 +2084,8 @@ class CustomParameterServer:
             logging.warning("Parameter server has not started.")
 
     def pull(self, param_ids):
+        while len(self.updates) > self.schedule:
+            time.sleep(0)
         return self.server.pull(param_ids)
 
     def push(self, update):
