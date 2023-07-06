@@ -24,10 +24,10 @@ class LRModel:
         import logging
 
         try:
-            dw.num += 1
+            db.num += 1
         except KeyError:
-            dw.num = 0
-            dw.calc_time = 0
+            db.num = 0
+            db.calc_time = 0
 
         start = time.perf_counter()
         model = weights
