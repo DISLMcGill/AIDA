@@ -37,11 +37,11 @@ class Iterate:
         import logging
         import time
 
-        if not hasattr(db, "num"):
-            db.num = 0
-            db.calc_time = 0
-        else:
-            db.num += 1
+        try:
+            dw.num += 1
+        except KeyError:
+            dw.num = 0
+            dw.calc_time = 0
         start = time.perf_counter()
 
         try:

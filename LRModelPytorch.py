@@ -5,6 +5,7 @@ import torch
 class LRModel:
     class LinearRegression(torch.nn.Module):
         def __init__(self):
+            import torch
             super().__init__()
             self.linear = torch.nn.Linear(5, 1)
 
@@ -22,11 +23,11 @@ class LRModel:
         import time
         import logging
 
-        if not hasattr(db, "num"):
-            db.num = 0
-            db.calc_time = 0
-        else:
-            db.num += 1
+        try:
+            dw.num += 1
+        except KeyError:
+            dw.num = 0
+            dw.calc_time = 0
 
         start = time.perf_counter()
         model = weights

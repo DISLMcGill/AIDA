@@ -75,7 +75,7 @@ class ConnectionManager(metaclass=ABCMeta):
             def get(self, jobName):
                 dba = self.__class__.__DBCRepo[jobName]
                 if isinstance(dba, DBCMiddleware):
-                    dba = dba.__monetConnection
+                    dba = dba._getMonetConnection()
                 return weakref.proxy(dba);
 
             def add(self, jobName, dbc):

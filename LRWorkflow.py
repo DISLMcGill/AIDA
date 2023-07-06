@@ -4,6 +4,7 @@ import torch
 
 class LinearRegression(torch.nn.Module):
     def __init__(self, input_size, output_size):
+        import torch
         self.linear = torch.nn.Linear(input_size, output_size)
 
     def forward(self, input):
@@ -34,11 +35,11 @@ class Iterate():
         import torch
         import time
 
-        if not hasattr(dw, "num"):
+        try:
+            dw.num += 1
+        except KeyError:
             dw.num = 0
             dw.calc_time = 0
-        else:
-            dw.num += 1
         start = time.perf_counter()
         model = context['previous']
         try:

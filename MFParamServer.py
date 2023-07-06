@@ -4,6 +4,7 @@ import time
 
 class MatrixFactorization(torch.nn.Module):
     def __init__(self):
+        import torch
         super().__init__()
         self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
         self.item_factors = torch.nn.Embedding(2000, 3, sparse=True)

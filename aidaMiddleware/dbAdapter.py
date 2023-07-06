@@ -98,10 +98,6 @@ class DBCMiddleware(DBC):
                 results.append(future)
         return
 
-    def __del__(self):
-        self._close()
-        super().__del__()
-
     def _toTable(self, tblrData, tableName=None):
         pass
 
@@ -172,8 +168,13 @@ class DBCMiddleware(DBC):
         return d
 
     def _close(self):
-        for server_name, connection in self._extDBCcon.items():
-            connection._close()
+        if self._extDBCcon is not None:
+            for server_name, connection in self._extDBCcon.items():
+                connection._close()
+        self.__monetConnection._requestQueue.put("close")
+
+    def _getMonetConnection(self):
+        return self.__monetConnection
 
 
 class DBCMiddlewareStub(DBCRemoteStub):
