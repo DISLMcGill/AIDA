@@ -19,7 +19,16 @@ class LRModel:
     @staticmethod
     def iterate(db, data, weights):
         import torch
+        import time
+        import logging
 
+        if not hasattr(db, "num"):
+            db.num = 0
+            db.calc_time = 0
+        else:
+            db.num += 1
+
+        start = time.perf_counter()
         model = weights
         try:
             batch, target = next(db.iterator)
@@ -29,10 +38,15 @@ class LRModel:
 
         preds = model(torch.squeeze(batch).float())
         loss = db.loss(torch.squeeze(preds), target)
+        if db.num % 100 == 0:
+            logging.info(f"iteration {db.num} has loss {loss.item()}")
         loss.backward()
         grads = []
         for param in model.parameters():
             grads.append(param.grad)
+        db.calc_time = time.perf_counter() - start
+        if db.num == 4999:
+            logging.info(f"total calc time: {db.calc_time}")
         return grads
 
     @staticmethod
@@ -46,7 +60,7 @@ class LRModel:
     def initialize(self, data):
         import torch
         self.weights = self.model()
-        self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.0003)
 
     def aggregate(self, results):
         self.optimizer.zero_grad()
@@ -55,12 +69,12 @@ class LRModel:
         self.optimizer.step()
 
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi')
+dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'lr')
 print('Registering model')
 service = dw._RegisterModel(LRModel)
 print('Fitting model')
 start = time.perf_counter()
-service.fit(dw.lr_data, 50000, sync=False)
+service.fit(dw.lr_data, 5000, sync=False)
 stop = time.perf_counter()
 print(f'Central Model finished in {stop-start}')
 dw._close()

@@ -11,12 +11,11 @@ class LinearRegression(torch.nn.Module):
     def forward(self, data):
         return self.linear(data)
 
-
 class LRPS:
     def __init__(self, model):
         import torch
         self.model = model()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.0003)
 
     def pull(self, param_ids):
         return self.model
@@ -30,11 +29,15 @@ class LRPS:
     @staticmethod
     def run_training(con, ps, data):
         import torch
+        import time
+        import logging
         data.makeLoader([('x1', 'x2', 'x3', 'x4', 'x5'), 'y'], 1000)
         iterator = iter(data.getLoader())
         loss_fn = torch.nn.MSELoss()
 
-        for i in range(50000):
+        calc_time = 0
+        start = time.perf_counter()
+        for i in range(5000):
             try:
                 batch, target = next(iterator)
             except StopIteration:
@@ -42,15 +45,22 @@ class LRPS:
                 batch, target = next(iterator)
 
             model = ps.pull(None)
+            it_start = time.perf_counter()
             preds = model(torch.squeeze(batch).float())
             loss = loss_fn(torch.squeeze(preds), target)
             loss.backward()
+            if i % 100 == 0:
+                logging.info(f"iteration {i} loss: {loss.item()}")
             grads = []
             for param in model.parameters():
                 grads.append(param.grad)
+            it_end = time.perf_counter()
+            calc_time += it_end-it_start
             ps.push(grads)
+        end = time.perf_counter()
+        logging.info(f"Finished iterations in {end-start} calc_time {calc_time}")
 
-dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
+dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'lr')
 print('making parameter server')
 server = dw._MakeParamServer(LinearRegression, LRPS)
 print('fitting mf')

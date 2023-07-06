@@ -16,7 +16,7 @@ class MatrixFactorization:
     def __init__(self):
         import torch
         self.weights = self.MatrixFactorization()
-        self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.0002, weight_decay=0.02)
+        self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.00001, weight_decay=0.002)
 
     def aggregate(self, update):
         self.optimizer.zero_grad()
@@ -30,7 +30,7 @@ class MatrixFactorization:
     @staticmethod
     def preprocess(db, data):
         import torch
-        data.makeLoader([('user_id', 'movie_id'), 'rating'], 32)
+        data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
         db.x = iter(data.getLoader())
         db.loss_fun = torch.nn.MSELoss()
         return data
@@ -38,6 +38,16 @@ class MatrixFactorization:
     @staticmethod
     def iterate(db, data, weights):
         import torch
+        import logging
+        import time
+
+        if not hasattr(db, "num"):
+            db.num = 0
+            db.calc_time = 0
+        else:
+            db.num += 1
+
+        start = time.perf_counter()
         try:
             x, rating = next(db.x)
         except StopIteration:
@@ -50,9 +60,14 @@ class MatrixFactorization:
             ids.append(torch.squeeze(d))
         preds = weights(ids)
         loss = db.loss_fun(preds, torch.squeeze(rating))
+        if db.num % 100 == 0:
+            logging.info(f"iteration {db.num} has loss {loss.item()}")
         loss.backward()
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
+        db.calc_time = time.perf_counter() - start
+        if db.num == 4999:
+            logging.info(f"calc time: {db.calc_time}")
         return grads
 
 dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
@@ -60,7 +75,7 @@ print('Registering model')
 service = dw._RegisterModel(MatrixFactorization)
 print('Fitting model')
 start = time.perf_counter()
-service.fit(dw.mf_data, 15000, sync=False)
+service.fit(dw.mf_data, 5000, sync=False)
 stop = time.perf_counter()
 print(f'Central Model finished in {stop-start}')
 dw._close()

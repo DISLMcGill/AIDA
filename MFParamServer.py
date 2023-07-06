@@ -17,7 +17,7 @@ class CustomMF:
     def __init__(self, model):
         import torch
         self.model = model()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.0002, weight_decay=0.02)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.00001, weight_decay=0.002)
 
     def pull(self, param_ids):
         return (self.model.user_factors(param_ids[0]), self.model.item_factors(param_ids[1]))
@@ -31,10 +31,15 @@ class CustomMF:
     @staticmethod
     def run_training(con, ps, data):
         import torch
+        import time
+        import logging
+
         data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
         x = iter(data.getLoader())
         epochs = 5000
         loss_fun = torch.nn.MSELoss()
+        calc_time = 0
+        start = time.perf_counter()
         for i in range(epochs):
             try:
                 data, rating = next(x)
@@ -47,13 +52,20 @@ class CustomMF:
             for d in data:
                 ids.append(torch.squeeze(d))
             factors = ps.pull(ids)
+            it_start = time.perf_counter()
             preds = (factors[0] * factors[1]).sum(1)
             loss = loss_fun(preds, torch.squeeze(rating))
+            if i % 100 == 0:
+                logging.info(f"iteration {i} loss {loss.item()}")
             loss.backward()
             grads = []
             grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[0], dim=0), factors[0].grad, (1500,3)))
             grads.append(torch.sparse_coo_tensor(torch.unsqueeze(ids[1], dim=0), factors[1].grad, (2000,3)))
+            it_end = time.perf_counter()
+            calc_time += (it_end-it_start)
             ps.push(grads)
+        end = time.perf_counter()
+        logging.info(f"total run time: {end-start} total calc time: {calc_time}")
 
 dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'mf')
 print('making parameter server')
