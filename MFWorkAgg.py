@@ -22,6 +22,8 @@ class Preprocess:
         data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
         dw.x = iter(data.getLoader())
         dw.loss_fun = torch.nn.MSELoss()
+        dw.num = 0
+        dw.calc_time = 0
 
     @staticmethod
     def aggregate(dw, data, cxt):
@@ -37,11 +39,7 @@ class Iterate:
         import logging
         import time
 
-        try:
-            db.num += 1
-        except KeyError:
-            db.num = 0
-            db.calc_time = 0
+        db.num += 1
         start = time.perf_counter()
 
         try:

@@ -2056,6 +2056,9 @@ class CustomParameterServer:
         self.schedule = schedule
         self.running_thread = None
         self.executor = None
+        self.update_available = threading.Event()
+        self.can_pull = threading.Event()
+        self.can_pull.set()
 
     def server_init(self, executor):
         self.executor = executor
@@ -2072,6 +2075,7 @@ class CustomParameterServer:
             self.running_thread = threading.Thread(target=self.update_thread)
             self.running_thread.do_run = True
             self.running_thread.start()
+            logging.info(f"Parameter server for {self.server} started")
         else:
             logging.warning("Parameter server is already started!")
 
@@ -2084,17 +2088,22 @@ class CustomParameterServer:
             logging.warning("Parameter server has not started.")
 
     def pull(self, param_ids):
-        while len(self.updates) > self.schedule:
-            time.sleep(0)
+        self.can_pull.wait()
         return self.server.pull(param_ids)
 
     def push(self, update):
         self.updates.append(update)
+        if len(self.updates) > self.schedule:
+            self.can_pull.clear()
+        self.update_available.set()
 
     def update(self):
+        self.update_available.wait()
         while len(self.updates) > 0:
-            u = self.updates.pop()
+            u = self.updates.pop(0)
             self.server.update(u)
+            if len(self.updates) <= self.schedule:
+                self.can_pull.set()
 
     def start_training(self, data):
         self.start_server()

@@ -19,6 +19,8 @@ class FirstStep():
         data.makeLoader([('x1', 'x2', 'x3', 'x4', 'x5'), 'y'], 1000)
         dw.iterator = iter(data.getLoader())
         dw.loss = torch.nn.MSELoss()
+        dw.num = 0
+        dw.calc_time = 0
         return
 
     @staticmethod
@@ -35,11 +37,7 @@ class Iterate():
         import torch
         import time
 
-        try:
-            dw.num += 1
-        except KeyError:
-            dw.num = 0
-            dw.calc_time = 0
+        dw.num += 1
         start = time.perf_counter()
         model = context['previous']
         try:
@@ -49,7 +47,7 @@ class Iterate():
             batch, target = next(dw.iterator)
 
         preds = model(torch.squeeze(batch).float())
-        loss = dw.loss(torch.squeeze(preds), target)
+        loss = dw.loss(preds, target)
         if dw.num % 100 == 0:
             logging.info(f"iteration {dw.num} has loss {loss.item()}")
         loss.backward()

@@ -33,6 +33,8 @@ class MatrixFactorization:
         data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
         db.x = iter(data.getLoader())
         db.loss_fun = torch.nn.MSELoss()
+        db.num = 0
+        db.calc_time = 0
         return data
 
     @staticmethod
@@ -41,12 +43,7 @@ class MatrixFactorization:
         import logging
         import time
 
-        try:
-            db.num += 1
-        except KeyError:
-            db.num = 0
-            db.calc_time = 0
-
+        db.num += 1
         start = time.perf_counter()
         try:
             x, rating = next(db.x)

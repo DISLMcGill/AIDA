@@ -23,11 +23,7 @@ class LRModel:
         import time
         import logging
 
-        try:
-            db.num += 1
-        except KeyError:
-            db.num = 0
-            db.calc_time = 0
+        db.num += 1
 
         start = time.perf_counter()
         model = weights
@@ -38,7 +34,7 @@ class LRModel:
             batch, target = next(db.iterator)
 
         preds = model(torch.squeeze(batch).float())
-        loss = db.loss(torch.squeeze(preds), target)
+        loss = db.loss(preds, target)
         if db.num % 100 == 0:
             logging.info(f"iteration {db.num} has loss {loss.item()}")
         loss.backward()
@@ -56,6 +52,8 @@ class LRModel:
         data.makeLoader([('x1', 'x2', 'x3', 'x4', 'x5'), 'y'], 1000)
         db.iterator = iter(data.getLoader())
         db.loss = torch.nn.MSELoss()
+        db.num = 0
+        db.calc_time = 0
         return data
 
     def initialize(self, data):

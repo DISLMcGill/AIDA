@@ -47,7 +47,7 @@ class LRPS:
             model = ps.pull(None)
             it_start = time.perf_counter()
             preds = model(torch.squeeze(batch).float())
-            loss = loss_fn(torch.squeeze(preds), target)
+            loss = loss_fn(preds, target)
             loss.backward()
             if i % 100 == 0:
                 logging.info(f"iteration {i} loss: {loss.item()}")

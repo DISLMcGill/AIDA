@@ -22,6 +22,7 @@ def run_training_loop(rank, model, iterations, train_loader):
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
     for i in range(iterations):
+        opt.zero_grad()
         try:
             data, target = next(x)
         except StopIteration:
@@ -93,10 +94,10 @@ if __name__ == '__main__':
     dist.init_process_group("gloo", rank=args.rank, world_size=args.world_size)
 
     if args.dataset == "lr":
-        dataloader = DataLoader(LRDataset(args.filename), batch_size=args.batch_size)
+        dataloader = DataLoader(LRDataset(args.filename), batch_size=args.batch_size, shuffle=True)
         model = LinearRegression
     else:
-        dataloader = DataLoader(MFDataset(args.filename), batch_size=args.batch_size)
+        dataloader = DataLoader(MFDataset(args.filename), batch_size=args.batch_size, shuffle=True)
         model = MatrixFactorization
 
     start = time.perf_counter()
