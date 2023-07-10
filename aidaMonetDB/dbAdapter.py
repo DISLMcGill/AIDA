@@ -1,4 +1,5 @@
 import sys;
+import os;
 import threading;
 
 import collections;
@@ -16,6 +17,8 @@ from aidacommon.aidaConfig import AConfig, UDFTYPE;
 from aidacommon.dbAdapter import *;
 from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
+
+import queue
 
 DBC._dataFrameClass_ = DataFrame;
 
@@ -110,6 +113,10 @@ class DBCMonetDB(DBC):
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
+        self._extDBCcon = None;
+        self._con_thread = None;
+        self._requestQueue = queue.Queue();
+        self._responseQueue = queue.Queue();
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -125,7 +132,9 @@ class DBCMonetDB(DBC):
         ##data = cursor.fetchall();
         #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
         ##cursor.close();
-        con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
+
+        self._con_thread = threading.Thread(target=con.execute, args=('select status from aidas_setdbccon(\'{}\');'.format(self._jobName),));
+        self._con_thread.start()
         self.__extDBCcon = con;
 
     def _tables(self):
@@ -157,6 +166,30 @@ class DBCMonetDB(DBC):
         self.__connection= con;
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
+        self._requestQueue.put(sql);
+        time.sleep(0);
+        result = self._responseQueue.get();
+        if isinstance(result, Exception):
+            logging.error(f"MonetDB encountered error: {result}")
+            raise result
+        if (sqlType == DBC.SQLTYPE.SELECT):
+            if (resultFormat == 'column'):
+                # get some columns
+                c_tmp = result[list(result.keys())[0]]
+                # Find the length of the array (or masked array) that is the number of rows
+                rows = len(c_tmp.data if hasattr(c_tmp, 'data') else c_tmp);
+                # rows = None;
+
+                # for col in result:
+                # logging.debug("_executeQry col {} size {}  references {}".format(col, sys.getsizeof(result[col]), sys.getrefcount(result[col])));
+                # for c in result:
+                #    logging.debug("Result column {} type {}".format(c, result[c].dtype));
+
+                return (result, rows);
+            elif (resultFormat == 'row'):
+                pass;
+
+    def _execution(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
         #TODO: either support row format results or throw an exception for not supported.
         #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
@@ -444,6 +477,9 @@ class DBCMonetDB(DBC):
 
     def __del__(self):
         #logging.debug("__del__ called for {}".format(self._jobName));
+        self._close()
+        del self._requestQueue
+        del self._responseQueue
 
         #Where we using regular Table UDFs or Virtuable Tables ?
         dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
