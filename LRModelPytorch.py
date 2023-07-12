@@ -42,7 +42,7 @@ class LRModel:
         for param in model.parameters():
             grads.append(param.grad)
         db.calc_time = time.perf_counter() - start
-        if db.num == 4999:
+        if db.num == 5000:
             logging.info(f"total calc time: {db.calc_time}")
         return grads
 

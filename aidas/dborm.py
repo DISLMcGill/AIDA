@@ -2052,13 +2052,13 @@ class CustomParameterServer:
         self.lock = threading.Lock()
         self.model = model
         self.server = server(self.model)
-        self.updates = []
+        self.updates = collections.deque()
         self.schedule = schedule
         self.running_thread = None
         self.executor = None
-        self.update_available = threading.Event()
         self.can_pull = threading.Event()
         self.can_pull.set()
+        self.agg_time = 0
 
     def server_init(self, executor):
         self.executor = executor
@@ -2095,13 +2095,13 @@ class CustomParameterServer:
         self.updates.append(update)
         if len(self.updates) > self.schedule:
             self.can_pull.clear()
-        self.update_available.set()
 
     def update(self):
-        self.update_available.wait()
         while len(self.updates) > 0:
-            u = self.updates.pop(0)
+            u = self.updates.popleft()
+            start = time.perf_counter()
             self.server.update(u)
+            self.agg_time += time.perf_counter() - start
             if len(self.updates) <= self.schedule:
                 self.can_pull.set()
 
@@ -2111,8 +2111,8 @@ class CustomParameterServer:
         for future in as_completed(futures):
             r = future.result()
         self.stop_server()
+        logging.info(f"aggregation time: {self.agg_time}")
         return
-
 
 class ParameterServer:
     def __init__(self, schedule=0.1):

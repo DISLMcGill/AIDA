@@ -55,7 +55,7 @@ class Iterate():
         for param in model.parameters():
             grads.append(param.grad)
         dw.calc_time = time.perf_counter() - start
-        if dw.num == 4999:
+        if dw.num == 5000:
             logging.info(f"total calc time {dw.calc_time}")
         return grads
 

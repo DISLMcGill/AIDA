@@ -61,7 +61,7 @@ class Iterate:
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
         db.calc_time += time.perf_counter() - start
-        if db.num == 4999:
+        if db.num == 5000:
             print(f"calc time: {db.calc_time}")
         return grads
 
