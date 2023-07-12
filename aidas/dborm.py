@@ -2102,8 +2102,7 @@ class CustomParameterServer:
             start = time.perf_counter()
             self.server.update(u)
             self.agg_time += time.perf_counter() - start
-            if len(self.updates) <= self.schedule:
-                self.can_pull.set()
+        self.can_pull.set()
 
     def start_training(self, data):
         self.start_server()
@@ -2319,15 +2318,21 @@ class ModelService:
                 self.aggregate(results)
         else:
             def thread(con):
+                agg_time = 0
                 for i in range(iterations):
                     result = con._XP(self.__model__.iterate, x.tabular_datas[con],
                             self.weights)
                     self.lock.acquire()
+                    start = time.perf_counter()
                     self.aggregate(result)
+                    agg_time += time.perf_counter() - start
                     self.lock.release()
+                return agg_time
             futures = [self.executor.submit(lambda con: thread(con), c) for c in x.tabular_datas]
+            result = 0
             for future in as_completed(futures):
-                result = future.result()
+                result += future.result()
+            logging.info(f"total aggregation time: {result}")
 
     def score(self, x, *args, **kwargs):
         futures = [self.executor.submit(lambda con: con._XP(self.__model__.score, x.tabular_datas[con],

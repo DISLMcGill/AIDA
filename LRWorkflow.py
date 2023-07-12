@@ -28,6 +28,7 @@ class FirstStep():
         import logging
         import torch
         dw.optimizer = torch.optim.SGD(dw.lr_model.parameters(), lr=1e-3)
+        dw.agg_time = 0
         return dw.lr_model
 
 class Iterate():
@@ -37,7 +38,6 @@ class Iterate():
         import torch
         import time
 
-        dw.num += 1
         start = time.perf_counter()
         model = context['previous']
         try:
@@ -62,9 +62,6 @@ class Iterate():
     @staticmethod
     def aggregate(dw, results, cxt):
         import time
-
-        if not hasattr(dw, "agg_time"):
-            dw.agg_time = 0
         start = time.pref_counter()
         dw.optimizer.zero_grad()
         for r in results:

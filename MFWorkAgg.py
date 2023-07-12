@@ -30,6 +30,7 @@ class Preprocess:
         import torch
         dw.weights = dw.MatrixFactorization()
         dw.optimizer = torch.optim.SGD(dw.weights.parameters(), lr=0.00001, weight_decay=0.002)
+        dw.agg_time = 0
         return dw.weights
 
 class Iterate:
@@ -68,9 +69,6 @@ class Iterate:
     @staticmethod
     def aggregate(db, results, cxt):
         import time
-
-        if not hasattr(dw, "agg_time"):
-            dw.agg_time = 0
         start = time.pref_counter()
         db.optimizer.zero_grad()
         db.weights.user_factors.weight.grad = results[0]
