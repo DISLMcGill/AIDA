@@ -46,14 +46,14 @@ class MatrixFactorization:
         db.num += 1
         start = time.perf_counter()
         try:
-            x, rating = next(db.x)
+            batch, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
-            x, rating = next(db.x)
+            batch, rating = next(db.x)
 
         ids = []
-        x = torch.squeeze(x.T)
-        for d in x:
+        batch = torch.squeeze(batch.T)
+        for d in batch:
             ids.append(torch.squeeze(d))
         preds = weights(ids)
         loss = db.loss_fun(preds, torch.squeeze(rating))

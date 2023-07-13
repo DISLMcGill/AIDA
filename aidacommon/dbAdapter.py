@@ -397,6 +397,6 @@ class DBCWrap:
             setattr(self.__dbcObj__, key, valueDF);
             return;
         except :
-            logging.exception("DBCWrap : Exception ");
+            #logging.exception("DBCWrap : Exception ");
             pass;
         setattr(self.__dbcObj__, key, value);

@@ -43,14 +43,14 @@ class CustomMF:
         start = time.perf_counter()
         for i in range(epochs):
             try:
-                data, rating = next(x)
+                batch, rating = next(x)
             except StopIteration:
                 x = iter(data.getLoader())
-                data, rating = next(x)
+                batch, rating = next(x)
 
             ids = []
-            data = torch.squeeze(data.T)
-            for d in data:
+            batch = torch.squeeze(batch.T)
+            for d in batch:
                 ids.append(torch.squeeze(d))
             factors = ps.pull(ids)
             it_start = time.perf_counter()

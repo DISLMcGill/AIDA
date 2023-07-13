@@ -5,6 +5,7 @@ import torch
 class LinearRegression(torch.nn.Module):
     def __init__(self, input_size, output_size):
         import torch
+        super().__init__()
         self.linear = torch.nn.Linear(input_size, output_size)
 
     def forward(self, input):
@@ -40,6 +41,7 @@ class Iterate():
 
         start = time.perf_counter()
         model = context['previous']
+        dw.num += 1
         try:
             batch, target = next(dw.iterator)
         except StopIteration:
@@ -51,9 +53,7 @@ class Iterate():
         if dw.num % 100 == 0:
             logging.info(f"iteration {dw.num} has loss {loss.item()}")
         loss.backward()
-        grads = []
-        for param in model.parameters():
-            grads.append(param.grad)
+        grads = [p.grad for p in model.parameters()]
         dw.calc_time = time.perf_counter() - start
         if dw.num == 5000:
             logging.info(f"total calc time {dw.calc_time}")
@@ -62,12 +62,11 @@ class Iterate():
     @staticmethod
     def aggregate(dw, results, cxt):
         import time
-        start = time.pref_counter()
-        dw.optimizer.zero_grad()
-        for r in results:
-            for grad, param in zip(r, dw.lr_model.parameters()):
-                param.grad = grad
+        start = time.perf_counter()
+        for grad, param in zip(results, dw.lr_model.parameters()):
+            param.grad = grad
         dw.optimizer.step()
+        dw.optimizer.zero_grad()
         dw.agg_time += time.perf_counter() - start
         return dw.lr_model
 

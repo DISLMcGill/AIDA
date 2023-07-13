@@ -26,12 +26,12 @@ class Preprocess:
         dw.calc_time = 0
 
     @staticmethod
-    def aggregate(dw, data, cxt):
+    def aggregate(db, data, cxt):
         import torch
-        dw.weights = dw.MatrixFactorization()
-        dw.optimizer = torch.optim.SGD(dw.weights.parameters(), lr=0.00001, weight_decay=0.002)
-        dw.agg_time = 0
-        return dw.weights
+        db.weights = db.MatrixFactorization()
+        db.optimizer = torch.optim.SGD(db.weights.parameters(), lr=0.00001, weight_decay=0.002)
+        db.agg_time = 0
+        return db.weights
 
 class Iterate:
     @staticmethod
@@ -44,37 +44,37 @@ class Iterate:
         start = time.perf_counter()
 
         try:
-            x, rating = next(db.x)
+            batch, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
-            x, rating = next(db.x)
+            xbatch, rating = next(db.x)
 
         ids = []
-        x = torch.squeeze(x.T)
-        for d in x:
+        batch = torch.squeeze(batch.T)
+        for d in batch:
             ids.append(torch.squeeze(d))
         weights = cxt['previous']
         preds = weights(ids)
         loss = db.loss_fun(preds, torch.squeeze(rating))
         if db.num % 100 == 0:
-            logging.info(f"iteration {i} with loss {loss.item()}")
+            logging.info(f"iteration {db.num} with loss {loss.item()}")
         loss.backward()
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
         db.calc_time += time.perf_counter() - start
         if db.num == 5000:
-            print(f"calc time: {db.calc_time}")
+            logging.info(f"calc time: {db.calc_time}")
         return grads
 
     @staticmethod
     def aggregate(db, results, cxt):
         import time
-        start = time.pref_counter()
-        db.optimizer.zero_grad()
+        start = time.perf_counter()
         db.weights.user_factors.weight.grad = results[0]
         db.weights.item_factors.weight.grad = results[1]
         db.optimizer.step()
-        db.agg_time = time.pref_counter() - start
+        db.optimizer.zero_grad()
+        db.agg_time = time.perf_counter() - start
         return db.weights
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi','bixi', 'mf')
