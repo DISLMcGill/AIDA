@@ -41,14 +41,13 @@ class Iterate:
         import time
 
         db.num += 1
-        start = time.perf_counter()
-
         try:
             batch, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
-            xbatch, rating = next(db.x)
+            batch, rating = next(db.x)
 
+        start = time.perf_counter()
         ids = []
         batch = torch.squeeze(batch.T)
         for d in batch:

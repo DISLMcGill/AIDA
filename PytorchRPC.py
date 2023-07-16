@@ -129,7 +129,7 @@ class MFDataset(Dataset):
             for r in reader:
                 self.data.setdefault('user_id', []).append(int(r[0]))
                 self.data.setdefault('movie_id', []).append(int(r[1]))
-                self.data.setdefault('rating', []).append(float(r[2])*50)
+                self.data.setdefault('rating', []).append(float(r[2]))
             self.data['user_id'] = torch.IntTensor(self.data['user_id'])
             self.data['movie_id'] = torch.IntTensor(self.data['movie_id'])
             self.data['rating'] = torch.FloatTensor(self.data['rating'])

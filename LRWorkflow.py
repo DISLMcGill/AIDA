@@ -63,8 +63,8 @@ class Iterate():
     def aggregate(dw, results, cxt):
         import time
         start = time.perf_counter()
-        for grad, param in zip(results, dw.lr_model.parameters()):
-            param.grad = grad
+        dw.lr_model.linear.weight.grad = results[0]
+        dw.lr_model.linear.bias.grad = results[1]
         dw.optimizer.step()
         dw.optimizer.zero_grad()
         dw.agg_time += time.perf_counter() - start

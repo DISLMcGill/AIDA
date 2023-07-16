@@ -6,8 +6,8 @@ class MatrixFactorization:
         def __init__(self):
             import torch
             super().__init__()
-            self.user_factors = torch.nn.Embedding(1500, 3, sparse=True)
-            self.item_factors = torch.nn.Embedding(2000, 3, sparse=True)
+            self.user_factors = torch.nn.Embedding(1500, 3)
+            self.item_factors = torch.nn.Embedding(2000, 3)
 
         def forward(self, data):
             user = data[0]
@@ -19,10 +19,10 @@ class MatrixFactorization:
         self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.00001, weight_decay=0.002)
 
     def aggregate(self, update):
-        self.optimizer.zero_grad()
         self.weights.user_factors.weight.grad = update[0]
         self.weights.item_factors.weight.grad = update[1]
         self.optimizer.step()
+        self.optimizer.zero_grad()
 
     def initialize(self, data):
         pass
@@ -44,13 +44,12 @@ class MatrixFactorization:
         import time
 
         db.num += 1
-        start = time.perf_counter()
         try:
             batch, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
             batch, rating = next(db.x)
-
+        start = time.perf_counter()
         ids = []
         batch = torch.squeeze(batch.T)
         for d in batch:

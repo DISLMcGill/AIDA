@@ -68,14 +68,18 @@ class DBCMiddleware(DBC):
             if r is not None:
                 ctx['previous'] = r
 
-        def run_steps_async(con, steps):
+        def run_steps_async(con, steps, lock):
             for s in steps:
                 if isinstance(s, tuple):
+                    start = time.perf_counter()
                     for i in range(s[1]):
                         r = con._X(s[0].work, data.tabular_datas[con], ctx)
-                        r = s[0].aggregate(self, r, ctx)
+                        with lock:
+                            r = s[0].aggregate(self, r, ctx)
                         if r is not None:
                             ctx['previous'] = r
+                    end = time.perf_counter()
+                    logging.info(f"iterations time: {end-start}")
                 else:
                     r = con._X(s.work, data.tabular_datas[con], ctx)
                     r = s.aggregate(self, r, ctx)
@@ -91,8 +95,9 @@ class DBCMiddleware(DBC):
                 else:
                     run_step_sync(step)
         else:
+            lock = threading.Lock()
             results = []
-            futures = [self._executor.submit(run_steps_async, con, job) for con in
+            futures = [self._executor.submit(run_steps_async, con, job, lock) for con in
                  data.tabular_datas]
             for future in as_completed(futures):
                 results.append(future)
