@@ -33,6 +33,12 @@ from sklearn.tree import DecisionTreeClassifier
 import numpy as np
 import ast
 
+import torch
+from sklearn import datasets
+import sys
+import torch.nn as nn
+import torch.nn.functional as F
+
 # helper class and methods that convert TabularData Object to numpy arrays
 class DataConversion:
 
@@ -424,6 +430,20 @@ class DBC(metaclass=ABCMeta):
             func = super().__getattribute__(func);
         return func(self, *args, **kwargs);
 
+    def _X_torch(self,func,*args,**kwargs):
+        """Function that is called from stub to execute a python function in this workspace"""
+        #Execute the function with this workspace as the argument and return the results if any.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+        return func(self, *args, **kwargs,nn = sys.modules["torch.nn.modules"],torch = sys.modules["torch"], datasets = sys.modules["sklearn.datasets"], F = sys.modules["torch.nn.functional"]);
+
+    def _X_tensorFlow(self,func,*args,**kwargs):
+        """Function that is called from stub to execute a python function in this workspace"""
+        #Execute the function with this workspace as the argument and return the results if any.
+        if(isinstance(func, str)):
+            func = super().__getattribute__(func);
+        return func(self, *args, **kwargs,tf = sys.modules["tensorflow"],np = sys.modules["numpy"],F = sys.modules["torch.nn.functional"]);
+
     def _XP(self, func, *args, **kwargs):
         """Function that is called from stub to execute a python function in this workspace"""
         #Execute the function with this workspace as the argument and return the results if any.
@@ -513,7 +533,7 @@ class DBC(metaclass=ABCMeta):
             pass
 
         self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
-    
+
     def _load(self,model_name):
 
         unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
@@ -534,6 +554,79 @@ class DBC(metaclass=ABCMeta):
 
         model_wrapper.model=model
         return model_wrapper
+
+    def _saveTorchModel(self, model_name, model, update=False):
+
+        # Code using MERGE
+        '''
+        m = model.get_model()
+        model_type=type(m)
+        pickled_m = pickle.dumps(m)
+        pickled_m = str(pickled_m)
+        pickled_m = pickled_m.replace("'","''")
+        pickled_m = pickled_m.replace("\\","\\\\")
+
+        if (update==True):
+            self._executeQry("MERGE INTO _sys_models_ AS to_update USING _sys_models_ AS models_update ON to_update.model_name = models._update.model_name WHEN MATCHED THEN DELETE;",sqlType=DBC.SQLTYPE.MERGE)
+            self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
+        # update==False
+        else:
+            try:
+                self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name,pickled_m,model_type),sqlType=DBC.SQLTYPE.INSERT)
+            except:
+                raise Exception("There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite" )
+
+        '''
+
+        duplicate_exist = False
+        logging.info("before exeucing query")
+        # check if there is another model already saved with <model_name>
+        temp = self._executeQry(
+            "SELECT COUNT(model) as count FROM _sys_models_ WHERE model_name='{}';".format(model_name))
+        # if the above SELECT COUNT query returns integer not equal to 0
+        if temp[0]['count'][0] != 0:
+            duplicate_exist = True
+        logging.info("after executing query once , and check duplicate")
+
+        # throw an error if update=False and there is another model already saved with <model_name>
+        if (update == False and duplicate_exist == True):
+            raise Exception(
+                "There already exists a model in the database with the same model_name. Please set \'update\' to True to overwrite")
+            # delete the model saved with <model_name> if update=True
+        elif (update == True and duplicate_exist == True):
+            self._executeQry("DELETE FROM _sys_models_ WHERE model_name='{}';".format(model_name),
+                             sqlType=DBC.SQLTYPE.DELETE)
+        else:
+            pass
+
+        model_type = type(model)
+        model_type = str(model_type)
+        model_type = model_type.replace("'", "''")
+
+        pickled_m = pickle.dumps(model)
+        pickled_m = str(pickled_m)
+        pickled_m = pickled_m.replace("'", "''")
+
+        if AConfig.DATABASEADAPTER == "aidaMonetDB.dbAdapter.DBCMonetDB":
+            pickled_m = pickled_m.replace("\\", "\\\\")
+        elif AConfig.DATABASEADAPTER == "aidaPostgreSQL.dbAdapter.DBCPostgreSQL":
+            pass
+
+        self._executeQry("INSERT INTO _sys_models_ VALUES('{}','{}','{}');".format(model_name, pickled_m, model_type),
+                         sqlType=DBC.SQLTYPE.INSERT)
+
+    def _loadTorchModel(self,model_name):
+
+        unpickled_m = self._executeQry("SELECT model FROM _sys_models_ WHERE model_name = '{}';".format(model_name))
+        try:
+            unpickled_m = unpickled_m[0]['model'][0]
+        except:
+            raise Exception("no model with such name found.")
+
+        model = pickle.loads(ast.literal_eval(unpickled_m))
+        logging.info(type(model))
+        # default as linear regression model
+        return model
 
     # testing sql
     def _sql(self,sql):
