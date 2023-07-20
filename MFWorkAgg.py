@@ -19,7 +19,7 @@ class Preprocess:
     @staticmethod
     def work(dw, data, cxt):
         import torch
-        data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
+        data.makeLoader([('user_id', 'movie_id'), 'rating'], 64)
         dw.x = iter(data.getLoader())
         dw.loss_fun = torch.nn.MSELoss()
         dw.num = 0
@@ -29,7 +29,7 @@ class Preprocess:
     def aggregate(db, data, cxt):
         import torch
         db.weights = db.MatrixFactorization()
-        db.optimizer = torch.optim.SGD(db.weights.parameters(), lr=0.00001, weight_decay=0.002)
+        db.optimizer = torch.optim.SGD(db.weights.parameters(), lr=0.2, weight_decay=0.02)
         db.agg_time = 0
         return db.weights
 
@@ -55,13 +55,13 @@ class Iterate:
         weights = cxt['previous']
         preds = weights(ids)
         loss = db.loss_fun(preds, torch.squeeze(rating))
-        if db.num % 100 == 0:
+        if db.num % 5000 == 0:
             logging.info(f"iteration {db.num} with loss {loss.item()}")
         loss.backward()
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
         db.calc_time += time.perf_counter() - start
-        if db.num == 5000:
+        if db.num == 80000:
             logging.info(f"calc time: {db.calc_time}")
         return grads
 
@@ -78,7 +78,7 @@ class Iterate:
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi','bixi', 'mf')
 dw.MatrixFactorization = MatrixFactorization
-job = [Preprocess(), (Iterate(), 5000)]
+job = [Preprocess(), (Iterate(), 80000)]
 print('start work aggregate job')
 start = time.perf_counter()
 dw._workAggregateJob(job, dw.mf_data, sync=False)

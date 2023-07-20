@@ -18,7 +18,7 @@ class CustomMF:
     def __init__(self, model):
         import torch
         self.model = model()
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.00001, weight_decay=0.002)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.2, weight_decay=0.02)
 
     def pull(self, param_ids):
         return (self.model.user_factors(param_ids[0]), self.model.item_factors(param_ids[1]))
@@ -35,9 +35,9 @@ class CustomMF:
         import time
         import logging
 
-        data.makeLoader([('user_id', 'movie_id'), 'rating'], 1000)
+        data.makeLoader([('user_id', 'movie_id'), 'rating'], 64)
         x = iter(data.getLoader())
-        epochs = 5000
+        epochs = 80000
         loss_fun = torch.nn.MSELoss()
         calc_time = 0
         start = time.perf_counter()
@@ -56,7 +56,7 @@ class CustomMF:
             it_start = time.perf_counter()
             preds = (factors[0] * factors[1]).sum(1)
             loss = loss_fun(preds, torch.squeeze(rating))
-            if i % 100 == 0:
+            if i % 5000 == 0:
                 logging.info(f"iteration {i} loss {loss.item()}")
             loss.backward()
             grads = []
