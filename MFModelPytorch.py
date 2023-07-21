@@ -10,8 +10,8 @@ class MatrixFactorization:
             self.item_factors = torch.nn.Embedding(34476, 3)
 
         def forward(self, data):
-            user = torch.squeeze(data[,:[0]])
-            item = torch.squeeze(data[,:[1]])
+            user = torch.squeeze(data[:,[0]])
+            item = torch.squeeze(data[:,[1]])
             return (self.user_factors(user) * self.item_factors(item)).sum(1)
     def __init__(self):
         import torch
