@@ -14,12 +14,12 @@ import argparse
 class MatrixFactorization(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.user_factors = torch.nn.Embedding(1500, 3)
-        self.item_factors = torch.nn.Embedding(2000, 3)
+        self.user_factors = torch.nn.Embedding(73517, 3)
+        self.item_factors = torch.nn.Embedding(34476, 3)
 
     def forward(self, data):
         user = torch.squeeze(data[:, [0]])
-        item = torch.squeeze(data[:, [0]])
+        item = torch.squeeze(data[:, [1]])
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
 
 class LinearRegression(torch.nn.Module):
@@ -147,7 +147,7 @@ def run_training_loop(rank, model, iterations, train_loader):
     net = TrainerNet(model)
     param_rrefs = net.get_global_param_rrefs()
     if model == MatrixFactorization:
-        opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.2, weight_decay=0.02)
+        opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.1)
     else:
         opt = DistributedOptimizer(torch.optim.SGD, param_rrefs, lr=0.0003)
 
@@ -174,7 +174,7 @@ def run_training_loop(rank, model, iterations, train_loader):
                 cid) != {}
             opt.step(cid)
 
-    print("Training complete!")
+    print(f"Training complete! loss = {loss.item()}")
 
 def run_worker(rank, world_size, model, iterations, train_loader):
     print(f"Worker rank {rank} initializing RPC")

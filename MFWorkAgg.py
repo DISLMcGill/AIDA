@@ -7,12 +7,12 @@ class MatrixFactorization(torch.nn.Module):
     def __init__(self):
         import torch
         super().__init__()
-        self.user_factors = torch.nn.Embedding(1500, 3)
-        self.item_factors = torch.nn.Embedding(2000, 3)
+        self.user_factors = torch.nn.Embedding(73517, 3)
+        self.item_factors = torch.nn.Embedding(34476, 3)
 
     def forward(self, data):
-        user = data[0]
-        item = data[1]
+        user = torch.squeeze(data[,:[0]])
+        item = torch.squeeze(data[,:[1]])
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
 
 class Preprocess:
@@ -29,7 +29,7 @@ class Preprocess:
     def aggregate(db, data, cxt):
         import torch
         db.weights = db.MatrixFactorization()
-        db.optimizer = torch.optim.SGD(db.weights.parameters(), lr=0.2, weight_decay=0.02)
+        db.optimizer = torch.optim.SGD(db.weights.parameters(), lr=0.1)
         db.agg_time = 0
         return db.weights
 
@@ -48,12 +48,8 @@ class Iterate:
             batch, rating = next(db.x)
 
         start = time.perf_counter()
-        ids = []
-        batch = torch.squeeze(batch.T)
-        for d in batch:
-            ids.append(torch.squeeze(d))
         weights = cxt['previous']
-        preds = weights(ids)
+        preds = weights(batch)
         loss = db.loss_fun(preds, torch.squeeze(rating))
         if db.num % 5000 == 0:
             logging.info(f"iteration {db.num} with loss {loss.item()}")
@@ -61,7 +57,7 @@ class Iterate:
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
         db.calc_time += time.perf_counter() - start
-        if db.num == 80000:
+        if db.num == 40000:
             logging.info(f"calc time: {db.calc_time}")
         return grads
 
@@ -78,7 +74,7 @@ class Iterate:
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi','bixi', 'mf')
 dw.MatrixFactorization = MatrixFactorization
-job = [Preprocess(), (Iterate(), 80000)]
+job = [Preprocess(), (Iterate(), 40000)]
 print('start work aggregate job')
 start = time.perf_counter()
 dw._workAggregateJob(job, dw.mf_data, sync=False)

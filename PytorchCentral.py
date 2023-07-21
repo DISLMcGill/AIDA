@@ -9,7 +9,7 @@ from PytorchRPC import MFDataset, MatrixFactorization, LRDataset, LinearRegressi
 def run_training_loop(model, iterations, train_loader):
     net = model()
     if model == MatrixFactorization:
-        opt = torch.optim.SGD(net.parameters(), lr=0.00001, weight_decay=0.002)
+        opt = torch.optim.SGD(net.parameters(), lr=0.1)
     else:
         opt = torch.optim.SGD(net.parameters(), lr=0.0003)
 
@@ -27,7 +27,7 @@ def run_training_loop(model, iterations, train_loader):
         start = time.perf_counter()
         model_output = net(torch.squeeze(data))
         loss = loss_fun(torch.squeeze(model_output), target)
-        if i % 100 == 0:
+        if i % 5000 == 0:
             print(f"training batch {i} loss {loss.item()}")
         loss.backward()
         opt.step()

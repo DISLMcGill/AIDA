@@ -25,14 +25,13 @@ class LRModel:
 
         db.num += 1
 
-        start = time.perf_counter()
         model = weights
         try:
             batch, target = next(db.iterator)
         except StopIteration:
             db.iterator = iter(data.getLoader())
             batch, target = next(db.iterator)
-
+        start = time.perf_counter()
         preds = model(torch.squeeze(batch).float())
         loss = db.loss(preds, target)
         if db.num % 100 == 0:

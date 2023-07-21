@@ -39,7 +39,6 @@ class Iterate():
         import torch
         import time
 
-        start = time.perf_counter()
         model = context['previous']
         dw.num += 1
         try:
@@ -47,7 +46,7 @@ class Iterate():
         except StopIteration:
             dw.iterator = iter(data.getLoader())
             batch, target = next(dw.iterator)
-
+        start = time.perf_counter()
         preds = model(torch.squeeze(batch).float())
         loss = dw.loss(preds, target)
         if dw.num % 100 == 0:

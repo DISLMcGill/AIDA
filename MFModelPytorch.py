@@ -6,17 +6,17 @@ class MatrixFactorization:
         def __init__(self):
             import torch
             super().__init__()
-            self.user_factors = torch.nn.Embedding(1500, 3)
-            self.item_factors = torch.nn.Embedding(2000, 3)
+            self.user_factors = torch.nn.Embedding(73517, 3)
+            self.item_factors = torch.nn.Embedding(34476, 3)
 
         def forward(self, data):
-            user = data[0]
-            item = data[1]
+            user = torch.squeeze(data[,:[0]])
+            item = torch.squeeze(data[,:[1]])
             return (self.user_factors(user) * self.item_factors(item)).sum(1)
     def __init__(self):
         import torch
         self.weights = self.MatrixFactorization()
-        self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.2, weight_decay=0.02)
+        self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.1)
 
     def aggregate(self, update):
         self.weights.user_factors.weight.grad = update[0]
@@ -50,11 +50,7 @@ class MatrixFactorization:
             db.x = iter(data.getLoader())
             batch, rating = next(db.x)
         start = time.perf_counter()
-        ids = []
-        batch = torch.squeeze(batch.T)
-        for d in batch:
-            ids.append(torch.squeeze(d))
-        preds = weights(ids)
+        preds = weights(batch)
         loss = db.loss_fun(preds, torch.squeeze(rating))
         if db.num % 5000 == 0:
             logging.info(f"iteration {db.num} has loss {loss.item()}")
@@ -62,7 +58,7 @@ class MatrixFactorization:
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
         db.calc_time = time.perf_counter() - start
-        if db.num == 80000:
+        if db.num == 40000:
             logging.info(f"calc time: {db.calc_time}")
         return grads
 
@@ -71,7 +67,7 @@ print('Registering model')
 service = dw._RegisterModel(MatrixFactorization)
 print('Fitting model')
 start = time.perf_counter()
-service.fit(dw.mf_data, 80000, sync=False)
+service.fit(dw.mf_data, 40000, sync=False)
 stop = time.perf_counter()
 print(f'Central Model finished in {stop-start}')
 dw._close()
