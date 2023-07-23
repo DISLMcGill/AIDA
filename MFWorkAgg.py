@@ -11,8 +11,9 @@ class MatrixFactorization(torch.nn.Module):
         self.item_factors = torch.nn.Embedding(34476, 3)
 
     def forward(self, data):
-        user = torch.squeeze(data[:,[0]])
-        item = torch.squeeze(data[:,[1]])
+        import torch
+        user = torch.squeeze(data[:, [0]])
+        item = torch.squeeze(data[:, [1]])
         return (self.user_factors(user) * self.item_factors(item)).sum(1)
 
 class Preprocess:
@@ -69,7 +70,7 @@ class Iterate:
         db.weights.item_factors.weight.grad = results[1]
         db.optimizer.step()
         db.optimizer.zero_grad()
-        db.agg_time = time.perf_counter() - start
+        db.agg_time += time.perf_counter() - start
         return db.weights
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi','bixi', 'mf')

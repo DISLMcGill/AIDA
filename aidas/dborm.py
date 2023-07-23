@@ -5,6 +5,7 @@ import re;
 import copy;
 import uuid;
 import os;
+import queue;
 
 import logging;
 
@@ -2052,12 +2053,10 @@ class CustomParameterServer:
         self.lock = threading.Lock()
         self.model = model
         self.server = server(self.model)
-        self.updates = collections.deque()
+        self.updates = queue.Queue(schedule)
         self.schedule = schedule
         self.running_thread = None
         self.executor = None
-        self.can_pull = threading.Event()
-        self.can_pull.set()
         self.agg_time = 0
 
     def server_init(self, executor):
@@ -2088,21 +2087,16 @@ class CustomParameterServer:
             logging.warning("Parameter server has not started.")
 
     def pull(self, param_ids):
-        self.can_pull.wait()
         return self.server.pull(param_ids)
 
     def push(self, update):
-        self.updates.append(update)
-        if len(self.updates) > self.schedule:
-            self.can_pull.clear()
+        self.updates.put(update)
 
     def update(self):
-        while len(self.updates) > 0:
-            u = self.updates.popleft()
-            start = time.perf_counter()
-            self.server.update(u)
-            self.agg_time += time.perf_counter() - start
-        self.can_pull.set()
+        u = self.updates.get()
+        start = time.perf_counter()
+        self.server.update(u)
+        self.agg_time += time.perf_counter() - start
 
     def start_training(self, data):
         self.start_server()

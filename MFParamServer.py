@@ -48,8 +48,8 @@ class CustomMF:
                 x = iter(data.getLoader())
                 batch, rating = next(x)
 
-            users = torch.squeeze(batch[, :[0]])
-            items = torch.squeeze(batch[, :[1]])
+            users = torch.squeeze(batch[:, [0]])
+            items = torch.squeeze(batch[:, [1]])
             factors = ps.pull((users, items))
             it_start = time.perf_counter()
             preds = (factors[0] * factors[1]).sum(1)
@@ -58,8 +58,8 @@ class CustomMF:
                 logging.info(f"iteration {i} loss {loss.item()}")
             loss.backward()
             grads = []
-            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(users, dim=0), factors[0].grad, (1500,3)))
-            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(items, dim=0), factors[1].grad, (2000,3)))
+            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(users, dim=0), factors[0].grad, (73517,3)))
+            grads.append(torch.sparse_coo_tensor(torch.unsqueeze(items, dim=0), factors[1].grad, (34476,3)))
             it_end = time.perf_counter()
             calc_time += (it_end-it_start)
             ps.push(grads)

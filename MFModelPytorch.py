@@ -10,6 +10,7 @@ class MatrixFactorization:
             self.item_factors = torch.nn.Embedding(34476, 3)
 
         def forward(self, data):
+            import torch
             user = torch.squeeze(data[:,[0]])
             item = torch.squeeze(data[:,[1]])
             return (self.user_factors(user) * self.item_factors(item)).sum(1)
@@ -57,7 +58,7 @@ class MatrixFactorization:
         loss.backward()
         grads = [weights.user_factors.weight.grad,
                  weights.item_factors.weight.grad]
-        db.calc_time = time.perf_counter() - start
+        db.calc_time += time.perf_counter() - start
         if db.num == 40000:
             logging.info(f"calc time: {db.calc_time}")
         return grads
