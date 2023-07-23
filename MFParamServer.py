@@ -24,10 +24,10 @@ class CustomMF:
         return (self.model.user_factors(param_ids[0]), self.model.item_factors(param_ids[1]))
 
     def update(self, update):
-        self.optimizer.zero_grad()
         self.model.user_factors.grad = update[0]
         self.model.item_factors.grad = update[1]
         self.optimizer.step()
+        self.optimizer.zero_grad()
 
     @staticmethod
     def run_training(con, ps, data):

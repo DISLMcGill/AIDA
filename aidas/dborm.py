@@ -2065,9 +2065,13 @@ class CustomParameterServer:
     def update_thread(self):
         t = threading.current_thread()
         while t.do_run:
-            self.update()
+            u = self.updates.get()
+            if u=="finish":
+                break
+            start = time.perf_counter()
+            self.server.update(u)
+            self.agg_time += time.perf_counter() - start
             time.sleep(0)
-        self.update()
 
     def start_server(self):
         if self.running_thread is None:
@@ -2080,6 +2084,7 @@ class CustomParameterServer:
 
     def stop_server(self):
         if self.running_thread is not None:
+            self.updates.put("finish")
             self.running_thread.do_run = False
             self.running_thread.join()
             self.running_thread = None
@@ -2091,12 +2096,6 @@ class CustomParameterServer:
 
     def push(self, update):
         self.updates.put(update)
-
-    def update(self):
-        u = self.updates.get()
-        start = time.perf_counter()
-        self.server.update(u)
-        self.agg_time += time.perf_counter() - start
 
     def start_training(self, data):
         self.start_server()
