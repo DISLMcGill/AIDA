@@ -153,12 +153,15 @@ def run_training_loop(rank, model, iterations, train_loader):
 
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
+    batch_time = 0
     for i in range(iterations):
+        s = time.perf_counter()
         try:
             data, target = next(x)
         except StopIteration:
             x = iter(train_loader)
             data, target = next(x)
+        batch_time += time.perf_counter()
 
         with dist_autograd.context() as cid:
             model_output = net(torch.squeeze(data))
@@ -166,15 +169,9 @@ def run_training_loop(rank, model, iterations, train_loader):
             if i % 100 == 0:
                 print(f"Rank {rank} training batch {i} loss {loss.item()}")
             dist_autograd.backward(cid, [loss])
-            # Ensure that dist autograd ran successfully and gradients were
-            # returned.
-            assert remote_method(
-                ParameterServer.get_dist_gradients,
-                net.param_server_rref,
-                cid) != {}
             opt.step(cid)
 
-    print(f"Training complete! loss = {loss.item()}")
+    print(f"Training complete! loss = {loss.item()} {batch_time=}")
 
 def run_worker(rank, world_size, model, iterations, train_loader):
     print(f"Worker rank {rank} initializing RPC")

@@ -30,6 +30,7 @@ class FirstStep():
         import torch
         dw.optimizer = torch.optim.SGD(dw.lr_model.parameters(), lr=1e-3)
         dw.agg_time = 0
+        dw.batch_time = 0
         return dw.lr_model
 
 class Iterate():
@@ -41,11 +42,13 @@ class Iterate():
 
         model = context['previous']
         dw.num += 1
+        s = time.perf_counter()
         try:
             batch, target = next(dw.iterator)
         except StopIteration:
             dw.iterator = iter(data.getLoader())
             batch, target = next(dw.iterator)
+        dw.batch_time += time.perf_counter() - s
         start = time.perf_counter()
         preds = model(torch.squeeze(batch).float())
         loss = dw.loss(preds, target)
@@ -53,9 +56,9 @@ class Iterate():
             logging.info(f"iteration {dw.num} has loss {loss.item()}")
         loss.backward()
         grads = [p.grad for p in model.parameters()]
-        dw.calc_time = time.perf_counter() - start
+        dw.calc_time += time.perf_counter() - start
         if dw.num == 5000:
-            logging.info(f"total calc time {dw.calc_time}")
+            logging.info(f"total calc time {dw.calc_time} {dw.batch_time}")
         return grads
 
     @staticmethod

@@ -24,8 +24,8 @@ class CustomMF:
         return (self.model.user_factors(param_ids[0]), self.model.item_factors(param_ids[1]))
 
     def update(self, update):
-        self.model.user_factors.grad = update[0]
-        self.model.item_factors.grad = update[1]
+        for p, grad in zip(self.model.parameters(), update):
+            p.grad = grad
         self.optimizer.step()
         self.optimizer.zero_grad()
 
@@ -53,7 +53,7 @@ class CustomMF:
             factors = ps.pull((users, items))
             it_start = time.perf_counter()
             preds = (factors[0] * factors[1]).sum(1)
-            loss = loss_fun(preds, torch.squeeze(rating))
+            loss = loss_fun(preds, rating)
             if i % 5000 == 0:
                 logging.info(f"iteration {i} loss {loss.item()}")
             loss.backward()

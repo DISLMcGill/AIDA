@@ -26,11 +26,14 @@ class LRModel:
         db.num += 1
 
         model = weights
+
+        s = time.perf_counter()
         try:
             batch, target = next(db.iterator)
         except StopIteration:
             db.iterator = iter(data.getLoader())
             batch, target = next(db.iterator)
+        db.batch_time += time.perf_counter() - s
         start = time.perf_counter()
         preds = model(torch.squeeze(batch).float())
         loss = db.loss(preds, target)
@@ -40,9 +43,9 @@ class LRModel:
         grads = []
         for param in model.parameters():
             grads.append(param.grad)
-        db.calc_time = time.perf_counter() - start
+        db.calc_time += time.perf_counter() - start
         if db.num == 5000:
-            logging.info(f"total calc time: {db.calc_time}")
+            logging.info(f"total calc time: {db.calc_time} {db.batch_time=}")
         return grads
 
     @staticmethod
@@ -53,6 +56,7 @@ class LRModel:
         db.loss = torch.nn.MSELoss()
         db.num = 0
         db.calc_time = 0
+        db.batch_time = 0
         return data
 
     def initialize(self, data):

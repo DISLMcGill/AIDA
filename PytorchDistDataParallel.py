@@ -21,14 +21,16 @@ def run_training_loop(rank, model, iterations, train_loader):
 
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
+    batch_time = 0
     for i in range(iterations):
-        opt.zero_grad()
+        s = time.perf_counter()
         try:
             data, target = next(x)
         except StopIteration:
             x = iter(train_loader)
             data, target = next(x)
-
+        batch_time += time.perf_counter()
+        opt.zero_grad()
         model_output = net(torch.squeeze(data))
         loss = loss_fun(torch.squeeze(model_output), target)
         if i % 5000 == 0:
@@ -36,7 +38,7 @@ def run_training_loop(rank, model, iterations, train_loader):
         loss.backward()
         opt.step()
 
-    print(f"Training complete! loss={loss.item()}")
+    print(f"Training complete! loss={loss.item()} {batch_time=}")
 
 
 if __name__ == '__main__':

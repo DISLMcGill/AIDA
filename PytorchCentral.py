@@ -16,13 +16,16 @@ def run_training_loop(model, iterations, train_loader):
     x = iter(train_loader)
     loss_fun = torch.nn.MSELoss()
     calc_time = 0
+    batch_time = 0
     for i in range(iterations):
         opt.zero_grad()
+        s = time.perf_counter()
         try:
             data, target = next(x)
         except StopIteration:
             x = iter(train_loader)
             data, target = next(x)
+        batch_time += time.perf_counter() - s
 
         start = time.perf_counter()
         model_output = net(torch.squeeze(data))
@@ -33,7 +36,7 @@ def run_training_loop(model, iterations, train_loader):
         opt.step()
         calc_time += time.perf_counter() - start
 
-    print(f"Training complete! {calc_time=}")
+    print(f"Training complete! {calc_time=} {batch_time=}")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(

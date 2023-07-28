@@ -1025,15 +1025,14 @@ class ColumnDataGenerator:
 def preprocess_data(x, split):
     class CustomDataset(Dataset):
         def __init__(self, data):
-            self.data = data.cdata
+            self.data = torch.tensor(data.project(split[0]).matrix.T)
+            self.targets = torch.tensor(data.project(split[1]).matrix)
 
         def __len__(self):
-            return len(self.data[list(self.data.keys())[0]])
+            return self.targets.shape[0]
 
         def __getitem__(self, idx):
-            x = torch.stack([torch.tensor([self.data[column][idx]]) for column in split[0]])
-            y = torch.FloatTensor([self.data[split[1]][idx]])
-            return x, y
+            return self.data[idx], self.targets[idx]
 
     return CustomDataset(x)
 
@@ -2066,10 +2065,11 @@ class CustomParameterServer:
         t = threading.current_thread()
         while t.do_run:
             u = self.updates.get()
-            if u=="finish":
-                break
+            if u == "finish":
+                return
             start = time.perf_counter()
-            self.server.update(u)
+            with self.lock:
+                self.server.update(u)
             self.agg_time += time.perf_counter() - start
             time.sleep(0)
 
@@ -2092,7 +2092,8 @@ class CustomParameterServer:
             logging.warning("Parameter server has not started.")
 
     def pull(self, param_ids):
-        return self.server.pull(param_ids)
+        with self.lock:
+            return self.server.pull(param_ids)
 
     def push(self, update):
         self.updates.put(update)

@@ -36,14 +36,16 @@ class LRPS:
         loss_fn = torch.nn.MSELoss()
 
         calc_time = 0
+        batch_time = 0
         start = time.perf_counter()
         for i in range(5000):
+            s = time.perf_counter()
             try:
                 batch, target = next(iterator)
             except StopIteration:
                 iterator = iter(data.getLoader())
                 batch, target = next(iterator)
-
+            batch_time += time.perf_counter() - s
             model = ps.pull(None)
             it_start = time.perf_counter()
             preds = model(torch.squeeze(batch).float())
@@ -58,7 +60,7 @@ class LRPS:
             calc_time += it_end-it_start
             ps.push(grads)
         end = time.perf_counter()
-        logging.info(f"Finished iterations in {end-start} calc_time {calc_time}")
+        logging.info(f"Finished iterations in {end-start} {calc_time=} {batch_time=}")
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'lr')
 print('making parameter server')
