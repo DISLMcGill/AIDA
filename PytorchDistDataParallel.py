@@ -29,7 +29,7 @@ def run_training_loop(rank, model, iterations, train_loader):
         except StopIteration:
             x = iter(train_loader)
             data, target = next(x)
-        batch_time += time.perf_counter()
+        batch_time += time.perf_counter() - s
         opt.zero_grad()
         model_output = net(torch.squeeze(data))
         loss = loss_fun(torch.squeeze(model_output), target)

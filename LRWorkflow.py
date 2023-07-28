@@ -51,7 +51,7 @@ class Iterate():
         dw.batch_time += time.perf_counter() - s
         start = time.perf_counter()
         preds = model(torch.squeeze(batch).float())
-        loss = dw.loss(preds, target)
+        loss = dw.loss(torch.squeeze(preds), target.float())
         if dw.num % 100 == 0:
             logging.info(f"iteration {dw.num} has loss {loss.item()}")
         loss.backward()

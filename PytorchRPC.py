@@ -3,6 +3,7 @@ import torch.distributed.autograd as dist_autograd
 import torch.distributed.rpc as rpc
 from torch.distributed.optim import DistributedOptimizer
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
 import os
 
 from threading import Lock
@@ -98,50 +99,29 @@ class TrainerNet(torch.nn.Module):
 
 class LRDataset(Dataset):
     def __init__(self, filename):
-        with open(filename) as f:
-            reader = csv.reader(f)
-            self.data = OrderedDict()
-            for r in reader:
-                self.data.setdefault('x1', []).append(float(r[0]))
-                self.data.setdefault('x2', []).append(float(r[1]))
-                self.data.setdefault('x3', []).append(float(r[2]))
-                self.data.setdefault('x4', []).append(float(r[3]))
-                self.data.setdefault('x5', []).append(float(r[4]))
-                self.data.setdefault('y', []).append(float(r[5]))
-            for x in self.data:
-                self.data[x] = torch.FloatTensor(self.data[x])
+        with open(filename, "rb") as f:
+            data = np.loadtxt(f, delimiter=",")
+        self.data = torch.IntTensor(data[:,[0,1,2,3,4]])
+        self.targets = torch.FloatTensor(data[:,[5]])
 
     def __len__(self):
-        return len(self.data['x1'])
+        return self.data.shape[0]
 
     def __getitem__(self, item):
-        x = [self.data['x1'][item], self.data['x2'][item], self.data['x3'][item],
-             self.data['x4'][item], self.data['x5'][item]]
-        x = torch.stack(x)
-        y = self.data['y'][item]
-        return x, y
+        return self.data[item], self.targets[item]
 
 class MFDataset(Dataset):
     def __init__(self, filename):
-        with open(filename) as f:
-            reader = csv.reader(f)
-            self.data = OrderedDict()
-            for r in reader:
-                self.data.setdefault('user_id', []).append(int(r[0]))
-                self.data.setdefault('movie_id', []).append(int(r[1]))
-                self.data.setdefault('rating', []).append(float(r[2]))
-            self.data['user_id'] = torch.IntTensor(self.data['user_id'])
-            self.data['movie_id'] = torch.IntTensor(self.data['movie_id'])
-            self.data['rating'] = torch.FloatTensor(self.data['rating'])
+        with open(filename, "rb") as f:
+            data = np.loadtxt(f, delimiter=",")
+        self.data = torch.IntTensor(data[:, [0, 1]])
+        self.targets = torch.FloatTensor(data[:, [2]])
 
     def __len__(self):
-        return len(self.data['user_id'])
+        return self.data.shape[0]
 
     def __getitem__(self, item):
-        x = [self.data['user_id'][item], self.data['movie_id'][item]]
-        x = torch.stack(x)
-        y = self.data['rating'][item]
-        return x, y
+        return self.data[item], self.targets[item]
 
 def run_training_loop(rank, model, iterations, train_loader):
     net = TrainerNet(model)
@@ -161,7 +141,7 @@ def run_training_loop(rank, model, iterations, train_loader):
         except StopIteration:
             x = iter(train_loader)
             data, target = next(x)
-        batch_time += time.perf_counter()
+        batch_time += time.perf_counter() - s
 
         with dist_autograd.context() as cid:
             model_output = net(torch.squeeze(data))
