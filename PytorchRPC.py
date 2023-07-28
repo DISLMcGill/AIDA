@@ -102,7 +102,7 @@ class LRDataset(Dataset):
         with open(filename, "rb") as f:
             data = np.loadtxt(f, delimiter=",")
         self.data = torch.IntTensor(data[:,[0,1,2,3,4]])
-        self.targets = torch.DoubleTensor(data[:,[5]])
+        self.targets = torch.squeeze(torch.DoubleTensor(data[:,[5]]))
 
     def __len__(self):
         return self.data.shape[0]
@@ -115,7 +115,7 @@ class MFDataset(Dataset):
         with open(filename, "rb") as f:
             data = np.loadtxt(f, delimiter=",")
         self.data = torch.IntTensor(data[:, [0, 1]])
-        self.targets = torch.DoubleTensor(data[:, [2]])
+        self.targets = torch.squeeze(torch.DoubleTensor(data[:, [2]]))
 
     def __len__(self):
         return self.data.shape[0]
