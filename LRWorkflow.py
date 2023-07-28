@@ -22,6 +22,7 @@ class FirstStep():
         dw.loss = torch.nn.MSELoss()
         dw.num = 0
         dw.calc_time = 0
+        dw.batch_time = 0
         return
 
     @staticmethod
@@ -30,7 +31,6 @@ class FirstStep():
         import torch
         dw.optimizer = torch.optim.SGD(dw.lr_model.parameters(), lr=1e-3)
         dw.agg_time = 0
-        dw.batch_time = 0
         return dw.lr_model
 
 class Iterate():

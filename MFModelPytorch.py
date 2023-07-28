@@ -36,6 +36,7 @@ class MatrixFactorization:
         db.loss_fun = torch.nn.MSELoss()
         db.num = 0
         db.calc_time = 0
+        db.batch_time = 0
         return data
 
     @staticmethod
@@ -45,14 +46,16 @@ class MatrixFactorization:
         import time
 
         db.num += 1
+        s = time.perf_counter()
         try:
             batch, rating = next(db.x)
         except StopIteration:
             db.x = iter(data.getLoader())
             batch, rating = next(db.x)
+        db.batch_time += time.perf_counter() - s
         start = time.perf_counter()
         preds = weights(batch)
-        loss = db.loss_fun(preds, torch.squeeze(rating))
+        loss = db.loss_fun(preds, rating.float())
         if db.num % 5000 == 0:
             logging.info(f"iteration {db.num} has loss {loss.item()}")
         loss.backward()
@@ -60,7 +63,7 @@ class MatrixFactorization:
                  weights.item_factors.weight.grad]
         db.calc_time += time.perf_counter() - start
         if db.num == 40000:
-            logging.info(f"calc time: {db.calc_time}")
+            logging.info(f"calc time: {db.calc_time} loss: {loss.item()} {db.batch_time=}")
         return grads
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'mf')

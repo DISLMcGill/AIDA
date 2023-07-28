@@ -40,20 +40,22 @@ class CustomMF:
         epochs = 40000
         loss_fun = torch.nn.MSELoss()
         calc_time = 0
+        batch_time = 0
         start = time.perf_counter()
         for i in range(epochs):
+            s = time.perf_counter()
             try:
                 batch, rating = next(x)
             except StopIteration:
                 x = iter(data.getLoader())
                 batch, rating = next(x)
-
+            batch_time += time.perf_counter() - s
             users = torch.squeeze(batch[:, [0]])
             items = torch.squeeze(batch[:, [1]])
             factors = ps.pull((users, items))
             it_start = time.perf_counter()
             preds = (factors[0] * factors[1]).sum(1)
-            loss = loss_fun(preds, rating)
+            loss = loss_fun(preds, rating.float())
             if i % 5000 == 0:
                 logging.info(f"iteration {i} loss {loss.item()}")
             loss.backward()
@@ -64,7 +66,7 @@ class CustomMF:
             calc_time += (it_end-it_start)
             ps.push(grads)
         end = time.perf_counter()
-        logging.info(f"total run time: {end-start} total calc time: {calc_time}")
+        logging.info(f"total run time: {end-start} total calc time: {calc_time} loss: {loss.item()} {batch_time=}")
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'mf')
 print('making parameter server')
