@@ -31,8 +31,8 @@ def run_training_loop(rank, model, iterations, train_loader):
             data, target = next(x)
         batch_time += time.perf_counter() - s
         opt.zero_grad()
-        model_output = net(torch.squeeze(data))
-        loss = loss_fun(torch.squeeze(model_output), target)
+        model_output = net(torch.squeeze(data).float())
+        loss = loss_fun(torch.squeeze(model_output), target.float())
         if i % 5000 == 0:
             print(f"Rank {rank} training batch {i} loss {loss.item()}")
         loss.backward()

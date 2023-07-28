@@ -102,7 +102,7 @@ class LRDataset(Dataset):
         with open(filename, "rb") as f:
             data = np.loadtxt(f, delimiter=",")
         self.data = torch.IntTensor(data[:,[0,1,2,3,4]])
-        self.targets = torch.FloatTensor(data[:,[5]])
+        self.targets = torch.DoubleTensor(data[:,[5]])
 
     def __len__(self):
         return self.data.shape[0]
@@ -115,7 +115,7 @@ class MFDataset(Dataset):
         with open(filename, "rb") as f:
             data = np.loadtxt(f, delimiter=",")
         self.data = torch.IntTensor(data[:, [0, 1]])
-        self.targets = torch.FloatTensor(data[:, [2]])
+        self.targets = torch.DoubleTensor(data[:, [2]])
 
     def __len__(self):
         return self.data.shape[0]
@@ -144,8 +144,8 @@ def run_training_loop(rank, model, iterations, train_loader):
         batch_time += time.perf_counter() - s
 
         with dist_autograd.context() as cid:
-            model_output = net(torch.squeeze(data))
-            loss = loss_fun(torch.squeeze(model_output), target)
+            model_output = net(torch.squeeze(data).float())
+            loss = loss_fun(torch.squeeze(model_output), target.float())
             if i % 100 == 0:
                 print(f"Rank {rank} training batch {i} loss {loss.item()}")
             dist_autograd.backward(cid, [loss])

@@ -28,8 +28,8 @@ def run_training_loop(model, iterations, train_loader):
         batch_time += time.perf_counter() - s
 
         start = time.perf_counter()
-        model_output = net(torch.squeeze(data))
-        loss = loss_fun(torch.squeeze(model_output), target)
+        model_output = net(torch.squeeze(data).float())
+        loss = loss_fun(torch.squeeze(model_output), target.float())
         if i % 5000 == 0:
             print(f"training batch {i} loss {loss.item()}")
         loss.backward()
