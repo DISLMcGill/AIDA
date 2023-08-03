@@ -14,9 +14,9 @@ class LinearRegressionModel:
         batch_size = 64
         batch = np.random.choice(x.shape[0], batch_size, replace=False)
         batch_x = x[batch, :]
-        batch_y = y[batch]
+        batch_y = y[batch].reshape(batch_size, 1)
         preds = batch_x @ weights.T
-        grad_desc_weights = 2 * (((preds - batch_y).T @ batch_x) / preds.shape[0])
+        grad_desc_weights = (-2/batch_size) * (batch_x.T @ (batch_y - preds))
         return grad_desc_weights
 
     @staticmethod
@@ -40,9 +40,9 @@ class LinearRegressionModel:
         if self.sync:
             n = len(results)
             for i in range(n):
-                self.weights = self.weights - (self.lr * results[i] / n)
+                self.weights = self.weights - (self.lr * results[i].T / n)
         else:
-            self.weights = self.weights - (self.lr * results)
+            self.weights = self.weights - (self.lr * results.T)
 
 dw = AIDA.connect('nwhe_middleware', 'bixi', 'bixi', 'bixi', 'lr')
 

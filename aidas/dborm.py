@@ -2520,6 +2520,7 @@ class DistTabularData(TabularData):
 
     @property
     def shape(self):
+        results = []
         for t in self.tabular_datas.values():
             results.append(t.shape)
 

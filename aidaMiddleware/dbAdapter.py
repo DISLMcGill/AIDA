@@ -68,23 +68,23 @@ class DBCMiddleware(DBC):
             if r is not None:
                 ctx['previous'] = r
 
-        def run_steps_async(con, steps, lock):
+        def run_steps_async(con, steps, context, lock):
             for s in steps:
                 if isinstance(s, tuple):
                     start = time.perf_counter()
                     for i in range(s[1]):
-                        r = con._X(s[0].work, data.tabular_datas[con], ctx)
+                        r = con._X(s[0].work, data.tabular_datas[con], context)
                         with lock:
-                            r = s[0].aggregate(self, r, ctx)
+                            r = s[0].aggregate(self, r, context)
                         if r is not None:
-                            ctx['previous'] = r
+                            context['previous'] = r
                     end = time.perf_counter()
                     logging.info(f"iterations time: {end-start}")
                 else:
-                    r = con._X(s.work, data.tabular_datas[con], ctx)
-                    r = s.aggregate(self, r, ctx)
+                    r = con._X(s.work, data.tabular_datas[con], context)
+                    r = s.aggregate(self, r, context)
                     if r is not None:
-                        ctx['previous'] = r
+                        context['previous'] = r
 
         logging.info('Starting work-agg job')
         if sync:
@@ -97,7 +97,7 @@ class DBCMiddleware(DBC):
         else:
             lock = threading.Lock()
             results = []
-            futures = [self._executor.submit(run_steps_async, con, job, lock) for con in
+            futures = [self._executor.submit(run_steps_async, con, job, ctx.copy(),lock) for con in
                  data.tabular_datas]
             for future in as_completed(futures):
                 results.append(future)
@@ -181,6 +181,15 @@ class DBCMiddleware(DBC):
     def _getMonetConnection(self):
         return self.__monetConnection
 
+    def _LoadDistTabularData(self, tabular_datas):
+        tdict = {}
+        for t in tabular_datas:
+            for con in self._extDBCcon:
+                if t._host == con._host:
+                    tdict[con] = t
+                    continue
+        return DistTabularData(self._executor, tdict, self.__monetConnection)
+
 
 class DBCMiddlewareStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.RemoteMethod()
@@ -215,6 +224,10 @@ class DBCMiddlewareStub(DBCRemoteStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _close(self):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _LoadDistTabularData(self, tabular_datas):
         pass
 
 copyreg.pickle(DBCMiddleware, DBCMiddlewareStub.serializeObj);

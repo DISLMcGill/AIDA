@@ -73,4 +73,4 @@ if __name__ == '__main__':
 
     start = time.perf_counter()
     run_training_loop(model, args.iterations, dataloader)
-    print(f'Rank {args.rank} finished in {time.perf_counter() - start}')
+    print(f'finished in {time.perf_counter() - start}')

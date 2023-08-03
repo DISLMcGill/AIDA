@@ -63,16 +63,15 @@ class SecondStep:
         for point, label in centers:
             cluster = tree.query_ball_point(point, eps)
             labels[cluster] = label
-        data.hstack(labels)
-        return None
+        return data.hstack(labels)
 
     @staticmethod
     def aggregate(dw, results):
-        return
+        dw.results = dw._LoadDistTabularData(results)
 
 
 dw = AIDA.connect('whe_middleware', 'bixi', 'bixi', 'bixi', 'wa')
 print('starting work!')
 dw._workAggregateJob([FirstStep(), SecondStep()], dw.cluster_data)
 print('finished work!')
-print(dw.cluster_data.cdata)
+print(dw.results.cdata)
