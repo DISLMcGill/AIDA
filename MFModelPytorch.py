@@ -20,11 +20,17 @@ class MatrixFactorization:
         self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.1)
 
     def aggregate(self, update):
-        self.weights.user_factors.weight.grad = update[0]
-        self.weights.item_factors.weight.grad = update[1]
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-
+        if not self.sync:
+            self.weights.user_factors.weight.grad = update[0]
+            self.weights.item_factors.weight.grad = update[1]
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+        else:
+            for u in update:
+                self.weights.user_factors.weight.grad = u[0]
+                self.weights.item_factors.weight.grad = u[1]
+                self.optimizer.step()
+                self.optimizer.zero_grad()
     def initialize(self, data):
         pass
 

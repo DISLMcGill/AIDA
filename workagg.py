@@ -17,7 +17,7 @@ class FirstStep:
         dw.matrix_data = data.matrix.T
         db = DBSCAN(eps=1.0 / 2, min_samples=6).fit(dw.matrix_data)
         classes = []
-        for i in range(2):
+        for i in range(len(np.unique(db.labels_))):
             classes.append(dw.matrix_data[np.where(db.labels_ == i)])
         clusts = [KMeans(n_clusters=9).fit(c) for c in classes]
         rep = []
@@ -32,7 +32,7 @@ class FirstStep:
         return rep
 
     @staticmethod
-    def aggregate(dw, results):
+    def aggregate(dw, results, context):
         from sklearn.cluster import DBSCAN
         import logging
 
@@ -66,7 +66,7 @@ class SecondStep:
         return data.hstack(labels)
 
     @staticmethod
-    def aggregate(dw, results):
+    def aggregate(dw, results, context):
         dw.results = dw._LoadDistTabularData(results)
 
 

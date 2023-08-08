@@ -65,11 +65,17 @@ class LRModel:
         self.optimizer = torch.optim.SGD(self.weights.parameters(), lr=0.0003)
 
     def aggregate(self, results):
-        self.optimizer.zero_grad()
-        for grad, param in zip(results, self.weights.parameters()):
-            param.grad = grad
-        self.optimizer.step()
-
+        if not self.sync:
+            for grad, param in zip(results, self.weights.parameters()):
+                param.grad = grad
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+        else:
+            for r in results:
+                for grad, param in zip(r, self.weights.parameters()):
+                    param.grad = grad
+                self.optimizer.step()
+                self.optimizer.zero_grad()
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'lr')
 print('Registering model')

@@ -165,7 +165,7 @@ class DBCMiddleware(DBC):
 
     def _getDBTable(self, relName, dbName=None):
         results = {}
-        cons = [self._extDBCcon[c] for c in self._serverConfig.get_servers(relName)]
+        cons = self._extDBCcon.values()
         futures = {self._executor.submit(con._getDBTable, relName, dbName): con for con in cons}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
@@ -184,7 +184,7 @@ class DBCMiddleware(DBC):
     def _LoadDistTabularData(self, tabular_datas):
         tdict = {}
         for t in tabular_datas:
-            for con in self._extDBCcon:
+            for con in self._extDBCcon.values():
                 if t._host == con._host:
                     tdict[con] = t
                     continue

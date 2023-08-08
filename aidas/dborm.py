@@ -2303,6 +2303,7 @@ class ModelService:
 
         total_time = time.perf_counter()
         if sync:
+            agg_time = 0
             for i in range(iterations):
                 futures = [self.executor.submit(lambda con: con._XP(self.__model__.iterate, x.tabular_datas[con],
                                                                     self.weights), c) for c in x.tabular_datas]
@@ -2310,7 +2311,10 @@ class ModelService:
                 for future in as_completed(futures):
                     result = future.result()
                     results.append(result)
+                start = time.perf_counter()
                 self.aggregate(results)
+                agg_time += time.perf_counter() - start
+            logging.info(f"total aggregation time: {agg_time}")
         else:
             def thread(con):
                 agg_time = 0
