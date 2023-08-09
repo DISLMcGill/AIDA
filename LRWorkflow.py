@@ -52,7 +52,7 @@ class Iterate():
         start = time.perf_counter()
         preds = model(torch.squeeze(batch).float())
         loss = dw.loss(torch.squeeze(preds), target.float())
-        if dw.num % 100 == 0:
+        if dw.num % 1000 == 0:
             logging.info(f"iteration {dw.num} has loss {loss.item()}")
         loss.backward()
         grads = [p.grad for p in model.parameters()]

@@ -68,10 +68,11 @@ class Iterate:
     def aggregate(db, results, cxt):
         import time
         start = time.perf_counter()
-        db.weights.user_factors.weight.grad = results[0]
-        db.weights.item_factors.weight.grad = results[1]
-        db.optimizer.step()
-        db.optimizer.zero_grad()
+        for r in results:
+            db.weights.user_factors.weight.grad = r[0]
+            db.weights.item_factors.weight.grad = r[1]
+            db.optimizer.step()
+            db.optimizer.zero_grad()
         db.agg_time += time.perf_counter() - start
         return db.weights
 
@@ -80,7 +81,7 @@ dw.MatrixFactorization = MatrixFactorization
 job = [Preprocess(), (Iterate(), 40000)]
 print('start work aggregate job')
 start = time.perf_counter()
-dw._workAggregateJob(job, dw.mf_data, sync=False)
+dw._workAggregateJob(job, dw.mf_data, sync=True)
 stop = time.perf_counter()
 print(f'Work-aggregate MF completed in {stop-start}')
 print(f"Aggregation time: {dw.agg_time}")

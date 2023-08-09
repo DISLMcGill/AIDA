@@ -51,7 +51,7 @@ class LRPS:
             preds = model(torch.squeeze(batch).float())
             loss = loss_fn(torch.squeeze(preds), target.float())
             loss.backward()
-            if i % 100 == 0:
+            if i % 1000 == 0:
                 logging.info(f"iteration {i} loss: {loss.item()}")
             grads = []
             for param in model.parameters():
@@ -60,7 +60,7 @@ class LRPS:
             calc_time += it_end-it_start
             ps.push(grads)
         end = time.perf_counter()
-        logging.info(f"Finished iterations in {end-start} {calc_time=} {batch_time=}")
+        logging.info(f"Finished iterations in {end-start} {calc_time=} {batch_time=} {loss.item()=}")
 
 dw = AIDA.connect('localhost', 'bixi', 'bixi', 'bixi', 'lr')
 print('making parameter server')

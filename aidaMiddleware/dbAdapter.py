@@ -165,7 +165,7 @@ class DBCMiddleware(DBC):
 
     def _getDBTable(self, relName, dbName=None):
         results = {}
-        cons = self._extDBCcon.values()
+        cons = [self._extDBCcon[c] for c in self._serverConfig.get_servers(relName)]
         futures = {self._executor.submit(con._getDBTable, relName, dbName): con for con in cons}
         for future in as_completed(futures):
             results[futures[future]] = future.result()
