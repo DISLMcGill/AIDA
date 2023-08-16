@@ -6,6 +6,7 @@ def trainingLoop(dw):
     # config = tf.ConfigProto()
     # config.gpu_options.allow_growth = True
 
+    import pandas as pd
     column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
                     'Acceleration', 'Model Year', 'Origin']
     raw_dataset = pd.read_csv('http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data', names=column_names,

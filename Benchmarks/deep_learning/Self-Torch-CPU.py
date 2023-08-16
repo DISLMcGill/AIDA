@@ -2,6 +2,14 @@ from aida.aida import *;
 host = 'ht_Server'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
+    import time
+    from numpy.random import randn
+    import pandas as pd
+
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+
     script_start = time.time()
     logging.info('Script start time ' + str(script_start))
     n = 10000

@@ -3,6 +3,7 @@ from aida.aida import *;
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
+    import tensorflow as tf
     rng = np.random
     learningrate = 0.01
     epoch_size = 1000

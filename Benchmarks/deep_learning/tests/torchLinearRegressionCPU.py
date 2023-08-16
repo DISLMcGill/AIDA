@@ -1,10 +1,16 @@
 from aida.aida import *;
-host = 'Server2'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'localhost'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw,input_size, output_size):
+    import time
+    import logging
+    import sys
+    nn = sys.modules["torch.nn.modules"]
+    torch = sys.modules["torch"]
+    datasets = sys.modules["sklearn.datasets"]
     start_time = time.time()
     learningrate = 0.0000001
-    epoch_size = 8000
+    epoch_size = 1
     logging.info("running on server")
     model = nn.Linear(input_size,output_size)
     criterion = nn.MSELoss()
@@ -13,6 +19,7 @@ def trainingLoop(dw,input_size, output_size):
     duration = dw.gmdata2017[:,3]
     X = DataConversion.extract_X(distance)
     y = DataConversion.extract_y(duration)
+    logging.info('data converted')
     X = np.copy(X)
     y = np.copy(y)
     X = torch.from_numpy(X.astype(np.float32))

@@ -1,6 +1,6 @@
 from aida.aida import *;
 
-host = 'sampleServer; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
+host = 'sampleServer'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 
 def SampleFunction(dw):

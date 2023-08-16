@@ -26,8 +26,8 @@ class DBCPostgreSQL(DBC):
     """Database adapter class for PostgreSQL"""
 
     # Map numpy data types to PostgreSQL compatible types.
-    typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'real'
-    , np.float64:'double precision', np.object:'text', np.object_:'text', 'bytes':'bytea'
+    typeConverter = {int: 'integer', np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'real'
+    , np.float64:'double precision', object:'text', np.object_:'text', 'bytes':'bytea'
     , 'decimal':'double precision' ,'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP'};
     
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};

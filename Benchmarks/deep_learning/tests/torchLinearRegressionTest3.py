@@ -8,13 +8,13 @@ def trainingLoop(dw):
 
     def computeDist(tblrData):
         # We are going to keep all the columns of the source tabularData object.
-        data = copy.copy(tblrData.rows);  # This only makes a copy of the metadata, but retains original column data
-        vdistm = data['vdistm'] = np.empty(tblrData.numRows, dtype=int);  # add a new empty column to hold distance.
+        data = copy.copy(tblrData.rows)  # This only makes a copy of the metadata, but retains original column data
+        vdistm = data['vdistm'] = np.empty(tblrData.numRows, dtype=int)  # add a new empty column to hold distance.
         # These are the inputs to Vincenty's formula.
-        stlat = data['stlat'];
-        stlong = data['stlong'];
-        enlat = data['enlat'];
-        enlong = data['enlong'];
+        stlat = data['stlat']
+        stlong = data['stlong']
+        enlat = data['enlat']
+        enlong = data['enlong']
         for i in range(0, tblrData.numRows):  # populate the distance metric using longitude/latitude of coordinates.
             vdistm[i] = int(geopyd.distance((stlat[i], stlong[i]), (enlat[i], enlong[i])).meters);
         return data;

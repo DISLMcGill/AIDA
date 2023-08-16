@@ -1,10 +1,12 @@
 from aida.aida import *;
 host = 'localhost'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
-import time
+
 def trainingLoop(dw):
+    import time
     script_start = time.time()
     print("Script start time ", script_start)
+    import logging
     logging.info('Script start time ' + str(script_start))
     max_usage = 2000 # example for using up to 95%
     #
@@ -14,6 +16,9 @@ def trainingLoop(dw):
     #     gpus[0],
     #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=max_usage)])
     n = 100
+    import pandas as pd
+    from numpy.random import randn
+
     df = pd.DataFrame(randn(n))
     df.columns = ['A']
     df['B'] = randn(n)
@@ -40,6 +45,7 @@ def trainingLoop(dw):
     normed_train_data = norm(train_dataset)
     normed_test_data = norm(test_dataset)
     transfer_start = time.time()
+    import tensorflow as tf
     train_set = tf.constant(normed_train_data, dtype=tf.float32, shape=[4000, 5])
     label = tf.constant(train_labels, 'float32', shape=[4000, 1])
     transfer_end = time.time()
@@ -48,6 +54,7 @@ def trainingLoop(dw):
     transfer_time = transfer_end - transfer_start
     logging.info('The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:'+str(transfer_time))
     print("The data transfer time on CPU for a dataset of 5000 and 100 epochs using TensorFlow is:",transfer_time)
+
     def build_model():
         model = keras.Sequential([
             layers.Dense(16, activation='relu', input_shape=[len(train_dataset.keys())]),

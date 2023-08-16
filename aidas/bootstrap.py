@@ -10,6 +10,13 @@ import aidas.aidas as aidas;
 
 import aidacommon.gbackend as gbackend;
 
+GPU_FUNC = ['_GPU']
+
+def gpu_not_available_error(func_name):
+    def wrapper(dw):
+        raise AssertionError(f'CUDA is not present. CUDA is required for {func_name}')
+    return wrapper
+
 def bootstrap():
 
 ##    try:
@@ -65,9 +72,19 @@ def bootstrap():
     # Get the module and class name separated out for the database adapter that we need to load.
     dbAdapterModule, dbAdapterClass = os.path.splitext(AConfig.DATABASEADAPTER);
     dbAdapterClass = dbAdapterClass[1:];
+
     dmod = importlib.import_module(dbAdapterModule);
     dadapt = getattr(dmod, dbAdapterClass);
-    logging.info('AIDA: Loading database adapter {} for connection manager'.format(dadapt))
+
+    # substitute all functions that requires GPU to the error function in the dbadapter
+    def sub_gpu_funcs():
+        import torch
+        if not torch.cuda.is_available():
+            for func_name in GPU_FUNC:
+                setattr(dadapt, func_name, gpu_not_available_error(func_name))
+        logging.info('AIDA: Loading database adapter {} for connection manager'.format(dadapt))
+
+    sub_gpu_funcs()
     conMgr = aidas.ConnectionManager.getConnectionManager(dadapt);
     aidasys.conMgr = conMgr;
 

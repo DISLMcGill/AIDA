@@ -261,7 +261,8 @@ class DecisionTreeModel:
             X=DataConversion.extract_X(X)
         if (isinstance(y,TabularData)):
             y=DataConversion.extract_y(y)
-        return self.model.cost_complexity_pruning_path(X,y,sample_weight)        
+        return self.model.cost_complexity_pruning_path(X,y,sample_weight)
+
     def decision_path(self,X,check_input=True):
         if (isinstance(X,TabularData)):
             X=DataConversion.extract_X(X)
