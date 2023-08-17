@@ -72,7 +72,9 @@ class ConnectionManager(metaclass=ABCMeta):
                 self.__srvrThread.start();
 
             def get(self, jobName):
-                return self.__class__.__DBCRepo[jobName];
+                dba = self.__class__.__DBCRepo[jobName]
+                logging.debug(f'proxy dba obj is {weakref.proxy(dba)}')
+                return weakref.proxy(dba);
 
             def add(self, jobName, dbc):
                 self.__class__.__DBCRepo[jobName] = dbc;

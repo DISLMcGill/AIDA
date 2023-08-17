@@ -1,3 +1,4 @@
+import logging
 import sys;
 import os;
 import threading;
@@ -6,6 +7,7 @@ import collections;
 import datetime;
 ## -- QLOG -- ##
 ##from timeit import default_timer as timer;
+import weakref
 
 import numpy as np;
 import pandas as pd;
@@ -164,6 +166,14 @@ class DBCMonetDB(DBC):
         """Called by the database function to set the internal database connection for executing queries"""
         #logging.debug("__setConnection_ called for {} with {}".format(self._jobName, con));
         self.__connection= con;
+
+    def _getRequestQueue(self):
+        # return weakref.proxy(self._requestQueue)
+        return self._requestQueue
+
+    def _getResponseQueue(self):
+        # return weakref.proxy(self._responseQueue)
+        return self._responseQueue
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         self._requestQueue.put(sql);
@@ -371,10 +381,8 @@ class DBCMonetDB(DBC):
         self._executeQry(dobj,sqlType=DBC.SQLTYPE.DROP);
 
     def _describe(self, tblrData):
-
-        #logging.info("describing {}".format(type(tblrData)));
         if(isinstance(tblrData, DBTable)):
-            #logging.info("describing DBTable ");
+            # logging.info("describing DBTable ");
             #logging.info(DBCMonetDB.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName));
 
             colMeta, numcols = self._executeQry(DBCMonetDB.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName));
@@ -474,10 +482,12 @@ class DBCMonetDB(DBC):
         #return result[list(result.keys())[0]] if(len(result)==1 and collist is not None) else result;
         return result[list(result.keys())[0]] if(len(result)==1 and valueOnly) else result;
 
+    def _close(self):
+        self.__del__()
 
     def __del__(self):
-        #logging.debug("__del__ called for {}".format(self._jobName));
-        self._close()
+        logging.debug("__del__ called for {}".format(self._jobName));
+        super()._close()
         del self._requestQueue
         del self._responseQueue
 
@@ -498,7 +508,9 @@ class DBCMonetDB(DBC):
             self.__extDBCcon = None;
 
 class DBCMonetDBStub(DBCRemoteStub):
-    pass;
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _close(self):
+        pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);
 copyreg.pickle(DBCMonetDBStub, DBCMonetDBStub.serializeObj);
