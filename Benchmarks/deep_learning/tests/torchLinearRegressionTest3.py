@@ -2,6 +2,16 @@ from aida.aida import *;
 host = 'tfServer2608'; dbname = 'bixi'; user = 'bixi'; passwd = 'bixi'; jobName = 'torchLinear'; port = 55660;
 dw = AIDA.connect(host,dbname,user,passwd,jobName,port);
 def trainingLoop(dw):
+    import sys
+    import numpy as np
+    import copy
+    import time
+
+    import geopy.distance
+    nn = sys.modules["torch.nn.modules"]
+    torch = sys.modules["torch"]
+    datasets = sys.modules["sklearn.datasets"]
+
     freqStations = dw.tripdata2017.filter(Q('stscode', 'endscode', CMP.NE))     .aggregate(('stscode','endscode',{COUNT('*'):'numtrips'}), ('stscode','endscode'))     .filter(Q('numtrips',C(50), CMP.GTE));
 
     freqStationsCord = freqStations     .join(dw.stations2017, ('stscode',), ('scode',), COL.ALL, ({'slatitude':'stlat'}, {'slongitude':'stlong'}))     .join(dw.stations2017, ('endscode',), ('scode',), COL.ALL, ({'slatitude':'enlat'}, {'slongitude':'enlong'}));
@@ -27,17 +37,17 @@ def trainingLoop(dw):
     distance = tripData[:,2].cdata['vdistm']
 
     model = nn.Linear(1, 1);
-    model.cuda()
+    # model.cuda()
     train_X = 'a'
     train_y = 'b'
     X = torch.from_numpy(train_X)
     y = torch.from_numpy(train_y)
-    epoch_size = 10000
+    epoch_size = 1
     learningrate = 0.0000001
     criterion = nn.MSELoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learningrate)
-    X = X.cuda()
-    y = y.cuda()
+    # X = X.cuda()
+    # y = y.cuda()
     y = y.view(y.shape[0], 1)
     X = X.view(X.shape[0], 1)
     start_time = time.time()

@@ -464,7 +464,19 @@ class DBC(metaclass=ABCMeta):
 
     def _helloWorld(self):
         hw=HelloWorld()
-        return hw        
+        return hw
+
+    def _extract_X(self, tabularData: TabularData):
+        """
+        extract the numerical features of a tabularData as a numpy array
+        """
+        return DataConversion.extract_X(tabularData)
+
+    def _extract_y(self, tabularData: TabularData):
+        """
+        extract numerical y values of a tabularData as a numpy array
+        """
+        return DataConversion.extract_y(tabularData)
 
     def _linearRegression(self,*args,**kwargs):
         model=LinearRegressionModel(*args,**kwargs)

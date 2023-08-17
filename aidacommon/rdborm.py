@@ -294,6 +294,12 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
         pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
+    def _extract_X(self, *args, **kwargs): pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _extract_y(self, *args, **kwargs): pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
     def _helloWorld(self):
         pass
 
@@ -315,7 +321,15 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _load(self,model_name):
-        pass 
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _saveTorchModel(self, model_name, model, update=False):
+        pass
+
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _loadTorchModel(self, model_name):
+        pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _sql(self,sql):
