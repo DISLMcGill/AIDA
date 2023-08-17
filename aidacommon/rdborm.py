@@ -323,13 +323,13 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
     def _load(self,model_name):
         pass
 
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _saveTorchModel(self, model_name, model, update=False):
-        pass
-
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _loadTorchModel(self, model_name):
-        pass
+    # @aidacommon.rop.RObjStub.RemoteMethod()
+    # def _saveTorchModel(self, model_name, model, update=False):
+    #     pass
+    #
+    # @aidacommon.rop.RObjStub.RemoteMethod()
+    # def _loadTorchModel(self, model_name):
+    #     pass
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _sql(self,sql):
@@ -363,9 +363,9 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
     def _dropTable(self, tableName, dbName=None):
         pass;
 
-    @aidacommon.rop.RObjStub.RemoteMethod()
-    def _close(self):
-        pass;
+    # @aidacommon.rop.RObjStub.RemoteMethod()
+    # def _close(self):
+    #     pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _registerProxy_(self, attrname, proxyid):

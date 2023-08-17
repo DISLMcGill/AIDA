@@ -145,6 +145,7 @@ class DBCMonetDB(DBC):
         return pd.DataFrame(tables);
 
         #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
+        #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
         (metaData_, rows) = self._executeQry(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName is not None) else self.dbName, relName));
@@ -168,12 +169,10 @@ class DBCMonetDB(DBC):
         self.__connection= con;
 
     def _getRequestQueue(self):
-        # return weakref.proxy(self._requestQueue)
-        return self._requestQueue
+        return weakref.proxy(self._requestQueue)
 
     def _getResponseQueue(self):
-        # return weakref.proxy(self._responseQueue)
-        return self._responseQueue
+        return weakref.proxy(self._responseQueue)
 
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         self._requestQueue.put(sql);
@@ -506,6 +505,7 @@ class DBCMonetDB(DBC):
         if(self.__extDBCcon is not None):
             self.__extDBCcon.close();
             self.__extDBCcon = None;
+
 
 class DBCMonetDBStub(DBCRemoteStub):
     @aidacommon.rop.RObjStub.RemoteMethod()

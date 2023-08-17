@@ -14,6 +14,7 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
   import logging;
   import time;
   import queue
+  import gc
   logging.debug('aidas_setdbccon called for {}'.format(jobname));
 
   coMgr = aidas.aidas.ConnectionManager.getConnectionManager();
@@ -28,7 +29,6 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
         if request == "close":
             break;
       except queue.Empty as em:
-        logging.debug(f'empty queue')
         continue
       except Exception as e:
         logging.error(f'Request queue closed for {jobname}.');
