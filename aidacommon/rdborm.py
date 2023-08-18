@@ -363,9 +363,9 @@ class DBCRemoteStub(aidacommon.rop.RObjStub):
     def _dropTable(self, tableName, dbName=None):
         pass;
 
-    # @aidacommon.rop.RObjStub.RemoteMethod()
-    # def _close(self):
-    #     pass;
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _close(self):
+        pass;
 
     @aidacommon.rop.RObjStub.RemoteMethod()
     def _registerProxy_(self, attrname, proxyid):
