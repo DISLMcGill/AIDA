@@ -81,6 +81,7 @@ def loadConfig(topic='AIDASERVER'):
     else:
         logl = logging.INFO;
     logging.basicConfig(filename=AConfig.LOGFILE, level=logl);
+    logging.basicConfig(format="%(threadName)s:%(message)s")
 
     AConfig.NTWKCHANNEL = importlib.import_module(config_.get('NTWKCHANNEL', defaultConfig['NTWKCHANNEL']));
 

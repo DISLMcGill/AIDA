@@ -1,10 +1,13 @@
+import logging
 import sys;
+import os;
 import threading;
 
 import collections;
 import datetime;
 ## -- QLOG -- ##
 ##from timeit import default_timer as timer;
+import weakref
 
 import numpy as np;
 import pandas as pd;
@@ -17,14 +20,16 @@ from aidacommon.dbAdapter import *;
 from aidas.rdborm import *;
 from aidas.dborm import DBTable, DataFrame;
 
+import queue
+
 DBC._dataFrameClass_ = DataFrame;
 
 class DBCMonetDB(DBC):
     """Database adapter class for MonetDB"""
 
     #We will use this to map numpy data types to MonetDB compatible types.
-    typeConverter = { np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
-                    , np.float32:'FLOAT', np.float64:'FLOAT', np.object:'STRING', np.object_:'STRING', bytearray:'BLOB'
+    typeConverter = { int: 'integer', np.int8:'TINYINT', np.int16:'SMALLINT', np.int32:'INTEGER', np.int64:'BIGINT'
+                    , np.float32:'FLOAT', np.float64:'FLOAT', object:'STRING', np.object_:'STRING', bytearray:'BLOB'
                     , 'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP' };
 
     datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'};
@@ -110,6 +115,10 @@ class DBCMonetDB(DBC):
         #logging.debug("__init__ called for {}".format(jobName));
         self.__qryLock__ = threading.Lock();
         self._username = username; self._password = password;
+        self._extDBCcon = None;
+        self._con_thread = None;
+        self._requestQueue = queue.Queue();
+        self._responseQueue = queue.Queue();
         #To setup things at the repository
         super().__init__(dbcRepoMgr, jobName, dbname, serverIPAddr);
         #Setup the actual database connection to be used.
@@ -125,7 +134,9 @@ class DBCMonetDB(DBC):
         ##data = cursor.fetchall();
         #logging.debug("rows = {} data = {} after setting dbc con.".format(rows, data));
         ##cursor.close();
-        con.execute('select status from aidas_setdbccon(\'{}\');'.format(self._jobName));
+
+        self._con_thread = threading.Thread(target=con.execute, args=('select status from aidas_setdbccon(\'{}\');'.format(self._jobName),));
+        self._con_thread.start()
         self.__extDBCcon = con;
 
     def _tables(self):
@@ -133,6 +144,7 @@ class DBCMonetDB(DBC):
         (tables, count) = self._executeQry(DBCMonetDB.__TABLE_LIST_QRY__.format(self.dbName));
         return pd.DataFrame(tables);
 
+        #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
         #TODO: override __getattr__ to call this internally when refered to as dbc.tableName ? - DONE in the DBC class.
     def _getDBTable(self, relName, dbName=None):
         #logging.debug(DBCMonetDB.__TABLE_METADATA_QRY__.format( dbName if(dbName) else self.dbName, relName));
@@ -156,7 +168,37 @@ class DBCMonetDB(DBC):
         #logging.debug("__setConnection_ called for {} with {}".format(self._jobName, con));
         self.__connection= con;
 
+    def _getRequestQueue(self):
+        return weakref.proxy(self._requestQueue)
+
+    def _getResponseQueue(self):
+        return weakref.proxy(self._responseQueue)
+
     def _executeQry(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
+        self._requestQueue.put(sql);
+        time.sleep(0);
+        result = self._responseQueue.get();
+        if isinstance(result, Exception):
+            logging.error(f"MonetDB encountered error: {result}")
+            raise result
+        if (sqlType == DBC.SQLTYPE.SELECT):
+            if (resultFormat == 'column'):
+                # get some columns
+                c_tmp = result[list(result.keys())[0]]
+                # Find the length of the array (or masked array) that is the number of rows
+                rows = len(c_tmp.data if hasattr(c_tmp, 'data') else c_tmp);
+                # rows = None;
+
+                # for col in result:
+                # logging.debug("_executeQry col {} size {}  references {}".format(col, sys.getsizeof(result[col]), sys.getrefcount(result[col])));
+                # for c in result:
+                #    logging.debug("Result column {} type {}".format(c, result[c].dtype));
+
+                return (result, rows);
+            elif (resultFormat == 'row'):
+                pass;
+
+    def _execution(self, sql, resultFormat='column', sqlType=DBC.SQLTYPE.SELECT):
         """Execute a query and return results"""
         #TODO: either support row format results or throw an exception for not supported.
         #logging.debug("__executeQry called for {} with {}".format(self._jobName, sql));
@@ -338,10 +380,8 @@ class DBCMonetDB(DBC):
         self._executeQry(dobj,sqlType=DBC.SQLTYPE.DROP);
 
     def _describe(self, tblrData):
-
-        #logging.info("describing {}".format(type(tblrData)));
         if(isinstance(tblrData, DBTable)):
-            #logging.info("describing DBTable ");
+            # logging.info("describing DBTable ");
             #logging.info(DBCMonetDB.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName));
 
             colMeta, numcols = self._executeQry(DBCMonetDB.__COLUMN_METADATA_QRY__.format(tblrData.schemaName, tblrData.tableName));
@@ -441,9 +481,14 @@ class DBCMonetDB(DBC):
         #return result[list(result.keys())[0]] if(len(result)==1 and collist is not None) else result;
         return result[list(result.keys())[0]] if(len(result)==1 and valueOnly) else result;
 
+    def _close(self):
+        self.__del__()
 
     def __del__(self):
-        #logging.debug("__del__ called for {}".format(self._jobName));
+        logging.debug("__del__ called for {}".format(self._jobName));
+        super()._close()
+        del self._requestQueue
+        del self._responseQueue
 
         #Where we using regular Table UDFs or Virtuable Tables ?
         dropObjectType = 'FUNCTION' if(AConfig.UDFTYPE == UDFTYPE.TABLEUDF) else 'TABLE';
@@ -461,8 +506,11 @@ class DBCMonetDB(DBC):
             self.__extDBCcon.close();
             self.__extDBCcon = None;
 
+
 class DBCMonetDBStub(DBCRemoteStub):
-    pass;
+    @aidacommon.rop.RObjStub.RemoteMethod()
+    def _close(self):
+        pass
 
 copyreg.pickle(DBCMonetDB, DBCMonetDBStub.serializeObj);
 copyreg.pickle(DBCMonetDBStub, DBCMonetDBStub.serializeObj);

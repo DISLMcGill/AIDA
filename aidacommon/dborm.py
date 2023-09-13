@@ -46,8 +46,8 @@ class OP(Enum):
 #TODO: Add numpy.* data types for all scalar isinstance checks on ints and floats.
 
 class AIDADtypes(metaclass=ABCMeta):
-    integers = (int, np.int, np.int8, np.int16, np.int32, np.int64);
-    decimals = (float, np.float, np.float16, np.float32, np.float64, np.float128);
+    integers = (int, np.int8, np.int16, np.int32, np.int64);
+    decimals = (float, np.float16, np.float32, np.float64, np.float128);
     numeric = integers + decimals;
 
     @classmethod

@@ -12,10 +12,33 @@ CREATE FUNCTION aidas_setdbccon(jobname STRING) RETURNS TABLE(status STRING) LAN
 {
   import aidas.aidas;
   import logging;
+  import time;
+  import queue
+  import gc
+  logging.debug('aidas_setdbccon called for {}'.format(jobname));
+
   coMgr = aidas.aidas.ConnectionManager.getConnectionManager();
   dbcObj = coMgr.get(jobname);
-  dbcObj._setConnection(_conn);
-  logging.debug('aidas_setdbccon called for {}'.format(jobname));
+
+  while True:
+      time.sleep(0);
+      try:
+        requestQueue = dbcObj._getRequestQueue();
+        responseQueue = dbcObj._getResponseQueue();
+        request = requestQueue.get(timeout=5)
+        if request == "close":
+            break;
+      except queue.Empty as em:
+        continue
+      except Exception as e:
+        logging.error(f'Request queue closed for {jobname}.');
+        break;
+      try:
+        result = _conn.execute(request);
+      except Exception as e:
+        result = e
+      responseQueue.put(result);
+
   return 'OK';
 };
 --SELECT * FROM aidas_setdbccon('jobName_01');

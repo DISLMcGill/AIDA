@@ -19,8 +19,8 @@ postgres_type_len_lookup = {16: 1, 18: 1, 19: 64, 20: 8, 21: 2, 23: 4, 24: 4, 26
         3115: 4, 325: 4, 3310: 4, 269: 4, 12427: 4, 12432: 64, 12437: 8}
 
 # Map numpy data types to PostgreSQL compatible types.
-typeConverter = {np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'real'
-    , np.float64:'double precision', np.object:'text', np.object_:'text', 'bytes':'bytea'
+typeConverter = {int: 'integer', np.int16:'smallint', np.int32:'integer', np.int64:'bigint', np.float32:'real'
+    , np.float64:'double precision', object:'text', np.object_:'text', 'bytes':'bytea'
     , 'decimal':'double precision' ,'date':'DATE', 'time':'TIME', 'timestamp':'TIMESTAMP'}
     
 datetimeFormats = {'%Y-%m-%d':'date', '%H:%M:%S':'time', '%Y-%m-%d %H:%M:%S':'timestamp'}
